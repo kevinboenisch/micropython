@@ -56,6 +56,7 @@
 
 #define RP2_RESET_PWRON (1)
 #define RP2_RESET_WDT (3)
+#define BOOTLOADER_ENTRY_MAGIC 0xb105f00d
 
 STATIC mp_obj_t machine_unique_id(void) {
     pico_unique_board_id_t id;
@@ -91,9 +92,27 @@ STATIC mp_obj_t machine_reset_cause(void) {
 STATIC MP_DEFINE_CONST_FUN_OBJ_0(machine_reset_cause_obj, machine_reset_cause);
 
 NORETURN mp_obj_t machine_bootloader(size_t n_args, const mp_obj_t *args) {
-    MICROPY_BOARD_ENTER_BOOTLOADER(n_args, args);
-    rosc_hw->ctrl = ROSC_CTRL_ENABLE_VALUE_ENABLE << ROSC_CTRL_ENABLE_LSB;
-    reset_usb_boot(0, 0);
+    bool use_bootsel = true;
+    if (n_args > 0) {
+        mp_int_t bootType = mp_obj_get_int(args[0]);
+        if (bootType > 0) {
+            use_bootsel = false;
+        }
+    }
+
+    if (use_bootsel) {
+        MICROPY_BOARD_ENTER_BOOTLOADER(n_args, args);
+        rosc_hw->ctrl = ROSC_CTRL_ENABLE_VALUE_ENABLE << ROSC_CTRL_ENABLE_LSB;
+        reset_usb_boot(0, 0);
+    }
+    else {
+        // JPO Bootloader, and remain there
+        hw_clear_bits(&watchdog_hw->ctrl, WATCHDOG_CTRL_ENABLE_BITS);
+		watchdog_hw->scratch[5] = BOOTLOADER_ENTRY_MAGIC;
+		watchdog_hw->scratch[6] = ~BOOTLOADER_ENTRY_MAGIC;
+        watchdog_reboot(0, SRAM_END, 0);
+    }
+
     for (;;) {
     }
 }
