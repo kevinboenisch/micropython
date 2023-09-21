@@ -1,0 +1,88 @@
+# JPO Micropython Readme
+
+Micropython has been adapted to work with the JPO board, based on Pi Pico (RP2).
+
+
+# Building Micropython RP2 port in Windows
+Replace `/d/danilom_micropython` below with the location of the Micropython github repository on the your machine.
+
+## Configuration
+
+1. Download and install MSYS2 from https://www.msys2.org/
+
+I used the latest, `msys2-x86_64-20230718.exe`
+Install MSYS2 to the default dir, `C:\msys64`
+
+2. Update MSYS
+Start the `msys2.exe` shell and update msys:
+```
+pacman -Syuu
+```
+Answer yes to any prompts. After a partial update, it might close the shell. In that case, open it again and do one more: 
+```
+pacman -Syuu
+```
+
+3. Install packages
+Not sure if all these are needed, didn't have time to prune down the list
+
+One:
+```
+pacman -S --needed make pkg-config python3 mingw-w64-i686-cmake mingw-w64-i686-gcc
+```
+Two:
+```
+pacman -S base-devel mingw-w64-x86_64-arm-none-eabi-toolchain mingw-w64-x86_64-toolchain mingw-w64-x86_64-cmake mingw-w64-x86_64-ninja
+```
+Three
+```
+pacman -S git
+```
+
+4. Build the Micropython cross-compiler
+
+Open the `mingw64.exe` shell (*not msys2.exe!*), do:
+```
+cd /d/danilom_micropython/ports/rp2/mpy-cross
+make
+```
+Cross-compiler build should to complete successfully.
+
+5. Make a symbolic link to PICO SDK
+Replace `/c/VSARM/sdk/pico/pico-sdk/` with the location of your SDK. 
+```
+cd /d/danilom_micropython/lib
+ln -s /c/VSARM/sdk/pico/pico-sdk/ .
+```
+
+6. Make git submodules
+```
+cd /d/danilom_micropython/ports/rp2
+make BOARD=PICO submodules
+```
+
+7. Key step: run Cmake with the "Unix Makefiles" generator (not the MSYS default "Ninja" generator)
+```
+cmake -G "Unix Makefiles" -S . -B build-PICO -DPICO_BUILD_DOCS=0 -DMICROPY_BOARD=PICO -DMICROPY_BOARD_DIR=/d/danilom_micropython/ports/rp2/boards/PICO
+```
+This should succeed and create a `build-PICO` diretory.
+
+## Building
+
+1. Open the `mingw64.exe` shell and run make. 
+Simple `make` works after CMake is done (`build-PICO` exists), but if not, it invokes CMake with the default generator (Ninja, wrong) not "Unix Makefiles". 
+Running only the make step is:
+```
+cd /d/danilom_micropython/ports/rp2
+make -e build-PICO/Makefile
+```
+This should generate the binary as `build-PICO\firmware.elf`
+
+2. To flash the binary, in **Windows** command prompt (or powershell), do
+```
+cd D:\danilom_micropython\ports\rp2\build-PICO\
+jpo flash
+```
+
+## Future work
+Set up the path to run `jpo` tools directly from MSYS, to avoid switching shells. 
