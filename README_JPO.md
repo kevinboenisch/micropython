@@ -74,8 +74,13 @@ Simple `make` works after CMake is done (`build-PICO` exists), but if not, it in
 Running only the make step is:
 ```
 cd /d/danilom_micropython/ports/rp2
+make -s -C build-PICO
+```
+This might also work, but often produces "Nothin to be done" (TODO: investigate why)
+```
 make -e build-PICO/Makefile
 ```
+
 This should generate the binary as `build-PICO\firmware.elf`
 
 2. To flash the binary, in **Windows** command prompt (or powershell), do
@@ -84,5 +89,40 @@ cd D:\danilom_micropython\ports\rp2\build-PICO\
 jpo flash
 ```
 
-## Future work
-Set up the path to run `jpo` tools directly from MSYS, to avoid switching shells. 
+## Tools configuration
+
+### Using tools on Windows path from MSYS
+
+To use tools on the Windows path, edit `C:\msys64\mingw64.ini` (or another file like `msys2.ini`) and uncomment the line:
+```
+MSYS2_PATH_TYPE=inherit
+```
+Save the file, restart the shell if open.
+
+When starting the shell from the script, instead use:
+```
+.\msys2_shell.cmd -mingw64 -full-path
+```
+
+!! To invoke JPO tools, type `jpo.cmd` (just `jpo` doesn't work)
+
+### Setting up in VSCode
+
+See https://www.msys2.org/docs/ides-editors/
+
+To `settings.json` (project or use), add:
+```json
+    "terminal.integrated.profiles.windows": {
+        "MSYS2 MINGW64": {
+            "path": "cmd.exe",
+            "args": [
+                "/c",
+                "C:\\msys64\\msys2_shell.cmd -defterm -here -no-start -mingw64 -full-path"
+            ]
+        }
+    }
+```
+
+### Setting up in Windows Terminal
+
+TODO: add instructions
