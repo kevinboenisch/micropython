@@ -110,10 +110,12 @@ When starting the shell from the script, instead use:
 
 See https://www.msys2.org/docs/ides-editors/
 
-To `settings.json` (project or use), add:
+User settings are in %USERPROFILE%\AppData\Roaming\Code\User\settings.json
+
+To `settings.json` (project or user), add:
 ```json
     "terminal.integrated.profiles.windows": {
-        "MSYS2 MINGW64": {
+        "MSYS2 MINGW64 (Micropython)": {
             "path": "cmd.exe",
             "args": [
                 "/c",
@@ -125,4 +127,21 @@ To `settings.json` (project or use), add:
 
 ### Setting up in Windows Terminal
 
-TODO: add instructions
+See https://www.msys2.org/docs/terminals/
+
+Open Windows terminal, click the dropdown (+v), select Settings, click "Open JSON file", add the following:
+(replace or remove "startingDirectory" as needed)
+```json
+    "profiles":
+    ...
+        "list":
+        ...
+            {
+                "guid": "{17da3cac-b318-431e-8a3e-7fcdefe6d114}",
+                "hidden": false,
+                "name": "MSYS2 MINGW64 (Micropython)",
+                "commandline": "C:\\msys64\\msys2_shell.cmd -defterm -here -no-start -mingw64 -full-path",
+                "startingDirectory": "D:/danilom_micropython/ports/rp2",
+                "icon": "C:/msys64/mingw64.ico"
+            },
+```
