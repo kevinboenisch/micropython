@@ -21,10 +21,10 @@
     __stack (== StackTop)
 */
 
-/* Skip 36kB (32+4) at the start of flash, that's where our bootloader is */
+/* JPO: Skip 40kB (JPO bootloader) + 4kb (header) at the start of flash */
 MEMORY
 {
-    FLASH(rx) : ORIGIN = 0x10000000 + 36k, LENGTH = 2048k - 36k
+    FLASH(rx) : ORIGIN = 0x10000000 + 40k + 4k, LENGTH = 2048k - 40k - 4k
     RAM(rwx) : ORIGIN =  0x20000000, LENGTH = 256k
     SCRATCH_X(rwx) : ORIGIN = 0x20040000, LENGTH = 4k
     SCRATCH_Y(rwx) : ORIGIN = 0x20041000, LENGTH = 4k

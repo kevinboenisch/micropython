@@ -81,6 +81,30 @@ include(${MICROPY_DIR}/py/usermod.cmake)
 
 add_executable(${MICROPY_TARGET})
 
+###### JPO additions
+# Enable usb output, disable uart output
+# pico_enable_stdio_usb(${MICROPY_TARGET} 1)
+
+### Prerequisites
+set(TO_FIX "To fix, (re)install the JPO tools.")
+if (NOT DEFINED ENV{JPO_PATH})
+	message(FATAL_ERROR "Environment variable JPO_PATH not set. ${TO_FIX}")
+endif()
+# Fix backslashes in Windows
+file(TO_CMAKE_PATH "$ENV{JPO_PATH}" JPO_PATH)
+message("JPO_PATH (from environment) is ${JPO_PATH}")
+
+### Includes
+target_include_directories(${PROJECT_NAME}
+	PRIVATE "${JPO_PATH}/sdk/jcomp/include"		
+)
+target_link_directories(${PROJECT_NAME}
+	PRIVATE "${JPO_PATH}/sdk/build/jcomp"		
+)
+
+###### end JPO additions
+
+
 set(MICROPY_QSTRDEFS_PORT
     ${MICROPY_PORT_DIR}/qstrdefsport.h
 )
@@ -511,3 +535,10 @@ add_custom_command(
     VERBATIM
     COMMAND_EXPAND_LISTS
 )
+
+# Copy to JPO_PATH/resources/bin
+add_custom_command(
+	TARGET ${PROJECT_NAME} POST_BUILD
+	COMMAND ${CMAKE_COMMAND} -E copy
+			"${CMAKE_CURRENT_BINARY_DIR}/firmware.elf"
+			"${JPO_PATH}/resources/bin/jpo_micropython.elf")
