@@ -37,7 +37,6 @@
 #include "shared/readline/readline.h"
 #include "shared/runtime/gchelper.h"
 #include "shared/runtime/pyexec.h"
-#include "tusb.h"
 #include "uart.h"
 #include "modmachine.h"
 #include "modrp2.h"
@@ -59,6 +58,18 @@
 #include "lib/cyw43-driver/src/cyw43.h"
 #endif
 
+// TODO: change later, rely on an import from JCOMP
+// In multiple places, search the MPY codebase
+#define JPO_JCOMP
+
+#ifdef JPO_JCOMP
+    #include "jpo/hal.h"
+    #include "jpo/debug.h"
+#else
+    #include "tusb.h"
+#endif //JPO_JCOMP
+
+
 extern uint8_t __StackTop, __StackBottom;
 extern uint8_t __GcHeapStart, __GcHeapEnd;
 
@@ -71,23 +82,27 @@ bi_decl(bi_program_feature_group_with_flags(BINARY_INFO_TAG_MICROPYTHON,
     BINARY_INFO_ID_MP_FROZEN, "frozen modules",
     BI_NAMED_GROUP_SEPARATE_COMMAS | BI_NAMED_GROUP_SORT_ALPHA));
 
-int main(int argc, char **argv) {
-    #if MICROPY_HW_ENABLE_UART_REPL
-    bi_decl(bi_program_feature("UART REPL"))
-    setup_default_uart();
-    mp_uart_init();
+int main(int argc, char **argv) {   
+    #ifdef JPO_JCOMP
+        // JCOMP i/o replaces any other; UART as well as USB
     #else
-    #ifndef NDEBUG
-    stdio_init_all();
-    #endif
-    #endif
+        #if MICROPY_HW_ENABLE_UART_REPL
+        bi_decl(bi_program_feature("UART REPL"))
+        setup_default_uart();
+        mp_uart_init();
+        #else
+        #ifndef NDEBUG
+        stdio_init_all();
+        #endif
+        #endif
 
-    #if MICROPY_HW_ENABLE_USBDEV
-    #if MICROPY_HW_USB_CDC
-    bi_decl(bi_program_feature("USB REPL"))
-    #endif
-    tusb_init();
-    #endif
+        #if MICROPY_HW_ENABLE_USBDEV
+        #if MICROPY_HW_USB_CDC
+        bi_decl(bi_program_feature("USB REPL"))
+        #endif
+        tusb_init();
+        #endif
+    #endif //JPO_JCOMP
 
     #if MICROPY_PY_THREAD
     bi_decl(bi_program_feature("thread support"))
@@ -111,6 +126,15 @@ int main(int argc, char **argv) {
     mp_stack_set_top(&__StackTop);
     mp_stack_set_limit(&__StackTop - &__StackBottom - 256);
     gc_init(&__GcHeapStart, &__GcHeapEnd);
+
+    #ifdef JPO_JCOMP
+    // Initialize JPO HAL library (including JCOMP)
+    // Must be after gc_init so JCOMP can use mpy's m_malloc and m_free
+    // jcomp_set_malloc(m_malloc, m_free);
+    hal_init();
+
+    DBG_OLED("Micropython");
+    #endif //JPO_JCOMP
 
     #if MICROPY_PY_LWIP
     // lwIP doesn't allow to reinitialise itself by subsequent calls to this function

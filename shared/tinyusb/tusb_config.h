@@ -45,10 +45,17 @@
 
 #define CFG_TUSB_RHPORT0_MODE   (OPT_MODE_DEVICE)
 
-#if MICROPY_HW_USB_CDC
-#define CFG_TUD_CDC             (1)
+#define JPO_JCOMP
+#ifdef JPO_JCOMP
+    // enable for pico-sdk's stdio to work 
+    // so JCOMP can use it for i/o 
+    #define CFG_TUD_CDC             (1)
 #else
-#define CFG_TUD_CDC             (0)
+    #if MICROPY_HW_USB_CDC
+    #define CFG_TUD_CDC             (1)
+    #else
+    #define CFG_TUD_CDC             (0)
+    #endif
 #endif
 
 #if MICROPY_HW_USB_MSC

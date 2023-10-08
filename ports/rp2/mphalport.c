@@ -30,10 +30,18 @@
 #include "extmod/misc.h"
 #include "shared/runtime/interrupt_char.h"
 #include "shared/timeutils/timeutils.h"
-#include "tusb.h"
 #include "uart.h"
 #include "hardware/rtc.h"
 #include "pico/unique_id.h"
+
+// TODO: change later, rely on an import from JCOMP
+#define JPO_JCOMP
+
+#ifdef JPO_JCOMP
+#include "jpo/debug.h"
+#else
+#include "tusb.h"
+#endif //JPO_JCOMP
 
 #if MICROPY_PY_NETWORK_CYW43
 #include "lib/cyw43-driver/src/cyw43.h"
@@ -91,31 +99,48 @@ void tud_cdc_rx_cb(uint8_t itf) {
 
 uintptr_t mp_hal_stdio_poll(uintptr_t poll_flags) {
     uintptr_t ret = 0;
+
+    #ifdef JPO_JCOMP
+    // TODO: implement
+    return ret;
+    #endif
+
     #if MICROPY_HW_USB_CDC
-    poll_cdc_interfaces();
+        poll_cdc_interfaces();
     #endif
+    
     #if MICROPY_HW_ENABLE_UART_REPL || MICROPY_HW_USB_CDC
-    if ((poll_flags & MP_STREAM_POLL_RD) && ringbuf_peek(&stdin_ringbuf) != -1) {
-        ret |= MP_STREAM_POLL_RD;
-    }
-    if (poll_flags & MP_STREAM_POLL_WR) {
-        #if MICROPY_HW_ENABLE_UART_REPL
-        ret |= MP_STREAM_POLL_WR;
-        #else
-        if (tud_cdc_connected() && tud_cdc_write_available() > 0) {
-            ret |= MP_STREAM_POLL_WR;
+        if ((poll_flags & MP_STREAM_POLL_RD) && ringbuf_peek(&stdin_ringbuf) != -1) {
+            ret |= MP_STREAM_POLL_RD;
         }
-        #endif
-    }
+        if (poll_flags & MP_STREAM_POLL_WR) {
+            #if MICROPY_HW_ENABLE_UART_REPL
+            ret |= MP_STREAM_POLL_WR;
+            #else
+            if (tud_cdc_connected() && tud_cdc_write_available() > 0) {
+                ret |= MP_STREAM_POLL_WR;
+            }
+            #endif
+        }
     #endif
+
     #if MICROPY_PY_OS_DUPTERM
-    ret |= mp_os_dupterm_poll(poll_flags);
+        ret |= mp_os_dupterm_poll(poll_flags);
     #endif
+    
     return ret;
 }
 
 // Receive single character
 int mp_hal_stdin_rx_chr(void) {
+    #ifdef JPO_JCOMP
+    for (;;) {
+        // TODO: implement, get chars from JCOMP
+        MICROPY_EVENT_POLL_HOOK
+    }
+    
+    #else
+
     for (;;) {
         #if MICROPY_HW_USB_CDC
         poll_cdc_interfaces();
@@ -123,6 +148,7 @@ int mp_hal_stdin_rx_chr(void) {
 
         int c = ringbuf_get(&stdin_ringbuf);
         if (c != -1) {
+            DBG_OLED("mpy %c", c);
             return c;
         }
         #if MICROPY_PY_OS_DUPTERM
@@ -133,10 +159,16 @@ int mp_hal_stdin_rx_chr(void) {
         #endif
         MICROPY_EVENT_POLL_HOOK
     }
+    #endif //JPO_JCOMP
 }
 
 // Send string of given length
 void mp_hal_stdout_tx_strn(const char *str, mp_uint_t len) {
+    #ifdef JPO_JCOMP
+    // TODO: write to JCOMP
+    return;
+    #endif //JPO_JCOMP
+
     #if MICROPY_HW_ENABLE_UART_REPL
     mp_uart_write_strn(str, len);
     #endif

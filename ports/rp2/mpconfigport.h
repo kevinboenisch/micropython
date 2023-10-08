@@ -43,11 +43,18 @@
 #define MICROPY_HW_ENABLE_USBDEV                (1)
 #endif
 
-#if MICROPY_HW_ENABLE_USBDEV
-// Enable USB-CDC serial port
-#ifndef MICROPY_HW_USB_CDC
-#define MICROPY_HW_USB_CDC (1)
-#endif
+#define JPO_JCOMP
+#ifdef JPO_JCOMP
+    // Disable mpy's USB-CDC serial port, 
+    // to allow pico-sdk stdio and JCOMP to use it
+    #define MICROPY__HW_USB_CDC (0)
+#else
+    #if MICROPY_HW_ENABLE_USBDEV
+    // Enable USB-CDC serial port
+    #ifndef MICROPY_HW_USB_CDC
+    define MICROPY_HW_USB_CDC (1)
+    #endif
+#endif //JPO_JCOMP
 // Enable USB Mass Storage with FatFS filesystem.
 #ifndef MICROPY_HW_USB_MSC
 #define MICROPY_HW_USB_MSC (0)

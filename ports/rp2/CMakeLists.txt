@@ -83,7 +83,7 @@ add_executable(${MICROPY_TARGET})
 
 ###### JPO additions
 # Enable usb output, disable uart output
-# pico_enable_stdio_usb(${MICROPY_TARGET} 1)
+pico_enable_stdio_usb(${MICROPY_TARGET} 1)
 
 ### Prerequisites
 set(TO_FIX "To fix, (re)install the JPO tools.")
@@ -95,11 +95,18 @@ file(TO_CMAKE_PATH "$ENV{JPO_PATH}" JPO_PATH)
 message("JPO_PATH (from environment) is ${JPO_PATH}")
 
 ### Includes
-target_include_directories(${PROJECT_NAME}
-	PRIVATE "${JPO_PATH}/sdk/jcomp/include"		
+target_include_directories(${MICROPY_TARGET}
+    PRIVATE "${JPO_PATH}/sdk/hal/include"
+    PRIVATE "${JPO_PATH}/sdk/jcomp/include"
 )
-target_link_directories(${PROJECT_NAME}
-	PRIVATE "${JPO_PATH}/sdk/build/jcomp"		
+target_link_directories(${MICROPY_TARGET}
+    PRIVATE "${JPO_PATH}/sdk/build/hal"
+    PRIVATE "${JPO_PATH}/sdk/build/jcomp"
+)
+
+target_link_libraries(${MICROPY_TARGET} 
+    jpo_hal
+    jpo_jcomp
 )
 
 ###### end JPO additions
@@ -130,7 +137,10 @@ set(MICROPY_SOURCE_LIB
     ${MICROPY_DIR}/shared/timeutils/timeutils.c
     ${MICROPY_DIR}/shared/tinyusb/mp_cdc_common.c
     ${MICROPY_DIR}/shared/tinyusb/mp_usbd.c
-    ${MICROPY_DIR}/shared/tinyusb/mp_usbd_descriptor.c
+    # JPO: commenting out removing to avoid multiple definition of 
+    # tud_descriptor_device_cb, which is also in:
+    # pico-sdk\src\rp2_common\pico_stdio_usb\stdio_usb_descriptor.c
+    #${MICROPY_DIR}/shared/tinyusb/mp_usbd_descriptor.c
 )
 
 set(MICROPY_SOURCE_DRIVERS
@@ -222,8 +232,10 @@ set(PICO_SDK_COMPONENTS
     pico_time
     pico_unique_id
     pico_util
-    tinyusb_common
-    tinyusb_device
+    # JPO: commenting out to avoid
+    # clash with tinyusb in pico-sdk (newer: pico-sdk is 0.15 > mpy 0.13)
+    #tinyusb_common
+    #tinyusb_device
 )
 
 if (MICROPY_PY_LWIP)
