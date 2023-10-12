@@ -38,6 +38,8 @@
 #define JPO_JCOMP
 
 #ifdef JPO_JCOMP
+#include "jpo/jcomp_protocol.h"
+#include "jpo/jcomp_stdio.h"
 #include "jpo/debug.h"
 #else
 #include "tusb.h"
@@ -101,9 +103,18 @@ uintptr_t mp_hal_stdio_poll(uintptr_t poll_flags) {
     uintptr_t ret = 0;
 
     #ifdef JPO_JCOMP
-    // TODO: implement
+    //DBG_OLED("mp_hal_stdio_poll");
+    if (poll_flags & MP_STREAM_POLL_RD) {
+        if (jcomp_stdin_size() > 0) {
+            ret |= MP_STREAM_POLL_RD;
+        }
+    }
+    if (poll_flags & MP_STREAM_POLL_WR) {
+        // TODO: check whether it's connected...
+        ret |= MP_STREAM_POLL_WR;
+    }
     return ret;
-    #endif
+    #endif //JPO_JCOMP
 
     #if MICROPY_HW_USB_CDC
         poll_cdc_interfaces();
@@ -135,11 +146,14 @@ uintptr_t mp_hal_stdio_poll(uintptr_t poll_flags) {
 int mp_hal_stdin_rx_chr(void) {
     #ifdef JPO_JCOMP
     for (;;) {
-        // TODO: implement, get chars from JCOMP
+        int ch = jcomp_stdin_getchar();
+        if (ch != -1) {
+            return ch;
+        }
         MICROPY_EVENT_POLL_HOOK
     }
-    
-    #else
+    return -1;
+    #endif //JPO_JCOMP
 
     for (;;) {
         #if MICROPY_HW_USB_CDC
@@ -148,7 +162,6 @@ int mp_hal_stdin_rx_chr(void) {
 
         int c = ringbuf_get(&stdin_ringbuf);
         if (c != -1) {
-            DBG_OLED("mpy %c", c);
             return c;
         }
         #if MICROPY_PY_OS_DUPTERM
@@ -159,15 +172,19 @@ int mp_hal_stdin_rx_chr(void) {
         #endif
         MICROPY_EVENT_POLL_HOOK
     }
-    #endif //JPO_JCOMP
 }
 
 // Send string of given length
 void mp_hal_stdout_tx_strn(const char *str, mp_uint_t len) {
     #ifdef JPO_JCOMP
-    // TODO: write to JCOMP
+    JCOMP_RV rv = jcomp_stdout_send_bytes((uint8_t*)str, len);
+    if (rv) {
+        // How to handle errors properly?
+        DBG_SEND("jcomp_stdout_send_bytes err:%d", rv);
+    }
     return;
-    #endif //JPO_JCOMP
+
+    #endif //JPO_JCOMP 
 
     #if MICROPY_HW_ENABLE_UART_REPL
     mp_uart_write_strn(str, len);

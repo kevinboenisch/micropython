@@ -65,6 +65,7 @@
 #ifdef JPO_JCOMP
     #include "jpo/hal.h"
     #include "jpo/debug.h"
+    #include "jpo/jcomp_protocol.h"
 #else
     #include "tusb.h"
 #endif //JPO_JCOMP
@@ -129,11 +130,10 @@ int main(int argc, char **argv) {
 
     #ifdef JPO_JCOMP
     // Initialize JPO HAL library (including JCOMP)
-    // Must be after gc_init so JCOMP can use mpy's m_malloc and m_free
-    // jcomp_set_malloc(m_malloc, m_free);
+    // TODO-P2: add the Micropython version (MICROPY_BANNER_*), so PC knows to upgrade it
+    jcomp_set_env_type("MPYT");
     hal_init();
-
-    DBG_OLED("Micropython");
+    //DBG_OLED("Micropython");
     #endif //JPO_JCOMP
 
     #if MICROPY_PY_LWIP
