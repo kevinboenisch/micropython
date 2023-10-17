@@ -103,7 +103,6 @@ uintptr_t mp_hal_stdio_poll(uintptr_t poll_flags) {
     uintptr_t ret = 0;
 
     #ifdef JPO_JCOMP
-    //DBG_OLED("mp_hal_stdio_poll");
     if (poll_flags & MP_STREAM_POLL_RD) {
         if (jcomp_stdin_size() > 0) {
             ret |= MP_STREAM_POLL_RD;

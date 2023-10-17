@@ -43,6 +43,10 @@
 #include "shared/runtime/pyexec.h"
 #include "genhdr/mpversion.h"
 
+// TODO: move into a central place
+// Echo entire lines, instead of char-by-char
+#define JPO_ECHO_LINE
+
 pyexec_mode_kind_t pyexec_mode_kind = PYEXEC_MODE_FRIENDLY_REPL;
 int pyexec_system_exit = 0;
 
@@ -58,6 +62,15 @@ STATIC bool repl_display_debugging_info = 0;
 #define EXEC_FLAG_SOURCE_IS_FILENAME    (1 << 5)
 #define EXEC_FLAG_SOURCE_IS_READER      (1 << 6)
 #define EXEC_FLAG_NO_INTERRUPT          (1 << 7)
+
+#ifdef JPO_ECHO_LINE
+void echo_line(vstr_t* line, int* line_end_idx) {
+    int line_len = line->len - *line_end_idx;
+    mp_hal_stdout_tx_strn(line->buf + *line_end_idx, line_len);
+    *line_end_idx += line_len;
+}
+#endif
+
 
 // parses, compiles and executes the code in the lexer
 // frees the lexer before returning
@@ -633,6 +646,9 @@ friendly_repl_reset:
             // paste mode
             mp_hal_stdout_tx_str("\r\npaste mode; Ctrl-C to cancel, Ctrl-D to finish\r\n=== ");
             vstr_reset(&line);
+            #ifdef JPO_ECHO_LINE
+            int line_end_idx = 0;
+            #endif
             for (;;) {
                 char c = mp_hal_stdin_rx_chr();
                 if (c == CHAR_CTRL_C) {
@@ -641,18 +657,34 @@ friendly_repl_reset:
                     goto input_restart;
                 } else if (c == CHAR_CTRL_D) {
                     // end of input
+                    #ifdef JPO_ECHO_LINE
+                    echo_line(&line, &line_end_idx);
+                    #endif
+
                     mp_hal_stdout_tx_str("\r\n");
                     break;
                 } else {
                     // add char to buffer and echo
                     vstr_add_byte(&line, c);
+                    
+                    #ifdef JPO_ECHO_LINE
+                    // echo entire line on end 
+                    if (c == '\r') {
+                        echo_line(&line, &line_end_idx);
+                        mp_hal_stdout_tx_str("\r\n=== ");
+                    }
+                    #else
+                    // echo char by char
                     if (c == '\r') {
                         mp_hal_stdout_tx_str("\r\n=== ");
                     } else {
                         mp_hal_stdout_tx_strn(&c, 1);
                     }
+                    #endif // JPO_ECHO_LINE
                 }
             }
+            //#ifdef 
+
             parse_input_kind = MP_PARSE_FILE_INPUT;
         } else if (vstr_len(&line) == 0) {
             continue;
