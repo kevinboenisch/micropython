@@ -2,6 +2,7 @@
     "files.associations": {
         "stdlib.h": "c",
         "uart.h": "c",
-        "tusb.h": "c"
+        "tusb.h": "c",
+        "mpthread.h": "c"
     }
 }

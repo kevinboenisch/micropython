@@ -152,4 +152,13 @@ void mp_thread_start(void) {
 void mp_thread_finish(void) {
 }
 
+#else
+
+// Thread not defined
+uint32_t mp_thread_begin_atomic_section(void) {
+    return 0;
+}
+void mp_thread_end_atomic_section(uint32_t state) {
+}
+
 #endif // MICROPY_PY_THREAD
