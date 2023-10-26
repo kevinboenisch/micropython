@@ -243,6 +243,9 @@ int main(int argc, char **argv) {
 }
 
 void gc_collect(void) {
+    //DBG_SEND("gc_collect");
+    //DBG_OLED("gc_collect");
+
     gc_collect_start();
     gc_helper_collect_regs_and_stack();
     #if MICROPY_PY_THREAD
