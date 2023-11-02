@@ -40,6 +40,9 @@ STATIC mp_obj_t mp_obj_new_str_iterator(mp_obj_t str, mp_obj_iter_buf_t *iter_bu
 /* str                                                                        */
 
 STATIC void uni_print_quoted(const mp_print_t *print, const byte *str_data, uint str_len) {
+    vstr_t vstr;
+    vstr_init(&vstr, str_len + 2); // at least 2 chars for the quotes, maybe more
+
     // this escapes characters, but it will be very slow to print (calling print many times)
     bool has_single_quote = false;
     bool has_double_quote = false;
@@ -54,33 +57,49 @@ STATIC void uni_print_quoted(const mp_print_t *print, const byte *str_data, uint
     if (has_single_quote && !has_double_quote) {
         quote_char = '"';
     }
-    mp_printf(print, "%c", quote_char);
+    vstr_add_char(&vstr, quote_char);
+    //mp_printf(print, "%c", quote_char);
     const byte *s = str_data, *top = str_data + str_len;
     while (s < top) {
         unichar ch;
+
         ch = utf8_get_char(s);
         s = utf8_next_char(s);
         if (ch == quote_char) {
-            mp_printf(print, "\\%c", quote_char);
+            vstr_printf(&vstr, "\\%c", quote_char);
+            //mp_printf(print, "\\%c", quote_char);
         } else if (ch == '\\') {
-            mp_print_str(print, "\\\\");
+            vstr_add_str(&vstr, "\\\\");
+            //mp_print_str(print, "\\\\");
         } else if (32 <= ch && ch <= 126) {
-            mp_printf(print, "%c", ch);
+            vstr_add_char(&vstr, ch);
+            //mp_printf(print, "%c", ch);
         } else if (ch == '\n') {
-            mp_print_str(print, "\\n");
+            vstr_add_str(&vstr, "\\n");
+            //mp_print_str(print, "\\n");
         } else if (ch == '\r') {
-            mp_print_str(print, "\\r");
+            vstr_add_str(&vstr, "\\r");
+            //mp_print_str(print, "\\r");
         } else if (ch == '\t') {
-            mp_print_str(print, "\\t");
+            vstr_add_str(&vstr, "\\t");
+            //mp_print_str(print, "\\t");
         } else if (ch < 0x100) {
-            mp_printf(print, "\\x%02x", ch);
+            vstr_printf(&vstr, "\\x%02x", ch);
+            //mp_printf(print, "\\x%02x", ch);
         } else if (ch < 0x10000) {
-            mp_printf(print, "\\u%04x", ch);
+            vstr_printf(&vstr, "\\x%04x", ch);
+            //mp_printf(print, "\\u%04x", ch);
         } else {
-            mp_printf(print, "\\U%08x", ch);
+            vstr_printf(&vstr, "\\x%08x", ch);
+            //mp_printf(print, "\\U%08x", ch);
         }
     }
-    mp_printf(print, "%c", quote_char);
+    vstr_add_char(&vstr, quote_char);
+    //mp_printf(print, "%c", quote_char);
+    
+    // Print the entire buffer
+    vstr_add_byte(&vstr, '\0');
+    mp_printf(print, "%s", vstr_str(&vstr));
 }
 
 STATIC void uni_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t kind) {

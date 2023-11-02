@@ -176,6 +176,8 @@ int mp_hal_stdin_rx_chr(void) {
 // Send string of given length
 void mp_hal_stdout_tx_strn(const char *str, mp_uint_t len) {
     #ifdef JPO_JCOMP
+    //DBG_SEND(":%d:", len); // find JCOMP stdout inefficiencies
+
     JCOMP_RV rv = jcomp_stdout_send_bytes((uint8_t*)str, len);
     if (rv) {
         // How to handle errors properly?

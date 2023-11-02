@@ -3,6 +3,9 @@
         "stdlib.h": "c",
         "uart.h": "c",
         "tusb.h": "c",
-        "mpthread.h": "c"
+        "mpthread.h": "c",
+        "frozenmod.h": "c",
+        "gc.h": "c",
+        "repl.h": "c"
     }
 }
