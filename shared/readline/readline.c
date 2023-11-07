@@ -143,6 +143,13 @@ int readline_process_char(int c) {
     int redraw_step_back = 0;
     bool redraw_from_cursor = false;
     int redraw_step_forward = 0;
+    static bool skip_char_echo = false;
+
+    if (!(32 <= c && c <= 126)) {
+        // Non-printable char follows, enable echo
+        skip_char_echo = false;
+    }
+
     if (rl.escape_seq == ESEQ_NONE) {
         if (CHAR_CTRL_A <= c && c <= CHAR_CTRL_E && vstr_len(rl.line) == rl.orig_line_len) {
             // control character with empty line
@@ -388,6 +395,10 @@ left_arrow_key:
             } else if (c == 'F') {
                 // end
                 goto end_key;
+            } else if (c == 'X') {
+                // unused in vt100, disable echo of regular chars,
+                // and turn it off when a special char comes in
+                skip_char_echo = true;
             } else {
                 DEBUG_printf("(ESC [ %d)", c);
             }
@@ -463,13 +474,17 @@ redraw:
             mp_hal_erase_line_from_cursor(last_line_len - rl.cursor_pos);
         }
         // draw new chars
-        mp_hal_stdout_tx_strn(rl.line->buf + rl.cursor_pos, rl.line->len - rl.cursor_pos);
+        if (!skip_char_echo) {
+            mp_hal_stdout_tx_strn(rl.line->buf + rl.cursor_pos, rl.line->len - rl.cursor_pos);
+        }
         // move cursor forward if needed (already moved forward by length of line, so move it back)
         mp_hal_move_cursor_back(rl.line->len - (rl.cursor_pos + redraw_step_forward));
         rl.cursor_pos += redraw_step_forward;
     } else if (redraw_step_forward > 0) {
         // draw over old chars to move cursor forwards
-        mp_hal_stdout_tx_strn(rl.line->buf + rl.cursor_pos, redraw_step_forward);
+        if (!skip_char_echo) {
+            mp_hal_stdout_tx_strn(rl.line->buf + rl.cursor_pos, redraw_step_forward);
+        }
         rl.cursor_pos += redraw_step_forward;
     }
 
