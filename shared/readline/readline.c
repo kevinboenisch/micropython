@@ -32,6 +32,7 @@
 #include "py/repl.h"
 #include "py/mphal.h"
 #include "shared/readline/readline.h"
+#include "jpo/debug.h"
 
 #if 0 // print debugging info
 #define DEBUG_PRINT (1)
@@ -70,12 +71,23 @@ STATIC char *str_dup_maybe(const char *str) {
 #define MICROPY_HAL_HAS_VT100 (1)
 #endif
 
+static bool skip_char_echo = false;
+static bool skip_all_echo = false;
+static void stdout_tx_str(const char *str) {
+    if (skip_all_echo) { return; }
+    mp_hal_stdout_tx_str(str);
+}
+static void stdout_tx_strn(const char *str, uint32_t len) {
+    if (skip_all_echo) { return; }
+    mp_hal_stdout_tx_strn(str, len);
+}
+
 // ...and provide the implementation using them
 #if MICROPY_HAL_HAS_VT100
 STATIC void mp_hal_move_cursor_back(uint pos) {
     if (pos <= 4) {
         // fast path for most common case of 1 step back
-        mp_hal_stdout_tx_strn("\b\b\b\b", pos);
+        stdout_tx_strn("\b\b\b\b", pos);
     } else {
         char vt100_command[6];
         // snprintf needs space for the terminating null character
@@ -83,14 +95,14 @@ STATIC void mp_hal_move_cursor_back(uint pos) {
         if (n > 0) {
             assert((unsigned)n < sizeof(vt100_command));
             vt100_command[n] = 'D'; // replace null char
-            mp_hal_stdout_tx_strn(vt100_command, n + 1);
+            stdout_tx_strn(vt100_command, n + 1);
         }
     }
 }
 
 STATIC void mp_hal_erase_line_from_cursor(uint n_chars_to_erase) {
     (void)n_chars_to_erase;
-    mp_hal_stdout_tx_strn("\x1b[K", 3);
+    stdout_tx_strn("\x1b[K", 3);
 }
 #endif
 
@@ -143,7 +155,6 @@ int readline_process_char(int c) {
     int redraw_step_back = 0;
     bool redraw_from_cursor = false;
     int redraw_step_forward = 0;
-    static bool skip_char_echo = false;
 
     if (!(32 <= c && c <= 126)) {
         // Non-printable char follows, enable echo
@@ -201,7 +212,7 @@ int readline_process_char(int c) {
         #endif
         } else if (c == '\r') {
             // newline
-            mp_hal_stdout_tx_str("\r\n");
+            stdout_tx_str("\r\n");
             readline_push_history(vstr_null_terminated_str(rl.line) + rl.orig_line_len);
             return 0;
         } else if (c == 27) {
@@ -270,8 +281,8 @@ int readline_process_char(int c) {
                 // no match
             } else if (compl_len == (size_t)(-1)) {
                 // many matches
-                mp_hal_stdout_tx_str(rl.prompt);
-                mp_hal_stdout_tx_strn(rl.line->buf + rl.orig_line_len, rl.cursor_pos - rl.orig_line_len);
+                stdout_tx_str(rl.prompt);
+                stdout_tx_strn(rl.line->buf + rl.orig_line_len, rl.cursor_pos - rl.orig_line_len);
                 redraw_from_cursor = true;
             } else {
                 // one match
@@ -395,9 +406,16 @@ left_arrow_key:
             } else if (c == 'F') {
                 // end
                 goto end_key;
+            } else if (c == 'V') {
+                // unused in vt100
+                skip_all_echo = true;
+            } else if (c == 'W') {
+                // unused in vt100
+                skip_all_echo = false;
             } else if (c == 'X') {
-                // unused in vt100, disable echo of regular chars,
-                // and turn it off when a special char comes in
+                // unused in vt100
+                // disable echo of regular chars;
+                // start it again again when a special char comes in
                 skip_char_echo = true;
             } else {
                 DEBUG_printf("(ESC [ %d)", c);
@@ -463,7 +481,7 @@ delete_key:
 redraw:
 #endif
 
-    // redraw command prompt, efficiently
+    // redraw command stdout_tx_str, efficiently
     if (redraw_step_back > 0) {
         mp_hal_move_cursor_back(redraw_step_back);
         rl.cursor_pos -= redraw_step_back;
@@ -475,7 +493,7 @@ redraw:
         }
         // draw new chars
         if (!skip_char_echo) {
-            mp_hal_stdout_tx_strn(rl.line->buf + rl.cursor_pos, rl.line->len - rl.cursor_pos);
+            stdout_tx_strn(rl.line->buf + rl.cursor_pos, rl.line->len - rl.cursor_pos);
         }
         // move cursor forward if needed (already moved forward by length of line, so move it back)
         mp_hal_move_cursor_back(rl.line->len - (rl.cursor_pos + redraw_step_forward));
@@ -483,7 +501,7 @@ redraw:
     } else if (redraw_step_forward > 0) {
         // draw over old chars to move cursor forwards
         if (!skip_char_echo) {
-            mp_hal_stdout_tx_strn(rl.line->buf + rl.cursor_pos, redraw_step_forward);
+            stdout_tx_strn(rl.line->buf + rl.cursor_pos, redraw_step_forward);
         }
         rl.cursor_pos += redraw_step_forward;
     }
@@ -533,7 +551,7 @@ STATIC void readline_auto_indent(void) {
         }
         while (n-- > 0) {
             vstr_add_strn(line, "    ", 4);
-            mp_hal_stdout_tx_strn("    ", 4);
+            stdout_tx_strn("    ", 4);
             rl.cursor_pos += 4;
             rl.auto_indent_state |= AUTO_INDENT_JUST_ADDED;
         }
@@ -545,7 +563,7 @@ void readline_note_newline(const char *prompt) {
     rl.orig_line_len = rl.line->len;
     rl.cursor_pos = rl.orig_line_len;
     rl.prompt = prompt;
-    mp_hal_stdout_tx_str(prompt);
+    stdout_tx_str(prompt);
     #if MICROPY_REPL_AUTO_INDENT
     readline_auto_indent();
     #endif
@@ -559,7 +577,8 @@ void readline_init(vstr_t *line, const char *prompt) {
     rl.hist_cur = -1;
     rl.cursor_pos = rl.orig_line_len;
     rl.prompt = prompt;
-    mp_hal_stdout_tx_str(prompt);
+    stdout_tx_str(prompt);
+
     #if MICROPY_REPL_AUTO_INDENT
     if (vstr_len(line) == 0) {
         // start with auto-indent enabled
