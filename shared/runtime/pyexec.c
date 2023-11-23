@@ -43,6 +43,8 @@
 #include "shared/runtime/pyexec.h"
 #include "genhdr/mpversion.h"
 
+#include "jpo_debugger.h"
+
 // TODO: move into a central place
 // Echo entire lines, instead of char-by-char
 #define JPO_ECHO_LINE
@@ -560,7 +562,14 @@ raw_repl_reset:
             return PYEXEC_FORCED_EXIT;
         }
 
+#ifdef JPO_DEBUG
+        //jpo_debug_start(ret);
+#endif
         int ret = parse_compile_execute(&line, MP_PARSE_FILE_INPUT, EXEC_FLAG_PRINT_EOF | EXEC_FLAG_SOURCE_IS_VSTR);
+#ifdef JPO_DEBUG
+        // Always send the end event, even if not debugging
+        jpo_parse_compile_execute_done(ret);
+#endif
         if (ret & PYEXEC_FORCED_EXIT) {
             return ret;
         }
@@ -704,7 +713,16 @@ friendly_repl_reset:
             }
         }
 
+#ifdef JPO_DEBUG
+        //jpo_debug_start(ret);
+#endif
         ret = parse_compile_execute(&line, parse_input_kind, EXEC_FLAG_ALLOW_DEBUGGING | EXEC_FLAG_IS_REPL | EXEC_FLAG_SOURCE_IS_VSTR);
+        // TODO: send done
+#ifdef JPO_DEBUG
+        // Always send the end event, even if not debugging
+        jpo_parse_compile_execute_done(ret);
+#endif
+
         if (ret & PYEXEC_FORCED_EXIT) {
             return ret;
         }
