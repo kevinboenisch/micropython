@@ -70,6 +70,7 @@
     #include "tusb.h"
 #endif //JPO_JCOMP
 
+#include "jpo_debugger.h"
 
 extern uint8_t __StackTop, __StackBottom;
 extern uint8_t __GcHeapStart, __GcHeapEnd;
@@ -133,6 +134,7 @@ int main(int argc, char **argv) {
     // TODO-P2: add the Micropython version (MICROPY_BANNER_*), so PC knows to upgrade it
     jcomp_set_env_type("MPYT");
     hal_init();
+    jpo_dbgr_init();
     //DBG_OLED("Micropython");
     #endif //JPO_JCOMP
 

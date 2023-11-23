@@ -5,6 +5,9 @@
 
 // Event names are 8 chars
 #define DBG_DONE "DBG_DONE"
+#define CMD_DBG_STOP "DBG_STOP"
+
+void jpo_dbgr_init(void);
 
 /// @brief Executing user code finished, either normally or with an error.
 /// Call every time, even if debugging is not enabled.
