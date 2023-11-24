@@ -4,6 +4,8 @@
 
 #include "py/runtime.h"
 
+// TODO: set to false, enable before program execution
+static bool jpo_dbgr_isDebugging = true;
 
 bool core1_dbgr_jcomp_handler(JCOMP_MSG msg) {
     // lock before modifying shared state
@@ -30,6 +32,9 @@ void jpo_dbgr_init(void) {
     }
 }
 
+void jpo_dbgr_check(void) {
+    // TODO: check breakpoints etc.
+}
 
 void jpo_parse_compile_execute_done(int ret) {
     DBG_SEND("Event: DBG_DONE %d", ret);

@@ -134,9 +134,12 @@ int main(int argc, char **argv) {
     // TODO-P2: add the Micropython version (MICROPY_BANNER_*), so PC knows to upgrade it
     jcomp_set_env_type("MPYT");
     hal_init();
-    jpo_dbgr_init();
     //DBG_OLED("Micropython");
     #endif //JPO_JCOMP
+
+    #ifdef JPO_DBGR
+    jpo_dbgr_init();
+    #endif //JPO_DBGR
 
     #if MICROPY_PY_LWIP
     // lwIP doesn't allow to reinitialise itself by subsequent calls to this function

@@ -307,6 +307,12 @@ outer_dispatch_loop:
             // loop to execute byte code
             for (;;) {
 dispatch_loop:
+                #if JPO_DBGR_BUILD
+                if (jpo_dbgr_isDebugging) {
+                    jpo_dbgr_check();
+                }
+                #endif
+
                 #if MICROPY_OPT_COMPUTED_GOTO
                 DISPATCH();
                 #else
