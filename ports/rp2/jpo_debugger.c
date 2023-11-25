@@ -10,15 +10,21 @@
 auto_init_mutex(_dbgr_mutex);
 
 #if JPO_DBGR_BUILD
-
-// True if debugging, false if not. 
+// True if debugging is active.
 // Set to true by the PC before running the program, reset to false by Brain when done.
 bool _jpo_dbgr_is_debugging = false;
 
-// If null, running, if set stopped
-// see R_STOPPED_* in jpo_debugger.h
+// If NULL, program is running, if set to a string, it's stopped
+// see R_STOPPED_* values in jpo_debugger.h
 static char* _stopped_reason = NULL;
 
+// Reset vars to initial state
+void reset_vars() {
+    _jpo_dbgr_is_debugging = false;
+    _stopped_reason = NULL;
+}
+#else
+void reset_vars() {}
 #endif // JPO_DBGR_BUILD
 
 static bool jcomp_handler_inlock(JCOMP_MSG msg) {
@@ -75,6 +81,8 @@ void jpo_dbgr_init(void) {
         DBG_SEND("Error: jcomp_add_core1_handler() failed: %d", rv);
         return;
     }
+
+    reset_vars();
 }
 
 void send_done(int ret) {
@@ -86,7 +94,7 @@ void send_done(int ret) {
     jcomp_send_msg(evt);
 }
 void jpo_parse_compile_execute_done(int ret) {
-    _jpo_dbgr_is_debugging = false;
+    reset_vars();
     send_done(ret);
 }
 
