@@ -1,6 +1,8 @@
 #ifndef MICROPY_INCLUDED_RP2_JPO_DEBUGGER_H
 #define MICROPY_INCLUDED_RP2_JPO_DEBUGGER_H
 
+#include <stdbool.h>
+
 // Minimal debugger features are always enabled
 #define JPO_DBGR (1)
 
@@ -9,9 +11,26 @@
 // TODO: move into build settings, (0) for fast build, (1) for debug
 #define JPO_DBGR_BUILD (1)
 
-// Event names are 8 chars
-#define DBG_DONE "DBG_DONE"
-#define CMD_DBG_STOP "DBG_STOP"
+// Event/command names are 8 chars
+
+#ifdef JPO_DBGR_BUILD
+    // PC sends to start debugging.
+    // Debugging will be stopped when the program terminates.
+    #define CMD_DBG_START    "DBG_STRT"
+    // Pause/Continue execution
+    #define CMD_DBG_PAUSE    "DBG_PAUS"
+    #define CMD_DBG_CONTINUE "DBG_CONT"
+
+    // Brain sends when stopped
+    #define EVT_DBG_STOPPED  "DBG_STOP" // + 8-byte reason str
+    #define R_STOPPED_PAUSED ":PAUSED_"    
+#endif
+
+// PC sends anytime to stop the program.
+#define CMD_DBG_TERMINATE    "DBG_TRMT"
+// Brain always sends when execution is done. 
+#define EVT_DBG_DONE         "DBG_DONE" // + 4-byte int exit value
+
 
 /// @brief Initialize the debugger. 
 /// Call it even if not JPO_DBGR_BUILD, to support stopping the program etc.
@@ -23,12 +42,23 @@ void jpo_dbgr_init(void);
 /// @param ret return value from parse_compile_execute
 void jpo_parse_compile_execute_done(int ret);
 
+
+
+//////////////////////
+// Debugger build only
+//////////////////////
 #ifdef JPO_DBGR_BUILD
 
-extern bool jpo_dbgr_isDebugging;
 
-void jpo_dbgr_check(void);
+/**
+ * Check and perform debugger actions if needed.
+ * Blocks execution, returns when done. 
+ */
+#define JPO_DBGR_CHECK() \
+    if (_jpo_dbgr_is_debugging) { __jpo_dbgr_check(); }
 
+extern bool _jpo_dbgr_is_debugging;
+void __jpo_dbgr_check(void);
 
 
 // See RobotMesh
@@ -63,6 +93,8 @@ void jpo_dbgr_check(void);
 //  */
 // PmReturn_t dbgr_breakOnError(void);
 
+#else
+JPO_DBGR_CHECK() {}
 
 #endif //JPO_DBGR_BUILD
 

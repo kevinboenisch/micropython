@@ -6,6 +6,7 @@
         "mpthread.h": "c",
         "frozenmod.h": "c",
         "gc.h": "c",
-        "repl.h": "c"
+        "repl.h": "c",
+        "jpo_debugger.h": "c"
     }
 }
