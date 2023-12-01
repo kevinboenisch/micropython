@@ -309,7 +309,9 @@ outer_dispatch_loop:
             // loop to execute byte code
             for (;;) {
 dispatch_loop:
-                JPO_DBGR_CHECK();
+                #ifdef JPO_DBGR_BUILD
+                JPO_DBGR_CHECK(code_state);
+                #endif
 
                 #if MICROPY_OPT_COMPUTED_GOTO
                 DISPATCH();
@@ -1489,3 +1491,34 @@ unwind_loop:
         }
     }
 }
+
+#ifdef JPO_DEBUG_BUILD
+void dbgr_stack_trace_to_string(qstr file_name, size_t line_num, qstr block_name, char* out_buf, size_t buf_size) {
+    snprintf(out_buf, buf_size, "%s:%d in %s", qstr_str(file_name), line_num, qstr_str(block_name));
+}
+
+void dbgr_get_stack_trace(mp_code_state_t *code_state, char* out_buf, size_t buf_size, ) {
+    // Same code as in unwind_loop
+    const byte *ip = code_state->fun_bc->bytecode;
+    MP_BC_PRELUDE_SIG_DECODE(ip);
+    MP_BC_PRELUDE_SIZE_DECODE(ip);
+    const byte *line_info_top = ip + n_info;
+    const byte *bytecode_start = ip + n_info + n_cell;
+    size_t bc = code_state->ip - bytecode_start;
+    qstr block_name = mp_decode_uint_value(ip);
+    for (size_t i = 0; i < 1 + n_pos_args + n_kwonly_args; ++i) {
+        ip = mp_decode_uint_skip(ip);
+    }
+    #if MICROPY_EMIT_BYTECODE_USES_QSTR_TABLE
+    block_name = code_state->fun_bc->context->constants.qstr_table[block_name];
+    qstr source_file = code_state->fun_bc->context->constants.qstr_table[0];
+    #else
+    qstr source_file = code_state->fun_bc->context->constants.source_file;
+    #endif
+    size_t source_line = mp_bytecode_get_source_line(ip, line_info_top, bc);
+
+    //mp_obj_exception_add_traceback(MP_OBJ_FROM_PTR(nlr.ret_val), source_file, source_line, block_name);
+
+    dbgr_stack_trace_to_string(source_file, source_line, block_name, out_buf, buf_size)
+}
+#endif//JPO_DEBUG_BUILD

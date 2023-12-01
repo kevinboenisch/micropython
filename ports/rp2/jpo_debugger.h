@@ -2,6 +2,7 @@
 #define MICROPY_INCLUDED_RP2_JPO_DEBUGGER_H
 
 #include <stdbool.h>
+#include "py/bc.h"
 
 // Minimal debugger features are always enabled
 #define JPO_DBGR (1)
@@ -54,11 +55,11 @@ void jpo_parse_compile_execute_done(int ret);
  * Check and perform debugger actions if needed.
  * Blocks execution, returns when done. 
  */
-#define JPO_DBGR_CHECK() \
-    if (_jpo_dbgr_is_debugging) { __jpo_dbgr_check(); }
+#define JPO_DBGR_CHECK(code_state) \
+    if (_jpo_dbgr_is_debugging) { __jpo_dbgr_check(code_state); }
 
 extern bool _jpo_dbgr_is_debugging;
-void __jpo_dbgr_check(void);
+void __jpo_dbgr_check(mp_code_state_t *code_state);
 
 
 // See RobotMesh
@@ -92,9 +93,6 @@ void __jpo_dbgr_check(void);
 //  * Break on error
 //  */
 // PmReturn_t dbgr_breakOnError(void);
-
-#else
-JPO_DBGR_CHECK() {}
 
 #endif //JPO_DBGR_BUILD
 

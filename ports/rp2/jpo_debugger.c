@@ -6,6 +6,7 @@
 #include "py/runtime.h"
 #include "pico/multicore.h"
 
+
 #define MUTEX_TIMEOUT_MS 100
 auto_init_mutex(_dbgr_mutex);
 
@@ -48,11 +49,7 @@ static bool jcomp_handler_inlock(JCOMP_MSG msg) {
             }
             return true;
         }
-        if (jcomp_msg_has_str(msg, 0, CMD_DBG_CONTINUE)) {
-            DBG_SEND("CMD_DBG_CONTINUE");
-            _stopped_reason = NULL;
-            return true;
-        }
+        // Other messages are handled on core0, in process_message_while_stopped
     }
 #endif // JPO_DBGR_BUILD
     return false;
@@ -85,7 +82,7 @@ void jpo_dbgr_init(void) {
     reset_vars();
 }
 
-void send_done(int ret) {
+static void send_done(int ret) {
     DBG_SEND("Event: %s %d", EVT_DBG_DONE, ret);
 
     JCOMP_CREATE_EVENT(evt, 12);
@@ -99,18 +96,19 @@ void jpo_parse_compile_execute_done(int ret) {
 }
 
 #ifdef JPO_DBGR_BUILD
-char* get_stopped_reason(void) {
+char* get_and_clear_stopped_reason(void) {
     bool has_mutex = mutex_enter_timeout_ms(&_dbgr_mutex, MUTEX_TIMEOUT_MS);
     if (!has_mutex) {
         DBG_SEND("Error: get_stopped_reason() failed to get mutex");
         // Continue anyway
     }
     char* rv = _stopped_reason;
+    _stopped_reason = NULL;
     mutex_exit(&_dbgr_mutex);
     return rv;
 }
 
-void send_stopped(const char* reason8ch) {
+static void send_stopped(const char* reason8ch) {
     DBG_SEND("Event: %s%s", EVT_DBG_STOPPED, reason8ch);
 
     JCOMP_CREATE_EVENT(evt, 16);
@@ -118,26 +116,47 @@ void send_stopped(const char* reason8ch) {
     jcomp_msg_set_str(evt, 8, reason8ch);
     jcomp_send_msg(evt);
 }
-void __jpo_dbgr_check(void) {
+
+#define DBGR_RV_CONTINUE (JCOMP_ERR_CLIENT + 1)
+static JCOMP_RV process_message_while_stopped() {
+    JCOMP_RECEIVE_MSG(msg, rv, 0);
+    if (rv) {
+        if (rv != JCOMP_ERR_TIMEOUT) {
+            DBG_SEND("Error: while paused, receive failed: %d", rv);
+        }
+        return rv;
+    }
+    if (jcomp_msg_has_str(msg, 0, CMD_DBG_CONTINUE)) {
+        DBG_SEND("%s", CMD_DBG_CONTINUE);
+        return DBGR_RV_CONTINUE;
+    }
+    // TODO: other requests, get stack etc.
+
+    return rv;
+}
+
+void __jpo_dbgr_check(mp_code_state_t *code_state) {
     if (!_jpo_dbgr_is_debugging) {
         return;
     }
 
-    // TODO: check breakpoints etc.
-    bool stop_reported = false;
-    while (true) { 
-        // Check if stopped
-        char* sreason = get_stopped_reason();
-        if (sreason == NULL) {
+    // TODO: check breakpoints etc
+    
+    // Check if stopped
+    char* sreason = get_and_clear_stopped_reason();
+    if (sreason == NULL) {
+        return;
+    }
+
+    // Report stopped
+    send_stopped(sreason);
+
+    // Loop and handle requests until continued
+    while (true) {
+        JCOMP_RV rv = process_message_while_stopped();
+        if (rv == DBGR_RV_CONTINUE) {
             break;
         }
-
-        // Report only once
-        if (!stop_reported) {
-            send_stopped(sreason);
-            stop_reported = true;
-        }
-
         // Spin-wait
         MICROPY_EVENT_POLL_HOOK_FAST;
     }
