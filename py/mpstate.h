@@ -36,6 +36,8 @@
 #include "py/objlist.h"
 #include "py/objexcept.h"
 
+#include "mpconfigport.h" // for JPO_DBGR_BUILD
+
 // This file contains structures defining the state of the MicroPython
 // memory system, runtime and virtual machine.  The state is a global
 // variable, but in the future it is hoped that the state can become local.
@@ -248,6 +250,19 @@ typedef struct _mp_state_vm_t {
     #endif
 } mp_state_vm_t;
 
+#ifdef JPO_DBGR_BUILD
+// Defining here, since #include "debugger.h" causes an error (likely a dependency loop)
+
+// Info needed to determine the current location in the source code: 
+// source_file, source_line, block_name
+// Each thread has a stack of these
+typedef struct _jpo_code_location_t {
+    struct _mp_obj_fun_bc_t *fun_bc;
+    const byte *ip;
+    struct _jpo_code_location_t *caller_loc; // next in stack
+} jpo_code_location_t;
+#endif
+
 // This structure holds state that is specific to a given thread.
 // Everything in this structure is scanned for root pointers.
 typedef struct _mp_state_thread_t {
@@ -266,6 +281,10 @@ typedef struct _mp_state_thread_t {
 
     // Locking of the GC is done per thread.
     uint16_t gc_lock_depth;
+
+    #ifdef JPO_DBGR_BUILD
+    struct _jpo_code_location_t* code_loc_stack_top;
+    #endif
 
     ////////////////////////////////////////////////////////////
     // START ROOT POINTER SECTION

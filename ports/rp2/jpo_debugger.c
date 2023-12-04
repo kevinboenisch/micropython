@@ -2,10 +2,10 @@
 #include "jpo/jcomp_protocol.h"
 #include "jpo/debug.h"
 
-#include "mphalport.h"
+#include "mphalport.h" // for JPO_DBGR_BUILD
+
 #include "py/runtime.h"
 #include "pico/multicore.h"
-
 
 #define MUTEX_TIMEOUT_MS 100
 auto_init_mutex(_dbgr_mutex);
@@ -83,7 +83,7 @@ void jpo_dbgr_init(void) {
 }
 
 static void send_done(int ret) {
-    DBG_SEND("Event: %s %d", EVT_DBG_DONE, ret);
+    //DBG_SEND("Event: %s %d", EVT_DBG_DONE, ret);
 
     JCOMP_CREATE_EVENT(evt, 12);
     jcomp_msg_set_str(evt, 0, EVT_DBG_DONE);
@@ -96,6 +96,7 @@ void jpo_parse_compile_execute_done(int ret) {
 }
 
 #ifdef JPO_DBGR_BUILD
+
 char* get_and_clear_stopped_reason(void) {
     bool has_mutex = mutex_enter_timeout_ms(&_dbgr_mutex, MUTEX_TIMEOUT_MS);
     if (!has_mutex) {
@@ -117,8 +118,27 @@ static void send_stopped(const char* reason8ch) {
     jcomp_send_msg(evt);
 }
 
+#define RAM_START 0x20000000
+
+// should be JCOMP_MAX_PAYLOAD_SIZE, but there's a bug with large packets in mpy
+#define STACK_BUF_SIZE 200 
+void send_stack(jpo_code_location_t *code_loc) {
+    char stack_buf[STACK_BUF_SIZE];
+    while(code_loc != NULL) {
+        dbgr_get_stack_trace(code_loc, stack_buf, STACK_BUF_SIZE);
+        DBG_SEND("stack_trace: %s", stack_buf);
+        code_loc = code_loc->caller_loc;
+    }
+    DBG_SEND("stack_trace: done");
+
+    // JCOMP_CREATE_EVENT(evt, 8 + strlen(stack_buf));
+    // jcomp_msg_set_str(evt, 0, EVT_DBG_STACK);
+    // jcomp_msg_set_str(evt, 8, stack_buf);
+    // jcomp_send_msg(evt);
+}
+
 #define DBGR_RV_CONTINUE (JCOMP_ERR_CLIENT + 1)
-static JCOMP_RV process_message_while_stopped() {
+static JCOMP_RV process_message_while_stopped(jpo_code_location_t *code_loc) {
     JCOMP_RECEIVE_MSG(msg, rv, 0);
     if (rv) {
         if (rv != JCOMP_ERR_TIMEOUT) {
@@ -130,13 +150,21 @@ static JCOMP_RV process_message_while_stopped() {
         DBG_SEND("%s", CMD_DBG_CONTINUE);
         return DBGR_RV_CONTINUE;
     }
-    // TODO: other requests, get stack etc.
+    if (jcomp_msg_has_str(msg, 0, CMD_DBG_STACK)) {
+        DBG_SEND("%s", CMD_DBG_STACK);
+        send_stack(code_loc);
+        return JCOMP_OK;
+    }
 
     return rv;
 }
 
-void __jpo_dbgr_check(mp_code_state_t *code_state) {
+void __jpo_dbgr_check(jpo_code_location_t *code_loc) {
     if (!_jpo_dbgr_is_debugging) {
+        return;
+    }
+    if (code_loc == NULL) {
+        //DBG_SEND("Warning: __jpo_dbgr_check(): code_loc is NULL, skipping the check");
         return;
     }
 
@@ -151,9 +179,12 @@ void __jpo_dbgr_check(mp_code_state_t *code_state) {
     // Report stopped
     send_stopped(sreason);
 
+    // TODO: for testing only. Remove, only do on stack request
+    send_stack(code_loc);
+
     // Loop and handle requests until continued
     while (true) {
-        JCOMP_RV rv = process_message_while_stopped();
+        JCOMP_RV rv = process_message_while_stopped(code_loc);
         if (rv == DBGR_RV_CONTINUE) {
             break;
         }

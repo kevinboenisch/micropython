@@ -35,6 +35,8 @@
 #include "py/objfun.h"
 #include "py/stackctrl.h"
 
+#include "mpconfigport.h" // for JPO_DBGR_BUILD
+
 // Instance of GeneratorExit exception - needed by generator.close()
 const mp_obj_exception_t mp_const_GeneratorExit_obj = {{&mp_type_GeneratorExit}, 0, 0, NULL, (mp_obj_tuple_t *)&mp_const_empty_tuple_obj};
 
@@ -216,7 +218,13 @@ mp_vm_return_kind_t mp_obj_gen_resume(mp_obj_t self_in, mp_obj_t send_value, mp_
     #endif
     {
         // A bytecode generator
+        #ifdef JPO_DBGR_BUILD
+        // TODO: implement, push/pop etc.
+        // Likely the same code as in objfun.c
+        ret_kind = mp_execute_bytecode(&self->code_state, NULL, throw_value);
+        #else //JPO_DBGR_BUILD
         ret_kind = mp_execute_bytecode(&self->code_state, throw_value);
+        #endif
     }
 
     mp_globals_set(self->code_state.old_globals);

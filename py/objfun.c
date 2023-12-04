@@ -270,7 +270,25 @@ STATIC mp_obj_t fun_bc_call(mp_obj_t self_in, size_t n_args, size_t n_kw, const 
 
     // execute the byte code with the correct globals context
     mp_globals_set(self->context->module.globals);
+    
+    #ifdef JPO_DBGR_BUILD
+    // Push call location info onto the stack
+    jpo_code_location_t code_loc_obj = { 
+        .fun_bc = code_state->fun_bc, 
+        .ip = code_state->ip,
+        .caller_loc = MP_STATE_THREAD(code_loc_stack_top) // might be NULL
+    };
+    MP_STATE_THREAD(code_loc_stack_top) = &code_loc_obj;
+
+    mp_vm_return_kind_t vm_return_kind = mp_execute_bytecode(code_state, &code_loc_obj, MP_OBJ_NULL);
+
+    // Pop it off
+    MP_STATE_THREAD(code_loc_stack_top) = code_loc_obj.caller_loc;
+    #else //JPO_DBGR_BUILD
+
     mp_vm_return_kind_t vm_return_kind = mp_execute_bytecode(code_state, MP_OBJ_NULL);
+    #endif
+
     mp_globals_set(code_state->old_globals);
 
     #if MICROPY_DEBUG_VM_STACK_OVERFLOW

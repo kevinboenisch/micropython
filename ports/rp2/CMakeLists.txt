@@ -183,6 +183,7 @@ set(MICROPY_SOURCE_QSTR
     ${MICROPY_DIR}/shared/readline/readline.c
     ${MICROPY_DIR}/shared/runtime/mpirq.c
     ${MICROPY_DIR}/shared/runtime/sys_stdio_mphal.c
+    ${MICROPY_PORT_DIR}/jpo_debugger.c
     ${MICROPY_PORT_DIR}/machine_adc.c
     ${MICROPY_PORT_DIR}/machine_i2c.c
     ${MICROPY_PORT_DIR}/machine_i2s.c

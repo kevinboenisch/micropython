@@ -7,6 +7,19 @@
         "frozenmod.h": "c",
         "gc.h": "c",
         "repl.h": "c",
-        "jpo_debugger.h": "c"
+        "jpo_debugger.h": "c",
+        "cstring": "c",
+        "moduledefs.h": "c",
+        "mpstate.h": "c",
+        "objfun.h": "c",
+        "mpconfigport.h": "c",
+        "stackctrl.h": "c",
+        "bc.h": "c",
+        "runtime.h": "c",
+        "mpconfigboard.h": "c"
+    },
+    "workbench.colorCustomizations": {
+        "titleBar.activeBackground": "#292e33",
+        "activityBar.background": "#292e33"
     }
 }

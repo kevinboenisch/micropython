@@ -43,6 +43,11 @@
 #define MICROPY_HW_ENABLE_USBDEV                (1)
 #endif
 
+// Debug build is enabled
+// There will be two separate Micropython builds: fast (non-debug) and debug.
+// TODO: move into build settings, (0) for fast execution, (1) for debug
+#define JPO_DBGR_BUILD              (1)
+
 #define JPO_JCOMP
 #ifdef JPO_JCOMP
     // Disable mpy's USB-CDC serial port, 

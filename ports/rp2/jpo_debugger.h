@@ -2,15 +2,12 @@
 #define MICROPY_INCLUDED_RP2_JPO_DEBUGGER_H
 
 #include <stdbool.h>
-#include "py/bc.h"
+#include "mpconfigport.h" // for JPO_DBGR_BUILD
+
+#include "py/mpstate.h" // for jpo_code_location_t
 
 // Minimal debugger features are always enabled
 #define JPO_DBGR (1)
-
-// Debug build is enabled
-// There will be two separate Micropython builds: fast (non-debug) and debug.
-// TODO: move into build settings, (0) for fast build, (1) for debug
-#define JPO_DBGR_BUILD (1)
 
 // Event/command names are 8 chars
 
@@ -18,13 +15,18 @@
     // PC sends to start debugging.
     // Debugging will be stopped when the program terminates.
     #define CMD_DBG_START    "DBG_STRT"
-    // Pause/Continue execution
+    // Pause execution
     #define CMD_DBG_PAUSE    "DBG_PAUS"
+    // Commands while paused
     #define CMD_DBG_CONTINUE "DBG_CONT"
+    #define CMD_DBG_STACK    "DBG_STAC"
 
     // Brain sends when stopped
     #define EVT_DBG_STOPPED  "DBG_STOP" // + 8-byte reason str
     #define R_STOPPED_PAUSED ":PAUSED_"    
+
+    #define EVT_DBG_STACK    "DBG_STAC" // + string with the stack
+
 #endif
 
 // PC sends anytime to stop the program.
@@ -43,23 +45,25 @@ void jpo_dbgr_init(void);
 /// @param ret return value from parse_compile_execute
 void jpo_parse_compile_execute_done(int ret);
 
-
-
 //////////////////////
 // Debugger build only
 //////////////////////
 #ifdef JPO_DBGR_BUILD
 
-
 /**
  * Check and perform debugger actions if needed.
  * Blocks execution, returns when done. 
+ * @param code_loc current location within the code
  */
-#define JPO_DBGR_CHECK(code_state) \
-    if (_jpo_dbgr_is_debugging) { __jpo_dbgr_check(code_state); }
+#define JPO_DBGR_CHECK(code_loc) \
+    if (_jpo_dbgr_is_debugging) { __jpo_dbgr_check(code_loc); }
 
 extern bool _jpo_dbgr_is_debugging;
-void __jpo_dbgr_check(mp_code_state_t *code_state);
+void __jpo_dbgr_check(jpo_code_location_t *code_loc);
+
+// in vm.c
+void dbgr_get_stack_trace(jpo_code_location_t *code_loc, char* out_buf, size_t buf_size);
+
 
 
 // See RobotMesh
