@@ -19,13 +19,14 @@
     #define CMD_DBG_PAUSE    "DBG_PAUS"
     // Commands while paused
     #define CMD_DBG_CONTINUE "DBG_CONT"
-    #define CMD_DBG_STACK    "DBG_STAC"
 
-    // Brain sends when stopped
+    // Events Brain sends when stopped
     #define EVT_DBG_STOPPED  "DBG_STOP" // + 8-byte reason str
     #define R_STOPPED_PAUSED ":PAUSED_"    
 
-    #define EVT_DBG_STACK    "DBG_STAC" // + string with the stack
+    // Request/response pairs
+    #define REQ_DBG_STACK    "DBG_STAC"
+    #define RSP_DBG_STACK    "DBG_STAC" // + string with the stack
 
 #endif
 
@@ -64,6 +65,9 @@ void __jpo_dbgr_check(jpo_code_location_t *code_loc);
 // in vm.c
 void dbgr_get_stack_trace(jpo_code_location_t *code_loc, char* out_buf, size_t buf_size);
 
+/** @brief Check if there is a stack overflow, DBG_SEND info. */
+bool dbgr_check_stack_overflow(bool show_if_ok);
+void dbgr_print_stack_info(void);
 
 
 // See RobotMesh

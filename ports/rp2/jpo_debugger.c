@@ -122,7 +122,7 @@ static void send_stopped(const char* reason8ch) {
 
 // should be JCOMP_MAX_PAYLOAD_SIZE, but there's a bug with large packets in mpy
 #define STACK_BUF_SIZE 200 
-void send_stack(jpo_code_location_t *code_loc) {
+void send_stack(int req_id, jpo_code_location_t *code_loc) {
     char stack_buf[STACK_BUF_SIZE];
     while(code_loc != NULL) {
         dbgr_get_stack_trace(code_loc, stack_buf, STACK_BUF_SIZE);
@@ -131,32 +131,43 @@ void send_stack(jpo_code_location_t *code_loc) {
     }
     DBG_SEND("stack_trace: done");
 
-    // JCOMP_CREATE_EVENT(evt, 8 + strlen(stack_buf));
-    // jcomp_msg_set_str(evt, 0, EVT_DBG_STACK);
-    // jcomp_msg_set_str(evt, 8, stack_buf);
-    // jcomp_send_msg(evt);
+    // JCOMP_CREATE_RESPONSE(resp, req_id, 8 + strlen(stack_buf));
+    // jcomp_msg_set_str(resp, 0, RSP_DBG_STACK);
+    // jcomp_msg_set_str(resp, 8, stack_buf);
+    // jcomp_send_msg(resp);
 }
 
 #define DBGR_RV_CONTINUE (JCOMP_ERR_CLIENT + 1)
 static JCOMP_RV process_message_while_stopped(jpo_code_location_t *code_loc) {
     JCOMP_RECEIVE_MSG(msg, rv, 0);
+
+    static bool printed = false;
+    if (!printed) {
+        //DBG_SEND("JCOMP_MSG_BUF_SIZE_MAX: %d", JCOMP_MSG_BUF_SIZE_MAX);
+        dbgr_print_stack_info();
+        dbgr_check_stack_overflow(true);
+        printed = true;
+    }
+
     if (rv) {
         if (rv != JCOMP_ERR_TIMEOUT) {
             DBG_SEND("Error: while paused, receive failed: %d", rv);
         }
         return rv;
     }
+
     if (jcomp_msg_has_str(msg, 0, CMD_DBG_CONTINUE)) {
         DBG_SEND("%s", CMD_DBG_CONTINUE);
         return DBGR_RV_CONTINUE;
     }
-    if (jcomp_msg_has_str(msg, 0, CMD_DBG_STACK)) {
-        DBG_SEND("%s", CMD_DBG_STACK);
-        send_stack(code_loc);
+    else if (jcomp_msg_has_str(msg, 0, REQ_DBG_STACK)) {
+        DBG_SEND("%s", REQ_DBG_STACK);
+        // TODO: send as a response, not an event
+        send_stack(jcomp_msg_id(msg), code_loc);
         return JCOMP_OK;
     }
 
-    return rv;
+    return JCOMP_OK;
 }
 
 void __jpo_dbgr_check(jpo_code_location_t *code_loc) {
@@ -164,11 +175,12 @@ void __jpo_dbgr_check(jpo_code_location_t *code_loc) {
         return;
     }
     if (code_loc == NULL) {
-        //DBG_SEND("Warning: __jpo_dbgr_check(): code_loc is NULL, skipping the check");
+        DBG_SEND("Warning: __jpo_dbgr_check(): code_loc is NULL, skipping the check");
         return;
     }
 
-    // TODO: check breakpoints etc
+    // TODO: check breakpoints etc, in case we need to stop
+    // without the pause command
     
     // Check if stopped
     char* sreason = get_and_clear_stopped_reason();
@@ -180,16 +192,46 @@ void __jpo_dbgr_check(jpo_code_location_t *code_loc) {
     send_stopped(sreason);
 
     // TODO: for testing only. Remove, only do on stack request
-    send_stack(code_loc);
+    //send_stack(code_loc);
 
     // Loop and handle requests until continued
     while (true) {
         JCOMP_RV rv = process_message_while_stopped(code_loc);
         if (rv == DBGR_RV_CONTINUE) {
+            DBG_SEND("Continuing");
             break;
         }
         // Spin-wait
         MICROPY_EVENT_POLL_HOOK_FAST;
     }
 }
+
+extern uint8_t __StackTop, __StackBottom;
+extern uint8_t __StackOneBottom, __StackOneTop;
+
+void dbgr_print_stack_info(void) {
+    DBG_SEND("__StackTop:%p __StackBottom:%p __StackOneTop:%p __StackOneBottom:%p // s0size:%d", 
+             &__StackTop,  &__StackBottom,  &__StackOneTop,  &__StackOneBottom,
+             &__StackTop - &__StackOneTop);
+}
+
+bool dbgr_check_stack_overflow(bool show_if_ok) {
+    uint32_t stack_size = &__StackTop - &__StackOneTop;
+
+    // using the *address* of stack_size (last var on the stack), not the actual size
+    int remaining = (uint32_t)&__StackTop - (uint32_t)&stack_size;
+    
+    if (remaining < 0) {
+        DBG_SEND("ERROR: Stack overflow. this:%p __StackOneTop:%p size:%d remaining:%d", 
+            &stack_size, &__StackOneTop, stack_size, remaining);
+        return true;
+    }
+
+    if (show_if_ok) {
+        DBG_SEND("Stack ok. this:%p __StackOneTop:%p size:%d remaining:%d", 
+            &stack_size, &__StackOneTop, stack_size, remaining);
+    }
+    return false;
+}
+
 #endif //JPO_DBGR_BUILD

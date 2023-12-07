@@ -43,12 +43,16 @@
 #define MICROPY_HW_ENABLE_USBDEV                (1)
 #endif
 
+// JCOMP enabled, required for JPO featurs
+#define JPO_JCOMP
+
 // Debug build is enabled
 // There will be two separate Micropython builds: fast (non-debug) and debug.
 // TODO: move into build settings, (0) for fast execution, (1) for debug
-#define JPO_DBGR_BUILD              (1)
+#define JPO_DBGR_BUILD (1)
 
-#define JPO_JCOMP
+
+
 #ifdef JPO_JCOMP
     // Disable mpy's USB-CDC serial port, 
     // to allow pico-sdk stdio and JCOMP to use it
@@ -57,14 +61,15 @@
     #if MICROPY_HW_ENABLE_USBDEV
     // Enable USB-CDC serial port
     #ifndef MICROPY_HW_USB_CDC
-    define MICROPY_HW_USB_CDC (1)
+    #define MICROPY_HW_USB_CDC (1)
     #endif
-#endif //JPO_JCOMP
-// Enable USB Mass Storage with FatFS filesystem.
-#ifndef MICROPY_HW_USB_MSC
-#define MICROPY_HW_USB_MSC (0)
-#endif
-#endif
+    #endif //JPO_JCOMP
+
+    // Enable USB Mass Storage with FatFS filesystem.
+    #ifndef MICROPY_HW_USB_MSC
+    #define MICROPY_HW_USB_MSC (0)
+    #endif
+#endif // JPO_JCOMP
 
 #ifndef MICROPY_CONFIG_ROM_LEVEL
 #define MICROPY_CONFIG_ROM_LEVEL                (MICROPY_CONFIG_ROM_LEVEL_EXTRA_FEATURES)

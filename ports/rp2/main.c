@@ -44,6 +44,7 @@
 #include "mpnetworkport.h"
 #include "genhdr/mpversion.h"
 #include "mp_usbd.h"
+#include "mpconfigport.h" // for JPO_JCOMP
 
 #include "pico/stdlib.h"
 #include "pico/binary_info.h"
@@ -58,10 +59,6 @@
 #include "lib/cyw43-driver/src/cyw43.h"
 #endif
 
-// TODO: change later, rely on an import from JCOMP
-// In multiple places, search the MPY codebase
-#define JPO_JCOMP
-
 #ifdef JPO_JCOMP
     #include "jpo/hal.h"
     #include "jpo/debug.h"
@@ -73,6 +70,7 @@
 #include "jpo_debugger.h"
 
 extern uint8_t __StackTop, __StackBottom;
+extern uint8_t __StackOneTop, __StackOneBottom;
 extern uint8_t __GcHeapStart, __GcHeapEnd;
 
 // Embed version info in the binary in machine readable form
@@ -126,7 +124,11 @@ int main(int argc, char **argv) {
 
     // Initialise stack extents and GC heap.
     mp_stack_set_top(&__StackTop);
-    mp_stack_set_limit(&__StackTop - &__StackBottom - 256);
+    #ifdef JPO_JCOMP
+        mp_stack_set_limit(&__StackTop - &__StackOneTop - 256 - JCOMP_MSG_BUF_SIZE_MAX);
+    #else
+        mp_stack_set_limit(&__StackTop - &__StackBottom - 256);    
+    #endif
     gc_init(&__GcHeapStart, &__GcHeapEnd);
 
     #ifdef JPO_JCOMP
