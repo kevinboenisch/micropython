@@ -14,9 +14,7 @@
 auto_init_mutex(_dbgr_mutex);
 
 #if JPO_DBGR_BUILD
-// True if debugging is active.
-// Set to true by the PC before running the program, reset to false by Brain when done.
-bool _jpo_dbgr_is_debugging = false;
+bool jpo_dbgr_is_debugging = false;
 
 // If NULL, program is running, if set to a string, it's stopped
 // see R_STOPPED_* values in jpo_debugger.h
@@ -24,7 +22,7 @@ static char* _stopped_reason = NULL;
 
 // Reset vars to initial state
 void reset_vars() {
-    _jpo_dbgr_is_debugging = false;
+    jpo_dbgr_is_debugging = false;
     _stopped_reason = NULL;
 }
 
@@ -44,10 +42,10 @@ static bool jcomp_handler_inlock(JCOMP_MSG msg) {
 #if JPO_DBGR_BUILD
     if (jcomp_msg_has_str(msg, 0, CMD_DBG_START)) {
         DBG_SEND("CMD_DBG_START");
-        _jpo_dbgr_is_debugging = true;
+        jpo_dbgr_is_debugging = true;
         return true;
     }
-    if (_jpo_dbgr_is_debugging) {
+    if (jpo_dbgr_is_debugging) {
         if (jcomp_msg_has_str(msg, 0, CMD_DBG_PAUSE)) {
             DBG_SEND("CMD_DBG_PAUSE");
             // If already stopped, do nothing
@@ -102,7 +100,7 @@ void jpo_parse_compile_execute_done(int ret) {
     send_done(ret);
 }
 
-#ifdef JPO_DBGR_BUILD
+#if JPO_DBGR_BUILD
 
 char* get_and_clear_stopped_reason(void) {
     bool has_mutex = mutex_enter_timeout_ms(&_dbgr_mutex, MUTEX_TIMEOUT_MS);
@@ -261,12 +259,13 @@ static JCOMP_RV process_message_while_stopped(jpo_code_location_t *code_loc) {
     return JCOMP_OK;
 }
 
-void __jpo_dbgr_check(jpo_code_location_t *code_loc) {
-    if (!_jpo_dbgr_is_debugging) {
+void jpo_dbgr_check(jpo_code_location_t *code_loc) {
+    // Already checked, but doesn't hurt
+    if (!jpo_dbgr_is_debugging) {
         return;
     }
     if (code_loc == NULL) {
-        DBG_SEND("Warning: __jpo_dbgr_check(): code_loc is NULL, skipping the check");
+        DBG_SEND("Warning: jpo_dbgr_check(): code_loc is NULL, skipping the check");
         return;
     }
 

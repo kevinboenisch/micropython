@@ -271,7 +271,7 @@ STATIC mp_obj_t fun_bc_call(mp_obj_t self_in, size_t n_args, size_t n_kw, const 
     // execute the byte code with the correct globals context
     mp_globals_set(self->context->module.globals);
     
-    #ifdef JPO_DBGR_BUILD
+    #if JPO_DBGR_BUILD
     // Push call location info onto the stack
     jpo_code_location_t code_loc_obj = { 
         .fun_bc = code_state->fun_bc, 

@@ -51,8 +51,6 @@
 // TODO: move into build settings, (0) for fast execution, (1) for debug
 #define JPO_DBGR_BUILD (1)
 
-
-
 #ifdef JPO_JCOMP
     // Disable mpy's USB-CDC serial port, 
     // to allow pico-sdk stdio and JCOMP to use it

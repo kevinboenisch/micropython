@@ -11,7 +11,7 @@
 
 // Event/command names are 8 chars
 
-#ifdef JPO_DBGR_BUILD
+#if JPO_DBGR_BUILD
     // PC sends to start debugging.
     // Debugging will be stopped when the program terminates.
     #define CMD_DBG_START    "DBG_STRT"
@@ -26,7 +26,6 @@
 
     // Requests with responses
     #define REQ_DBG_STACK    "DBG_STAC"
-
 #endif
 
 // PC sends anytime to stop the program.
@@ -45,21 +44,40 @@ void jpo_dbgr_init(void);
 /// @param ret return value from parse_compile_execute
 void jpo_parse_compile_execute_done(int ret);
 
-//////////////////////
-// Debugger build only
-//////////////////////
-#ifdef JPO_DBGR_BUILD
 
 /**
  * Check and perform debugger actions if needed.
  * Blocks execution, returns when done. 
- * @param code_loc current location within the code
+ * @param code_loc current location within the code. 
+ *    Not always available, so can't pass it as arg, needs to be a variable. 
+ * @param ip instruction pointer
  */
-#define JPO_DBGR_CHECK(code_loc) \
-    if (_jpo_dbgr_is_debugging) { __jpo_dbgr_check(code_loc); }
+#if JPO_DBGR_BUILD
+#define JPO_DBGR_CHECK(ip) \
+    if (jpo_dbgr_is_debugging) { \
+        if (code_loc) { code_loc->ip = ip; } \
+        jpo_dbgr_check(code_loc); \
+    }
+#else
+#define JPO_DBGR_CHECK(ip)
+#endif //JPO_DBGR_BUILD
 
-extern bool _jpo_dbgr_is_debugging;
-void __jpo_dbgr_check(jpo_code_location_t *code_loc);
+
+//////////////////////
+// Debugger build only
+//////////////////////
+#if JPO_DBGR_BUILD
+
+/** 
+ * @brief true if debugging.
+ * @note set to true by the PC immediately before running the program, reset to false by Brain when done.
+ */
+extern bool jpo_dbgr_is_debugging;
+
+/**
+ * @see JPO_DBGR_CHECK macro.
+ */
+void jpo_dbgr_check(jpo_code_location_t *code_loc);
 
 // in vm.c
 void dbgr_get_frame_info(jpo_code_location_t *code_loc, qstr *out_file, size_t *out_line, qstr *out_block);

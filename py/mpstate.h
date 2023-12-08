@@ -250,7 +250,7 @@ typedef struct _mp_state_vm_t {
     #endif
 } mp_state_vm_t;
 
-#ifdef JPO_DBGR_BUILD
+#if JPO_DBGR_BUILD
 // Defining here, since #include "debugger.h" causes an error (likely a dependency loop)
 
 // Info needed to determine the current location in the source code: 
@@ -282,7 +282,7 @@ typedef struct _mp_state_thread_t {
     // Locking of the GC is done per thread.
     uint16_t gc_lock_depth;
 
-    #ifdef JPO_DBGR_BUILD
+    #if JPO_DBGR_BUILD
     struct _jpo_code_location_t* code_loc_stack_top;
     #endif
 

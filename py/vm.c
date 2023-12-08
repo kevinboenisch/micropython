@@ -203,7 +203,7 @@
 //  MP_VM_RETURN_YIELD, ip, sp valid, yielded value in *sp
 //  MP_VM_RETURN_EXCEPTION, exception in state[0]
 mp_vm_return_kind_t MICROPY_WRAP_MP_EXECUTE_BYTECODE(mp_execute_bytecode)(mp_code_state_t *code_state, 
-#ifdef JPO_DBGR_BUILD
+#if JPO_DBGR_BUILD
     jpo_code_location_t* code_loc,
 #endif
 volatile mp_obj_t inject_exc) {
@@ -237,6 +237,7 @@ volatile mp_obj_t inject_exc) {
         TRACE(ip); \
         MARK_EXC_IP_GLOBAL(); \
         TRACE_TICK(ip, sp, false); \
+        JPO_DBGR_CHECK(ip); \
         goto *entry_table[*ip++]; \
     } while (0)
     #define DISPATCH_WITH_PEND_EXC_CHECK() goto pending_exception_check
@@ -312,17 +313,13 @@ outer_dispatch_loop:
             // loop to execute byte code
             for (;;) {
 dispatch_loop:
-                #ifdef JPO_DBGR_BUILD
-                if (code_loc) { code_loc->ip = ip; } // update
-                JPO_DBGR_CHECK(code_loc);
-                #endif
-
                 #if MICROPY_OPT_COMPUTED_GOTO
                 DISPATCH();
                 #else
                 TRACE(ip);
                 MARK_EXC_IP_GLOBAL();
                 TRACE_TICK(ip, sp, false);
+                JPO_DBGR_CHECK(ip);
                 switch (*ip++) {
                 #endif
 
@@ -1517,7 +1514,7 @@ unwind_loop:
     }
 }
 
-#ifdef JPO_DBGR_BUILD
+#if JPO_DBGR_BUILD
 // Defined here to use the macros from vm.c
 void dbgr_get_frame_info(jpo_code_location_t *code_loc, qstr *out_file, size_t *out_line, qstr *out_block) {
     *out_file = 0;
