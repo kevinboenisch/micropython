@@ -125,9 +125,10 @@ int main(int argc, char **argv) {
     // Initialise stack extents and GC heap.
     mp_stack_set_top(&__StackTop);
     #ifdef JPO_JCOMP
-        // Using &__StackOneTop for safety, since &__StackBottom 
+        // Using &__StackOneTop for safety, since &__StackBottom
         // can overlap with core0 stack (with the default linker config)
-        mp_stack_set_limit(&__StackTop - &__StackOneTop - 256 - JCOMP_MSG_BUF_SIZE_MAX);
+        // Add a safety margin for 128 bytes plus two JCOMP messages (a request and a response)
+        mp_stack_set_limit(&__StackTop - &__StackOneTop - (128 + 2*JCOMP_MSG_BUF_SIZE_MAX));
     #else
         mp_stack_set_limit(&__StackTop - &__StackBottom - 256);    
     #endif

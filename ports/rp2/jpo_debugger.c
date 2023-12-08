@@ -1,11 +1,14 @@
+#include <stdio.h>
 #include "jpo_debugger.h"
 #include "jpo/jcomp_protocol.h"
 #include "jpo/debug.h"
 
 #include "mphalport.h" // for JPO_DBGR_BUILD
 
-#include "py/runtime.h"
+#include "py/runtime.h" // for jpo_code_location_t
+#include "py/qstr.h"
 #include "pico/multicore.h"
+
 
 #define MUTEX_TIMEOUT_MS 100
 auto_init_mutex(_dbgr_mutex);
@@ -24,6 +27,10 @@ void reset_vars() {
     _jpo_dbgr_is_debugging = false;
     _stopped_reason = NULL;
 }
+
+#define DBGR_RV_CONTINUE (JCOMP_ERR_CLIENT + 1)
+#define DBGR_ERR_FRAMEINFO (JCOMP_ERR_CLIENT + 2)
+
 #else
 void reset_vars() {}
 #endif // JPO_DBGR_BUILD
@@ -118,29 +125,114 @@ static void send_stopped(const char* reason8ch) {
     jcomp_send_msg(evt);
 }
 
-#define RAM_START 0x20000000
-
-// should be JCOMP_MAX_PAYLOAD_SIZE, but there's a bug with large packets in mpy
-#define STACK_BUF_SIZE 200 
-void send_stack(int req_id, jpo_code_location_t *code_loc) {
-    char stack_buf[STACK_BUF_SIZE];
-    while(code_loc != NULL) {
-        dbgr_get_stack_trace(code_loc, stack_buf, STACK_BUF_SIZE);
-        DBG_SEND("stack_trace: %s", stack_buf);
-        code_loc = code_loc->caller_loc;
-    }
-    DBG_SEND("stack_trace: done");
-
-    // JCOMP_CREATE_RESPONSE(resp, req_id, 8 + strlen(stack_buf));
-    // jcomp_msg_set_str(resp, 0, RSP_DBG_STACK);
-    // jcomp_msg_set_str(resp, 8, stack_buf);
-    // jcomp_send_msg(resp);
+// Helpers to append "token:"
+#define NUM_BUF_SIZE 10
+JCOMP_RV append_int_token(JCOMP_MSG resp, int num) {
+    char num_buf[NUM_BUF_SIZE];
+    snprintf(num_buf, NUM_BUF_SIZE, "%d", num);
+    JCOMP_RV rv = jcomp_msg_append_str(resp, num_buf);
+    if (rv) { return rv; }
+    return jcomp_msg_append_str(resp, ":");
+}
+JCOMP_RV append_str_token(JCOMP_MSG resp, const char* str) {
+    JCOMP_RV rv = jcomp_msg_append_str(resp, str);
+    if (rv) { return rv; }
+    return jcomp_msg_append_str(resp, ":");
 }
 
-#define DBGR_RV_CONTINUE (JCOMP_ERR_CLIENT + 1)
+/**
+ * @brief Append a frame to a response, format: "idx:file:line:block::"
+ * Frame info might be incomplete (e.g. "idx:file:"" then run out of space). 
+ * If complete, it will be terminated with "::"
+ * @returns JCOMP_OK if ok, an error (likely JCOMP_ERR_BUFFER_TOO_SMALL) if failed
+ */
+JCOMP_RV append_frame(JCOMP_MSG resp, int frame_idx, jpo_code_location_t *code_loc) {
+    JCOMP_RV rv = JCOMP_OK;
+
+    // frame_idx
+    rv = append_int_token(resp, frame_idx);
+    if (rv) { return rv; }
+
+    qstr file;
+    size_t line;
+    qstr block;
+    dbgr_get_frame_info(code_loc, &file, &line, &block);
+    if (!file || !line || !block) {
+        return DBGR_ERR_FRAMEINFO;
+    }
+
+    // file
+    rv = append_str_token(resp, qstr_str(file));
+    if (rv) { return rv; }
+
+    // line
+    rv = append_int_token(resp, line);
+    if (rv) { return rv; }
+
+    // block
+    rv = append_str_token(resp, qstr_str(block));
+    if (rv) { return rv; }
+
+    // final :, so there's :: terminating the frame
+    rv = jcomp_msg_append_str(resp, ":");
+    if (rv) { return rv; }
+
+    return JCOMP_OK;
+}
+
+/**
+ * @brief send a reply to a stack request
+ * @param request message, with a 4-byte start frame index
+ * @return a string of format "idx:file:line:block::idx:file:line:block::<end>"
+ * @note If there's no more space, info, including individual frames, might be incomplete:
+ * e.g. "idx:file:line:block::idx:file:line:"
+ * Complete frame info ends with "::". 
+ * "<end>" alone is a valid response.
+ */
+void send_stack_response(JCOMP_MSG request, jpo_code_location_t *code_loc) {
+    // request: 8-byte name, 4-byte start frame index
+    uint32_t start_frame_idx = jcomp_msg_get_uint32(request, 8);
+    DBG_SEND("start_frame_idx %d", start_frame_idx);
+    
+    JCOMP_CREATE_RESPONSE(resp, jcomp_msg_id(request), JCOMP_MAX_PAYLOAD_SIZE);
+    if (resp == NULL) {
+        DBG_SEND("Error in send_stack_reply(): JCOMP_CREATE_RESPONSE failed");
+    }
+
+    JCOMP_RV rv = JCOMP_OK;
+    int frame_idx = 0;
+    bool is_end = false;
+    while(true) {
+        if (frame_idx >= start_frame_idx) {
+            // Try to append frame info as a string. It might fail due to a lack of space. 
+            rv = append_frame(resp, frame_idx, code_loc);
+            if (rv) { break; }
+        }
+        frame_idx++;
+        code_loc = code_loc->caller_loc;
+        if (code_loc == NULL) {
+            is_end = true;
+            break;
+        }
+    }
+    // if rv is not OK, we ran out of space in the response, just send what we have
+    
+    if (is_end) {
+        // Apend the end token
+        // ok if it doesn't fit, it will be sent by itself on the next response
+        jcomp_msg_append_str(resp, "<end>");
+    }
+    
+    rv = jcomp_send_msg(resp);
+    if (rv) {
+        DBG_SEND("Error: send_stack_reply() failed: %d", rv);
+    }
+}
+
 static JCOMP_RV process_message_while_stopped(jpo_code_location_t *code_loc) {
     JCOMP_RECEIVE_MSG(msg, rv, 0);
 
+    // // Print stack info for debugging
     // static bool printed = false;
     // if (!printed) {
     //     //DBG_SEND("JCOMP_MSG_BUF_SIZE_MAX: %d", JCOMP_MSG_BUF_SIZE_MAX);
@@ -162,8 +254,7 @@ static JCOMP_RV process_message_while_stopped(jpo_code_location_t *code_loc) {
     }
     else if (jcomp_msg_has_str(msg, 0, REQ_DBG_STACK)) {
         DBG_SEND("%s", REQ_DBG_STACK);
-        // TODO: send as a response, not an event
-        send_stack(jcomp_msg_id(msg), code_loc);
+        send_stack_response(msg, code_loc);
         return JCOMP_OK;
     }
 

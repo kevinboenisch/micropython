@@ -25,8 +25,6 @@
  * THE SOFTWARE.
  */
 
-#include <stdio.h>
-#include <string.h>
 #include <assert.h>
 
 #include "py/emitglue.h"
@@ -1520,13 +1518,13 @@ unwind_loop:
 }
 
 #ifdef JPO_DBGR_BUILD
-STATIC void dbgr_stack_trace_to_string(qstr file_name, size_t line_num, qstr block_name, char* out_buf, size_t buf_size) {
-    snprintf(out_buf, buf_size, "%s:%d in %s", qstr_str(file_name), line_num, qstr_str(block_name));
-}
-
 // Defined here to use the macros from vm.c
-void dbgr_get_stack_trace(jpo_code_location_t *code_loc, char* out_buf, size_t buf_size) {
-    // Similar to code as under the unwind_loop label
+void dbgr_get_frame_info(jpo_code_location_t *code_loc, qstr *out_file, size_t *out_line, qstr *out_block) {
+    *out_file = 0;
+    *out_line = 0;
+    *out_block = 0;
+
+    // Similar to code under the unwind_loop label
     // Replaced code_state with code_loc
     const byte *ip = code_loc->fun_bc->bytecode;
     MP_BC_PRELUDE_SIG_DECODE(ip);
@@ -1548,6 +1546,8 @@ void dbgr_get_stack_trace(jpo_code_location_t *code_loc, char* out_buf, size_t b
 
     //mp_obj_exception_add_traceback(MP_OBJ_FROM_PTR(nlr.ret_val), source_file, source_line, block_name);
 
-    dbgr_stack_trace_to_string(source_file, source_line, block_name, out_buf, buf_size);
+    *out_file = source_file;
+    *out_line = source_line;
+    *out_block = block_name;
 }
 #endif

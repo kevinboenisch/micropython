@@ -24,9 +24,8 @@
     #define EVT_DBG_STOPPED  "DBG_STOP" // + 8-byte reason str
     #define R_STOPPED_PAUSED ":PAUSED_"    
 
-    // Request/response pairs
+    // Requests with responses
     #define REQ_DBG_STACK    "DBG_STAC"
-    #define RSP_DBG_STACK    "DBG_STAC" // + string with the stack
 
 #endif
 
@@ -63,7 +62,7 @@ extern bool _jpo_dbgr_is_debugging;
 void __jpo_dbgr_check(jpo_code_location_t *code_loc);
 
 // in vm.c
-void dbgr_get_stack_trace(jpo_code_location_t *code_loc, char* out_buf, size_t buf_size);
+void dbgr_get_frame_info(jpo_code_location_t *code_loc, qstr *out_file, size_t *out_line, qstr *out_block);
 
 /** @brief Check if there is a stack overflow, DBG_SEND info. */
 bool dbgr_check_stack_overflow(bool show_if_ok);
