@@ -141,13 +141,13 @@ void send_stack(int req_id, jpo_code_location_t *code_loc) {
 static JCOMP_RV process_message_while_stopped(jpo_code_location_t *code_loc) {
     JCOMP_RECEIVE_MSG(msg, rv, 0);
 
-    static bool printed = false;
-    if (!printed) {
-        //DBG_SEND("JCOMP_MSG_BUF_SIZE_MAX: %d", JCOMP_MSG_BUF_SIZE_MAX);
-        dbgr_print_stack_info();
-        dbgr_check_stack_overflow(true);
-        printed = true;
-    }
+    // static bool printed = false;
+    // if (!printed) {
+    //     //DBG_SEND("JCOMP_MSG_BUF_SIZE_MAX: %d", JCOMP_MSG_BUF_SIZE_MAX);
+    //     dbgr_print_stack_info();
+    //     dbgr_check_stack_overflow(true);
+    //     printed = true;
+    // }
 
     if (rv) {
         if (rv != JCOMP_ERR_TIMEOUT) {
@@ -219,7 +219,7 @@ bool dbgr_check_stack_overflow(bool show_if_ok) {
     uint32_t stack_size = &__StackTop - &__StackOneTop;
 
     // using the *address* of stack_size (last var on the stack), not the actual size
-    int remaining = (uint32_t)&__StackTop - (uint32_t)&stack_size;
+    int remaining = (uint32_t)&stack_size - (uint32_t)&__StackOneTop;
     
     if (remaining < 0) {
         DBG_SEND("ERROR: Stack overflow. this:%p __StackOneTop:%p size:%d remaining:%d", 
