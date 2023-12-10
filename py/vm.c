@@ -204,7 +204,7 @@
 //  MP_VM_RETURN_EXCEPTION, exception in state[0]
 mp_vm_return_kind_t MICROPY_WRAP_MP_EXECUTE_BYTECODE(mp_execute_bytecode)(mp_code_state_t *code_state, 
 #if JPO_DBGR_BUILD
-    jpo_code_location_t* code_loc,
+    jpo_bytecode_pos_t* bc_pos,
 #endif
 volatile mp_obj_t inject_exc) {
 
@@ -963,7 +963,7 @@ unwind_jump:;
                     #endif
 
                     #if JPO_DBGR_BUILD
-                    if (code_loc) { code_loc->ip = ip; } // update
+                    if (bc_pos) { bc_pos->ip = ip; } // update
                     #endif
 
                     SET_TOP(mp_call_function_n_kw(*sp, unum & 0xff, (unum >> 8) & 0xff, sp + 1));
@@ -1014,7 +1014,7 @@ unwind_jump:;
                     #endif
 
                     #if JPO_DBGR_BUILD
-                    if (code_loc) { code_loc->ip = ip; } // update
+                    if (bc_pos) { bc_pos->ip = ip; } // update
                     #endif
 
                     SET_TOP(mp_call_method_n_kw_var(false, unum, sp));
@@ -1058,7 +1058,7 @@ unwind_jump:;
                     #endif
 
                     #if JPO_DBGR_BUILD
-                    if (code_loc) { code_loc->ip = ip; } // update
+                    if (bc_pos) { bc_pos->ip = ip; } // update
                     #endif
 
                     SET_TOP(mp_call_method_n_kw(unum & 0xff, (unum >> 8) & 0xff, sp));
@@ -1109,7 +1109,7 @@ unwind_jump:;
                     #endif
 
                     #if JPO_DBGR_BUILD
-                    if (code_loc) { code_loc->ip = ip; } // update
+                    if (bc_pos) { bc_pos->ip = ip; } // update
                     #endif
 
                     SET_TOP(mp_call_method_n_kw_var(true, unum, sp));
@@ -1516,28 +1516,28 @@ unwind_loop:
 
 #if JPO_DBGR_BUILD
 // Defined here to use the macros from vm.c
-void dbgr_get_frame_info(jpo_code_location_t *code_loc, qstr *out_file, size_t *out_line, qstr *out_block) {
+void dbgr_get_frame_info(jpo_bytecode_pos_t *bc_pos, qstr *out_file, size_t *out_line, qstr *out_block) {
     *out_file = 0;
     *out_line = 0;
     *out_block = 0;
 
     // Similar to code under the unwind_loop label
-    // Replaced code_state with code_loc
-    const byte *ip = code_loc->fun_bc->bytecode;
+    // Replaced code_state with bc_pos
+    const byte *ip = bc_pos->fun_bc->bytecode;
     MP_BC_PRELUDE_SIG_DECODE(ip);
     MP_BC_PRELUDE_SIZE_DECODE(ip);
     const byte *line_info_top = ip + n_info;
     const byte *bytecode_start = ip + n_info + n_cell;
-    size_t bc = code_loc->ip - bytecode_start;
+    size_t bc = bc_pos->ip - bytecode_start;
     qstr block_name = mp_decode_uint_value(ip);
     for (size_t i = 0; i < 1 + n_pos_args + n_kwonly_args; ++i) {
         ip = mp_decode_uint_skip(ip);
     }
     #if MICROPY_EMIT_BYTECODE_USES_QSTR_TABLE
-    block_name = code_loc->fun_bc->context->constants.qstr_table[block_name];
-    qstr source_file = code_loc->fun_bc->context->constants.qstr_table[0];
+    block_name = bc_pos->fun_bc->context->constants.qstr_table[block_name];
+    qstr source_file = bc_pos->fun_bc->context->constants.qstr_table[0];
     #else
-    qstr source_file = code_loc->fun_bc->context->constants.source_file;
+    qstr source_file = bc_pos->fun_bc->context->constants.source_file;
     #endif
     size_t source_line = mp_bytecode_get_source_line(ip, line_info_top, bc);
 

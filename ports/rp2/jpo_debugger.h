@@ -4,7 +4,7 @@
 #include <stdbool.h>
 #include "mpconfigport.h" // for JPO_DBGR_BUILD
 
-#include "py/mpstate.h" // for jpo_code_location_t
+#include "py/mpstate.h" // for jpo_bytecode_pos_t
 
 // Minimal debugger features are always enabled
 #define JPO_DBGR (1)
@@ -57,14 +57,14 @@ void jpo_parse_compile_execute_done(int ret);
  * Check and perform debugger actions as needed, before an opcode for given ip is executed.
  * Potentially blocks for a long time, returns when the user continues.
  * @param ip instruction pointer
- * @param code_loc location within the code, will be updated.
+ * @param bc_pos position within the bytecode, ip will be updated.
  *        Can't pass it as an arg, needs to be a variable in scope. 
  */
 #if JPO_DBGR_BUILD
 #define JPO_DBGR_PROCESS(ip) \
     if (dbgr_status != 0) { \
-        if (code_loc) { code_loc->ip = ip; } \
-        dbgr_process(code_loc); \
+        if (bc_pos) { bc_pos->ip = ip; } \
+        dbgr_process(bc_pos); \
     }
 #else
 #define JPO_DBGR_PROCESS(ip)
@@ -101,10 +101,10 @@ typedef enum _dbgr_status_t {
 extern dbgr_status_t dbgr_status;
 
 /** @brief For internal use by JPO_DBGR_PROCESS. */
-void dbgr_process(jpo_code_location_t *code_loc);
+void dbgr_process(jpo_bytecode_pos_t *bc_pos);
 
 /** @brief in vm.c, for use by debugger.c */
-void dbgr_get_frame_info(jpo_code_location_t *code_loc, qstr *out_file, size_t *out_line, qstr *out_block);
+void dbgr_get_frame_info(jpo_bytecode_pos_t *bc_pos, qstr *out_file, size_t *out_line, qstr *out_block);
 
 /** @brief Diagonstics. Check if there is a stack overflow, DBG_SEND info. */
 bool dbgr_check_stack_overflow(bool show_if_ok);

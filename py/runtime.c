@@ -164,7 +164,7 @@ void mp_init(void) {
     #endif
 
     #if JPO_DBGR_BUILD
-    MP_STATE_THREAD(code_loc_stack_top) = NULL;
+    MP_STATE_THREAD(bytecode_pos_stack_top) = NULL;
     #endif
 
     #if MICROPY_PY_SYS_TRACEBACKLIMIT

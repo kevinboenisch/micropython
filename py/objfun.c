@@ -272,18 +272,18 @@ STATIC mp_obj_t fun_bc_call(mp_obj_t self_in, size_t n_args, size_t n_kw, const 
     mp_globals_set(self->context->module.globals);
     
     #if JPO_DBGR_BUILD
-    // Push call location info onto the stack
-    jpo_code_location_t code_loc_obj = { 
+    // Push call position info onto the stack
+    jpo_bytecode_pos_t bc_pos = { 
         .fun_bc = code_state->fun_bc, 
         .ip = code_state->ip,
-        .caller_loc = MP_STATE_THREAD(code_loc_stack_top) // might be NULL
+        .caller_pos = MP_STATE_THREAD(bytecode_pos_stack_top) // might be NULL
     };
-    MP_STATE_THREAD(code_loc_stack_top) = &code_loc_obj;
+    MP_STATE_THREAD(bytecode_pos_stack_top) = &bc_pos;
 
-    mp_vm_return_kind_t vm_return_kind = mp_execute_bytecode(code_state, &code_loc_obj, MP_OBJ_NULL);
+    mp_vm_return_kind_t vm_return_kind = mp_execute_bytecode(code_state, &bc_pos, MP_OBJ_NULL);
 
     // Pop it off
-    MP_STATE_THREAD(code_loc_stack_top) = code_loc_obj.caller_loc;
+    MP_STATE_THREAD(bytecode_pos_stack_top) = bc_pos.caller_pos;
     #else //JPO_DBGR_BUILD
 
     mp_vm_return_kind_t vm_return_kind = mp_execute_bytecode(code_state, MP_OBJ_NULL);

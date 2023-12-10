@@ -256,11 +256,11 @@ typedef struct _mp_state_vm_t {
 // Info needed to determine the current location in the source code: 
 // source_file, source_line, block_name
 // Each thread has a stack of these
-typedef struct _jpo_code_location_t {
+typedef struct _jpo_bytecode_pos_t {
     struct _mp_obj_fun_bc_t *fun_bc;
     const byte *ip;
-    struct _jpo_code_location_t *caller_loc; // next in stack
-} jpo_code_location_t;
+    struct _jpo_bytecode_pos_t *caller_pos; // next in stack
+} jpo_bytecode_pos_t;
 #endif
 
 // This structure holds state that is specific to a given thread.
@@ -283,7 +283,7 @@ typedef struct _mp_state_thread_t {
     uint16_t gc_lock_depth;
 
     #if JPO_DBGR_BUILD
-    struct _jpo_code_location_t* code_loc_stack_top;
+    struct _jpo_bytecode_pos_t* bytecode_pos_stack_top;
     #endif
 
     ////////////////////////////////////////////////////////////

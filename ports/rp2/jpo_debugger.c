@@ -5,9 +5,10 @@
 
 #include "mphalport.h" // for JPO_DBGR_BUILD
 
-#include "py/runtime.h" // for jpo_code_location_t
+#include "py/runtime.h" // for jpo_bytecode_pos_t
 #include "py/qstr.h"
 #include "pico/multicore.h"
+
 
 
 #define MUTEX_TIMEOUT_MS 100
@@ -125,7 +126,7 @@ JCOMP_RV append_str_token(JCOMP_MSG resp, const char* str) {
  * If complete, it will be terminated with "::"
  * @returns JCOMP_OK if ok, an error (likely JCOMP_ERR_BUFFER_TOO_SMALL) if failed
  */
-JCOMP_RV append_frame(JCOMP_MSG resp, int frame_idx, jpo_code_location_t *code_loc) {
+JCOMP_RV append_frame(JCOMP_MSG resp, int frame_idx, jpo_bytecode_pos_t *bc_pos) {
     JCOMP_RV rv = JCOMP_OK;
 
     // frame_idx
@@ -135,7 +136,7 @@ JCOMP_RV append_frame(JCOMP_MSG resp, int frame_idx, jpo_code_location_t *code_l
     qstr file;
     size_t line;
     qstr block;
-    dbgr_get_frame_info(code_loc, &file, &line, &block);
+    dbgr_get_frame_info(bc_pos, &file, &line, &block);
     if (!file || !line || !block) {
         return DBGR_ERR_FRAMEINFO;
     }
@@ -168,7 +169,7 @@ JCOMP_RV append_frame(JCOMP_MSG resp, int frame_idx, jpo_code_location_t *code_l
  * Complete frame info ends with "::". 
  * "<end>" alone is a valid response.
  */
-void send_stack_response(JCOMP_MSG request, jpo_code_location_t *code_loc) {
+void send_stack_response(JCOMP_MSG request, jpo_bytecode_pos_t *bc_pos) {
     // request: 8-byte name, 4-byte start frame index
     uint32_t start_frame_idx = jcomp_msg_get_uint32(request, 8);
     DBG_SEND("start_frame_idx %d", start_frame_idx);
@@ -184,12 +185,12 @@ void send_stack_response(JCOMP_MSG request, jpo_code_location_t *code_loc) {
     while(true) {
         if (frame_idx >= start_frame_idx) {
             // Try to append frame info as a string. It might fail due to a lack of space. 
-            rv = append_frame(resp, frame_idx, code_loc);
+            rv = append_frame(resp, frame_idx, bc_pos);
             if (rv) { break; }
         }
         frame_idx++;
-        code_loc = code_loc->caller_loc;
-        if (code_loc == NULL) {
+        bc_pos = bc_pos->caller_pos;
+        if (bc_pos == NULL) {
             is_end = true;
             break;
         }
@@ -208,7 +209,7 @@ void send_stack_response(JCOMP_MSG request, jpo_code_location_t *code_loc) {
     }
 }
 
-static JCOMP_RV process_message_while_stopped(jpo_code_location_t *code_loc) {
+static JCOMP_RV process_message_while_stopped(jpo_bytecode_pos_t *bc_pos) {
     JCOMP_RECEIVE_MSG(msg, rv, 0);
 
     // // Print stack info for debugging
@@ -233,7 +234,7 @@ static JCOMP_RV process_message_while_stopped(jpo_code_location_t *code_loc) {
     }
     else if (jcomp_msg_has_str(msg, 0, REQ_DBG_STACK)) {
         DBG_SEND("%s", REQ_DBG_STACK);
-        send_stack_response(msg, code_loc);
+        send_stack_response(msg, bc_pos);
         return JCOMP_OK;
     }
 
@@ -241,13 +242,16 @@ static JCOMP_RV process_message_while_stopped(jpo_code_location_t *code_loc) {
 }
 
 // Main debugger function, called before every opcode execution
-void dbgr_process(jpo_code_location_t *code_loc) {
+void dbgr_process(jpo_bytecode_pos_t *bc_pos) {
+
+
+
     // Already checked, but doesn't hurt
     if (dbgr_status == DS_NOT_ENABLED) {
         return;
     }
-    if (code_loc == NULL) {
-        DBG_SEND("Warning: dbgr_check(): code_loc is NULL, skipping the check");
+    if (bc_pos == NULL) {
+        DBG_SEND("Warning: dbgr_check(): bc_pos is NULL, skipping the check");
         return;
     }
 
@@ -269,7 +273,7 @@ void dbgr_process(jpo_code_location_t *code_loc) {
     if (dbgr_status == DS_STOPPED) {
         // Loop and handle requests until continued
         while (true) {
-            JCOMP_RV rv = process_message_while_stopped(code_loc);
+            JCOMP_RV rv = process_message_while_stopped(bc_pos);
             if (rv == DBGR_RV_CONTINUE) {
                 DBG_SEND("Continuing");
                 dbgr_status = DS_RUNNING;
