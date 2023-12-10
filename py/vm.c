@@ -237,7 +237,7 @@ volatile mp_obj_t inject_exc) {
         TRACE(ip); \
         MARK_EXC_IP_GLOBAL(); \
         TRACE_TICK(ip, sp, false); \
-        JPO_DBGR_CHECK(ip); \
+        JPO_DBGR_PROCESS(ip); \
         goto *entry_table[*ip++]; \
     } while (0)
     #define DISPATCH_WITH_PEND_EXC_CHECK() goto pending_exception_check
@@ -319,7 +319,7 @@ dispatch_loop:
                 TRACE(ip);
                 MARK_EXC_IP_GLOBAL();
                 TRACE_TICK(ip, sp, false);
-                JPO_DBGR_CHECK(ip);
+                JPO_DBGR_PROCESS(ip);
                 switch (*ip++) {
                 #endif
 

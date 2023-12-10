@@ -43,8 +43,12 @@
 #define MICROPY_HW_ENABLE_USBDEV                (1)
 #endif
 
+
 // JCOMP enabled, required for JPO featurs
 #define JPO_JCOMP
+
+// Output to test the debugger
+#define JPO_DBGR_TEST
 
 // Debug build is enabled
 // There will be two separate Micropython builds: fast (non-debug) and debug.

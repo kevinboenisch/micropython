@@ -9,8 +9,9 @@
 // Minimal debugger features are always enabled
 #define JPO_DBGR (1)
 
-// Event/command names are 8 chars
-
+///////////////////////////
+// Events/commands/requests
+///////////////////////////
 #if JPO_DBGR_BUILD
     // PC sends to start debugging.
     // Debugging will be stopped when the program terminates.
@@ -34,32 +35,39 @@
 #define EVT_DBG_DONE         "DBG_DONE" // + 4-byte int exit value
 
 
-/// @brief Initialize the debugger. 
-/// Call it even if not JPO_DBGR_BUILD, to support stopping the program etc.
-void jpo_dbgr_init(void);
-
-/// @brief Executing user code finished, either normally or with an error.
-/// Call it even if not JPO_DBGR_BUILD.
-/// Do not call on every module excution, just for the entire user program.
-/// @param ret return value from parse_compile_execute
-void jpo_parse_compile_execute_done(int ret);
-
+///////////////////
+// Always available
+///////////////////
 
 /**
- * Check and perform debugger actions if needed.
- * Blocks execution, returns when done. 
- * @param code_loc current location within the code. 
- *    Not always available, so can't pass it as arg, needs to be a variable. 
+ * @brief Initialize the debugger. 
+ * Call it even if not JPO_DBGR_BUILD, to support stopping the program etc.
+ */
+void jpo_dbgr_init(void);
+
+/**
+ * @brief Inform the PC that executing user code finished, either normally or with an error.
+ * Call it even if not JPO_DBGR_BUILD.
+ * Do not call on every module excution, only for the entire user program.
+ * @param ret return value from parse_compile_execute
+ */
+void jpo_parse_compile_execute_done(int ret);
+
+/**
+ * Check and perform debugger actions as needed, before an opcode for given ip is executed.
+ * Potentially blocks for a long time, returns when the user continues.
  * @param ip instruction pointer
+ * @param code_loc location within the code, will be updated.
+ *        Can't pass it as an arg, needs to be a variable in scope. 
  */
 #if JPO_DBGR_BUILD
-#define JPO_DBGR_CHECK(ip) \
-    if (jpo_dbgr_is_debugging) { \
+#define JPO_DBGR_PROCESS(ip) \
+    if (dbgr_status != 0) { \
         if (code_loc) { code_loc->ip = ip; } \
-        jpo_dbgr_check(code_loc); \
+        dbgr_process(code_loc); \
     }
 #else
-#define JPO_DBGR_CHECK(ip)
+#define JPO_DBGR_PROCESS(ip)
 #endif //JPO_DBGR_BUILD
 
 
@@ -68,23 +76,41 @@ void jpo_parse_compile_execute_done(int ret);
 //////////////////////
 #if JPO_DBGR_BUILD
 
-/** 
- * @brief true if debugging.
- * @note set to true by the PC immediately before running the program, reset to false by Brain when done.
- */
-extern bool jpo_dbgr_is_debugging;
+typedef enum _dbgr_status_t {
+    // Debugging not enabled by the PC. Program might be running or done, irrelevant.
+    DS_NOT_ENABLED = 0, // -> DS_RUNNING
+    // Debugging enabled, program is running
+    DS_RUNNING,     // -> DS_PAUSED
+    // Pause was requested, with _stoppedReason to indicate why
+    // Program will continue running in DS_STEP_IN mode until right before the next line
+    DS_PAUSE_REQUESTED,
 
-/**
- * @see JPO_DBGR_CHECK macro.
- */
-void jpo_dbgr_check(jpo_code_location_t *code_loc);
+    // Stepping in/out/over code
+    DS_STEP_IN,
+    DS_STEP_OUT,
+    DS_STEP_OVER,
 
-// in vm.c
+    // Stopped, waiting for commands (e.g. continue, breakpoints). _stoppedReason indicates why.
+    // Fires a StoppedEvent when entering.
+    DS_STOPPED,
+    
+    // Program terminated: DS_NOT_ENABLED
+} dbgr_status_t;
+
+/** @brief For internal use by JPO_DBGR_PROCESS. Do NOT set (except in debugger.c). */
+extern dbgr_status_t dbgr_status;
+
+/** @brief For internal use by JPO_DBGR_PROCESS. */
+void dbgr_process(jpo_code_location_t *code_loc);
+
+/** @brief in vm.c, for use by debugger.c */
 void dbgr_get_frame_info(jpo_code_location_t *code_loc, qstr *out_file, size_t *out_line, qstr *out_block);
 
-/** @brief Check if there is a stack overflow, DBG_SEND info. */
+/** @brief Diagonstics. Check if there is a stack overflow, DBG_SEND info. */
 bool dbgr_check_stack_overflow(bool show_if_ok);
+/** @brief Diagonstics. DBG_SEND stack info. */
 void dbgr_print_stack_info(void);
+
 
 
 // See RobotMesh
