@@ -21,13 +21,17 @@
     // Commands while paused
     #define CMD_DBG_CONTINUE "DBG_CONT"
 
+    #define CMD_STEP_INTO  "DBG_SINT"
+    #define CMD_STEP_OVER  "DBG_SOVR"
+    #define CMD_STEP_OUT   "DBG_SOUT"
+
     // Events Brain sends when stopped
     #define EVT_DBG_STOPPED  "DBG_STOP" // + 8-byte reason str
     #define R_STOPPED_PAUSED     ":PAUSED_"    
     #define R_STOPPED_BREAKPOINT ":BREAKPT"
-    #define R_STOPPED_STEP_INTO  ":ST_INTO"
-    #define R_STOPPED_STEP_OVER  ":ST_OVER"
-    #define R_STOPPED_STEP_OUT   ":ST_OUT_"
+    #define R_STOPPED_STEP_INTO  ":SINT___"
+    #define R_STOPPED_STEP_OVER  ":SOVR___"
+    #define R_STOPPED_STEP_OUT   ":SOUT___"
 
     // Requests with responses
     #define REQ_DBG_STACK    "DBG_STAC"

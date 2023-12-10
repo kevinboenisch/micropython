@@ -9,8 +9,6 @@
 #include "py/qstr.h"
 #include "pico/multicore.h"
 
-
-
 #define MUTEX_TIMEOUT_MS 100
 auto_init_mutex(_dbgr_mutex);
 
@@ -21,9 +19,6 @@ dbgr_status_t dbgr_status = DS_NOT_ENABLED;
 void reset_vars() {
     dbgr_status = DS_NOT_ENABLED;
 }
-
-#define DBGR_RV_CONTINUE (JCOMP_ERR_CLIENT + 1)
-
 #else
 void reset_vars() {}
 #endif // JPO_DBGR_BUILD
@@ -204,7 +199,9 @@ static void send_stack_response(JCOMP_MSG request, jpo_bytecode_pos_t *bc_stack_
     }
 }
 
-static JCOMP_RV process_jcomp_message_while_stopped(jpo_bytecode_pos_t *bc_stack_top) {
+// Returns true if a command was processed
+// Sets dbgr_status as appropriate
+static bool try_process_command(jpo_bytecode_pos_t *bc_stack_top) {
     JCOMP_RECEIVE_MSG(msg, rv, 0);
 
     // // Print stack info for debugging
@@ -224,16 +221,29 @@ static JCOMP_RV process_jcomp_message_while_stopped(jpo_bytecode_pos_t *bc_stack
     }
 
     if (jcomp_msg_has_str(msg, 0, CMD_DBG_CONTINUE)) {
-        DBG_SEND("%s", CMD_DBG_CONTINUE);
-        return DBGR_RV_CONTINUE;
+        dbgr_status = DS_RUNNING;
+        return true;
+    }
+    else if (jcomp_msg_has_str(msg, 0, CMD_STEP_INTO)) {
+        dbgr_status = DS_STEP_INTO;
+        return true;
+    }
+    else if (jcomp_msg_has_str(msg, 0, CMD_STEP_OVER)) {
+        dbgr_status = DS_STEP_OVER;
+        return true;
+    }
+    else if (jcomp_msg_has_str(msg, 0, CMD_STEP_OUT)) {
+        dbgr_status = DS_STEP_OUT;
+        return true;
     }
     else if (jcomp_msg_has_str(msg, 0, REQ_DBG_STACK)) {
         DBG_SEND("%s", REQ_DBG_STACK);
         send_stack_response(msg, bc_stack_top);
-        return JCOMP_OK;
+        return true;
     }
 
-    return JCOMP_OK;
+    DBG_SEND("Error: not a dbgr message id:%d", jcomp_msg_id(msg));
+    return false;
 }
 
 static bool breakpoint_hit(jpo_source_pos_t *cur_pos) {
@@ -247,11 +257,18 @@ static bool source_pos_equal(jpo_source_pos_t *a, jpo_source_pos_t *b) {
         && a->depth == b->depth);
 }
 
+static bool source_pos_equal_no_depth(jpo_source_pos_t *a, jpo_source_pos_t *b) {
+    return (a->file == b->file
+        && a->line == b->line
+        && a->block == b->block);
+}
+
 // Called when source position changes (any field)
 // last_pos and cur_pos are guaranteed to be different
-static void on_pos_change(jpo_source_pos_t *cur_pos, jpo_source_pos_t *last_pos, jpo_bytecode_pos_t *bc_stack_top) {
+static void on_pos_change(jpo_source_pos_t *cur_pos, jpo_bytecode_pos_t *bc_stack_top) {
     // static/global
-    int step_over_depth = -1;
+    // position at the start of the step over/into/out
+    static jpo_source_pos_t step_pos = {0};    
 
     // locals
     char* stopped_reason = "";
@@ -260,6 +277,12 @@ static void on_pos_change(jpo_source_pos_t *cur_pos, jpo_source_pos_t *last_pos,
         stopped_reason = R_STOPPED_BREAKPOINT;
         dbgr_status = DS_STOPPED;
     }
+
+    // if (dbgr_status != DS_RUNNING) {
+    //     DBG_SEND("status:%d cur_pos:f%d/l%d/b%d/d%d last_pos: f%d/l%d/b%d/d%d", dbgr_status, 
+    //             cur_pos->file, cur_pos->line, cur_pos->block, cur_pos->depth,
+    //             step_pos.file, step_pos.line, step_pos.block, step_pos.depth);
+    // } 
 
     // Normal run, no breakpoints or pause/step in progress    
     switch (dbgr_status)
@@ -275,13 +298,17 @@ static void on_pos_change(jpo_source_pos_t *cur_pos, jpo_source_pos_t *last_pos,
 
     case DS_STEP_INTO:
         // Triggered on any source position change
+        DBG_SEND("check step_into: always true");
         stopped_reason = R_STOPPED_STEP_INTO;
         dbgr_status = DS_STOPPED;
         break;
 
     case DS_STEP_OUT:
         // Only triggered if the depth is lower than the last depth
-        if (cur_pos->depth < last_pos->depth) {
+        // NOT-BUG: after stepping out, the fn call line is highlighted again.
+        // That's ok, PC Python debugger does the same.
+        DBG_SEND("check step_out: cur_pos->depth < last_pos->depth", cur_pos->depth < step_pos.depth);
+        if (cur_pos->depth < step_pos.depth) {
             stopped_reason = R_STOPPED_STEP_OUT;
             dbgr_status = DS_STOPPED;
         }
@@ -292,7 +319,9 @@ static void on_pos_change(jpo_source_pos_t *cur_pos, jpo_source_pos_t *last_pos,
     
     case DS_STEP_OVER:
         // Triggered if the depth is same or lower than one set when step over was requested
-        if (cur_pos->depth <= step_over_depth) {
+        DBG_SEND("check step_over: cur_pos->depth:%d <= step_pos.depth:%d", cur_pos->depth, step_pos.depth);
+        if (cur_pos->depth <= step_pos.depth
+            && !source_pos_equal_no_depth(cur_pos, &step_pos)) {
             stopped_reason = R_STOPPED_STEP_OVER;
             dbgr_status = DS_STOPPED;
         }
@@ -314,11 +343,23 @@ static void on_pos_change(jpo_source_pos_t *cur_pos, jpo_source_pos_t *last_pos,
     send_stopped(stopped_reason);
 
     while (true) {
-        JCOMP_RV rv = process_jcomp_message_while_stopped(bc_stack_top);
-        if (rv == DBGR_RV_CONTINUE) {
-            DBG_SEND("Continuing");
-            dbgr_status = DS_RUNNING;
-            break;
+        if (try_process_command(bc_stack_top)) {
+            switch(dbgr_status) {
+                case DS_RUNNING:
+                    return;
+                case DS_STEP_INTO:
+                case DS_STEP_OUT:
+                case DS_STEP_OVER:
+                    DBG_SEND("cmd: step %d", dbgr_status);
+                    step_pos = *cur_pos;
+                    return;
+                case DS_STOPPED:
+                    // do nothing, continue polling while paused
+                    break;
+                default:
+                    // shouldn't happen, but continue polling
+                    break;
+            }
         }
         // Spin-wait
         MICROPY_EVENT_POLL_HOOK_FAST;
@@ -342,7 +383,7 @@ void dbgr_process(jpo_bytecode_pos_t *bc_pos) {
     if (source_pos_equal(&cur_pos, &last_pos)) {
         return;
     } 
-    on_pos_change(&cur_pos, &last_pos, bc_pos);
+    on_pos_change(&cur_pos, bc_pos);
     last_pos = cur_pos;
 }
 
