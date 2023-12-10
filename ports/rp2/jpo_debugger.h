@@ -104,7 +104,13 @@ extern dbgr_status_t dbgr_status;
 void dbgr_process(jpo_bytecode_pos_t *bc_pos);
 
 /** @brief in vm.c, for use by debugger.c */
-void dbgr_get_frame_info(jpo_bytecode_pos_t *bc_pos, qstr *out_file, size_t *out_line, qstr *out_block);
+typedef struct _jpo_source_pos_t {
+    qstr file;
+    size_t line;
+    qstr block;
+    uint16_t depth;
+} jpo_source_pos_t;
+jpo_source_pos_t dbgr_get_source_pos(jpo_bytecode_pos_t *bc_pos);
 
 /** @brief Diagonstics. Check if there is a stack overflow, DBG_SEND info. */
 bool dbgr_check_stack_overflow(bool show_if_ok);

@@ -23,7 +23,6 @@ void reset_vars() {
 }
 
 #define DBGR_RV_CONTINUE (JCOMP_ERR_CLIENT + 1)
-#define DBGR_ERR_FRAMEINFO (JCOMP_ERR_CLIENT + 2)
 
 #else
 void reset_vars() {}
@@ -54,7 +53,7 @@ static bool jcomp_handler_inlock(JCOMP_MSG msg) {
     return false;
 }
 
-bool core1_dbgr_jcomp_handler(JCOMP_MSG msg) {
+static bool core1_dbgr_jcomp_handler(JCOMP_MSG msg) {
     bool has_mutex = mutex_enter_timeout_ms(&_dbgr_mutex, MUTEX_TIMEOUT_MS);
     if (!has_mutex) {
         DBG_SEND("Error: core1_dbgr_jcomp_handler() failed to get mutex");
@@ -107,14 +106,14 @@ static void send_stopped(const char* reason8ch) {
 
 // Helpers to append "token:"
 #define NUM_BUF_SIZE 10
-JCOMP_RV append_int_token(JCOMP_MSG resp, int num) {
+static JCOMP_RV append_int_token(JCOMP_MSG resp, int num) {
     char num_buf[NUM_BUF_SIZE];
     snprintf(num_buf, NUM_BUF_SIZE, "%d", num);
     JCOMP_RV rv = jcomp_msg_append_str(resp, num_buf);
     if (rv) { return rv; }
     return jcomp_msg_append_str(resp, ":");
 }
-JCOMP_RV append_str_token(JCOMP_MSG resp, const char* str) {
+static JCOMP_RV append_str_token(JCOMP_MSG resp, const char* str) {
     JCOMP_RV rv = jcomp_msg_append_str(resp, str);
     if (rv) { return rv; }
     return jcomp_msg_append_str(resp, ":");
@@ -126,31 +125,25 @@ JCOMP_RV append_str_token(JCOMP_MSG resp, const char* str) {
  * If complete, it will be terminated with "::"
  * @returns JCOMP_OK if ok, an error (likely JCOMP_ERR_BUFFER_TOO_SMALL) if failed
  */
-JCOMP_RV append_frame(JCOMP_MSG resp, int frame_idx, jpo_bytecode_pos_t *bc_pos) {
+static JCOMP_RV append_frame(JCOMP_MSG resp, int frame_idx, jpo_bytecode_pos_t *bc_pos) {
     JCOMP_RV rv = JCOMP_OK;
 
     // frame_idx
     rv = append_int_token(resp, frame_idx);
     if (rv) { return rv; }
 
-    qstr file;
-    size_t line;
-    qstr block;
-    dbgr_get_frame_info(bc_pos, &file, &line, &block);
-    if (!file || !line || !block) {
-        return DBGR_ERR_FRAMEINFO;
-    }
+    jpo_source_pos_t source_pos = dbgr_get_source_pos(bc_pos);
 
     // file
-    rv = append_str_token(resp, qstr_str(file));
+    rv = append_str_token(resp, qstr_str(source_pos.file));
     if (rv) { return rv; }
 
     // line
-    rv = append_int_token(resp, line);
+    rv = append_int_token(resp, source_pos.line);
     if (rv) { return rv; }
 
     // block
-    rv = append_str_token(resp, qstr_str(block));
+    rv = append_str_token(resp, qstr_str(source_pos.block));
     if (rv) { return rv; }
 
     // final :, so there's :: terminating the frame
@@ -169,7 +162,7 @@ JCOMP_RV append_frame(JCOMP_MSG resp, int frame_idx, jpo_bytecode_pos_t *bc_pos)
  * Complete frame info ends with "::". 
  * "<end>" alone is a valid response.
  */
-void send_stack_response(JCOMP_MSG request, jpo_bytecode_pos_t *bc_pos) {
+static void send_stack_response(JCOMP_MSG request, jpo_bytecode_pos_t *bc_pos) {
     // request: 8-byte name, 4-byte start frame index
     uint32_t start_frame_idx = jcomp_msg_get_uint32(request, 8);
     DBG_SEND("start_frame_idx %d", start_frame_idx);
@@ -243,9 +236,6 @@ static JCOMP_RV process_message_while_stopped(jpo_bytecode_pos_t *bc_pos) {
 
 // Main debugger function, called before every opcode execution
 void dbgr_process(jpo_bytecode_pos_t *bc_pos) {
-
-
-
     // Already checked, but doesn't hurt
     if (dbgr_status == DS_NOT_ENABLED) {
         return;

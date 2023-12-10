@@ -1516,11 +1516,7 @@ unwind_loop:
 
 #if JPO_DBGR_BUILD
 // Defined here to use the macros from vm.c
-void dbgr_get_frame_info(jpo_bytecode_pos_t *bc_pos, qstr *out_file, size_t *out_line, qstr *out_block) {
-    *out_file = 0;
-    *out_line = 0;
-    *out_block = 0;
-
+jpo_source_pos_t dbgr_get_source_pos(jpo_bytecode_pos_t *bc_pos) {
     // Similar to code under the unwind_loop label
     // Replaced code_state with bc_pos
     const byte *ip = bc_pos->fun_bc->bytecode;
@@ -1543,8 +1539,12 @@ void dbgr_get_frame_info(jpo_bytecode_pos_t *bc_pos, qstr *out_file, size_t *out
 
     //mp_obj_exception_add_traceback(MP_OBJ_FROM_PTR(nlr.ret_val), source_file, source_line, block_name);
 
-    *out_file = source_file;
-    *out_line = source_line;
-    *out_block = block_name;
+    jpo_source_pos_t source_pos = {
+        .file = source_file,
+        .line = source_line,
+        .block = block_name,
+        .depth = bc_pos->depth,
+    };
+    return source_pos;
 }
 #endif

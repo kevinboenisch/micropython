@@ -253,12 +253,13 @@ typedef struct _mp_state_vm_t {
 #if JPO_DBGR_BUILD
 // Defining here, since #include "debugger.h" causes an error (likely a dependency loop)
 
-// Info needed to determine the current location in the source code: 
-// source_file, source_line, block_name
-// Each thread has a stack of these
+// Current position within a specific bytecode block. 
+// Based on this position in source code (source_file, source_line, block_name) can be determined.
+// Each thread has a stack, corresponding to the fn call stack.
 typedef struct _jpo_bytecode_pos_t {
     struct _mp_obj_fun_bc_t *fun_bc;
     const byte *ip;
+    uint16_t depth;
     struct _jpo_bytecode_pos_t *caller_pos; // next in stack
 } jpo_bytecode_pos_t;
 #endif
