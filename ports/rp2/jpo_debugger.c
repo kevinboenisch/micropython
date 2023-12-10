@@ -47,7 +47,7 @@ static bool jcomp_handler_inlock(JCOMP_MSG msg) {
             dbgr_status = DS_PAUSE_REQUESTED;
             return true;
         }
-        // Other messages are handled on core0, in process_message_while_stopped
+        // Other messages are handled on core0, in process_jcomp_message_while_stopped
     }
 #endif // JPO_DBGR_BUILD
     return false;
@@ -162,7 +162,7 @@ static JCOMP_RV append_frame(JCOMP_MSG resp, int frame_idx, jpo_bytecode_pos_t *
  * Complete frame info ends with "::". 
  * "<end>" alone is a valid response.
  */
-static void send_stack_response(JCOMP_MSG request, jpo_bytecode_pos_t *bc_pos) {
+static void send_stack_response(JCOMP_MSG request, jpo_bytecode_pos_t *bc_stack_top) {
     // request: 8-byte name, 4-byte start frame index
     uint32_t start_frame_idx = jcomp_msg_get_uint32(request, 8);
     DBG_SEND("start_frame_idx %d", start_frame_idx);
@@ -173,6 +173,8 @@ static void send_stack_response(JCOMP_MSG request, jpo_bytecode_pos_t *bc_pos) {
     }
 
     JCOMP_RV rv = JCOMP_OK;
+
+    jpo_bytecode_pos_t *bc_pos = bc_stack_top;
     int frame_idx = 0;
     bool is_end = false;
     while(true) {
@@ -202,7 +204,7 @@ static void send_stack_response(JCOMP_MSG request, jpo_bytecode_pos_t *bc_pos) {
     }
 }
 
-static JCOMP_RV process_message_while_stopped(jpo_bytecode_pos_t *bc_pos) {
+static JCOMP_RV process_jcomp_message_while_stopped(jpo_bytecode_pos_t *bc_stack_top) {
     JCOMP_RECEIVE_MSG(msg, rv, 0);
 
     // // Print stack info for debugging
@@ -227,15 +229,106 @@ static JCOMP_RV process_message_while_stopped(jpo_bytecode_pos_t *bc_pos) {
     }
     else if (jcomp_msg_has_str(msg, 0, REQ_DBG_STACK)) {
         DBG_SEND("%s", REQ_DBG_STACK);
-        send_stack_response(msg, bc_pos);
+        send_stack_response(msg, bc_stack_top);
         return JCOMP_OK;
     }
 
     return JCOMP_OK;
 }
 
+static bool breakpoint_hit(jpo_source_pos_t *cur_pos) {
+    return false;
+}
+
+static bool source_pos_equal(jpo_source_pos_t *a, jpo_source_pos_t *b) {
+    return (a->file == b->file
+        && a->line == b->line
+        && a->block == b->block
+        && a->depth == b->depth);
+}
+
+// Called when source position changes (any field)
+// last_pos and cur_pos are guaranteed to be different
+static void on_pos_change(jpo_source_pos_t *cur_pos, jpo_source_pos_t *last_pos, jpo_bytecode_pos_t *bc_stack_top) {
+    // static/global
+    int step_over_depth = -1;
+
+    // locals
+    char* stopped_reason = "";
+
+    if (breakpoint_hit(cur_pos)) {
+        stopped_reason = R_STOPPED_BREAKPOINT;
+        dbgr_status = DS_STOPPED;
+    }
+
+    // Normal run, no breakpoints or pause/step in progress    
+    switch (dbgr_status)
+    {
+    case DS_RUNNING:
+        // Continue execution
+        return;
+
+    case DS_PAUSE_REQUESTED:
+        stopped_reason = R_STOPPED_PAUSED;
+        dbgr_status = DS_STOPPED;
+        break;
+
+    case DS_STEP_INTO:
+        // Triggered on any source position change
+        stopped_reason = R_STOPPED_STEP_INTO;
+        dbgr_status = DS_STOPPED;
+        break;
+
+    case DS_STEP_OUT:
+        // Only triggered if the depth is lower than the last depth
+        if (cur_pos->depth < last_pos->depth) {
+            stopped_reason = R_STOPPED_STEP_OUT;
+            dbgr_status = DS_STOPPED;
+        }
+        else {
+            return;
+        }
+        break;
+    
+    case DS_STEP_OVER:
+        // Triggered if the depth is same or lower than one set when step over was requested
+        if (cur_pos->depth <= step_over_depth) {
+            stopped_reason = R_STOPPED_STEP_OVER;
+            dbgr_status = DS_STOPPED;
+        }
+        else {
+            return;
+        }
+        break;
+
+    case DS_STOPPED:
+        // Do nothing
+        return;
+
+    default:
+        DBG_SEND("Error: unexpected dbgr_status: %d, continuing", dbgr_status);
+        return;
+    }
+        
+    // Stopped
+    send_stopped(stopped_reason);
+
+    while (true) {
+        JCOMP_RV rv = process_jcomp_message_while_stopped(bc_stack_top);
+        if (rv == DBGR_RV_CONTINUE) {
+            DBG_SEND("Continuing");
+            dbgr_status = DS_RUNNING;
+            break;
+        }
+        // Spin-wait
+        MICROPY_EVENT_POLL_HOOK_FAST;
+    }
+}
+
 // Main debugger function, called before every opcode execution
 void dbgr_process(jpo_bytecode_pos_t *bc_pos) {
+    static jpo_source_pos_t last_pos = {0};
+
     // Already checked, but doesn't hurt
     if (dbgr_status == DS_NOT_ENABLED) {
         return;
@@ -245,36 +338,20 @@ void dbgr_process(jpo_bytecode_pos_t *bc_pos) {
         return;
     }
 
-    // TODO: check breakpoints etc, in case we need to stop
-    // without the pause command
-    
-    // Check if stopped
-    if (dbgr_status == DS_RUNNING) {
+    jpo_source_pos_t cur_pos = dbgr_get_source_pos(bc_pos);
+    if (source_pos_equal(&cur_pos, &last_pos)) {
         return;
-    }
-    if (dbgr_status == DS_PAUSE_REQUESTED) {
-        // TODO: Step in until next line, then report stopped and pause
-
-        // Report stopped. TODO: move after the step in
-        dbgr_status = DS_STOPPED;
-        send_stopped(R_STOPPED_PAUSED);
-    }
-
-    if (dbgr_status == DS_STOPPED) {
-        // Loop and handle requests until continued
-        while (true) {
-            JCOMP_RV rv = process_message_while_stopped(bc_pos);
-            if (rv == DBGR_RV_CONTINUE) {
-                DBG_SEND("Continuing");
-                dbgr_status = DS_RUNNING;
-                break;
-            }
-            // Spin-wait
-            MICROPY_EVENT_POLL_HOOK_FAST;
-        }
-    }
+    } 
+    on_pos_change(&cur_pos, &last_pos, bc_pos);
+    last_pos = cur_pos;
 }
 
+
+
+
+//////////////
+// Diagnostics
+//////////////
 extern uint8_t __StackTop, __StackBottom;
 extern uint8_t __StackOneBottom, __StackOneTop;
 

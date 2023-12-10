@@ -23,7 +23,11 @@
 
     // Events Brain sends when stopped
     #define EVT_DBG_STOPPED  "DBG_STOP" // + 8-byte reason str
-    #define R_STOPPED_PAUSED ":PAUSED_"    
+    #define R_STOPPED_PAUSED     ":PAUSED_"    
+    #define R_STOPPED_BREAKPOINT ":BREAKPT"
+    #define R_STOPPED_STEP_INTO  ":ST_INTO"
+    #define R_STOPPED_STEP_OVER  ":ST_OVER"
+    #define R_STOPPED_STEP_OUT   ":ST_OUT_"
 
     // Requests with responses
     #define REQ_DBG_STACK    "DBG_STAC"
@@ -85,8 +89,8 @@ typedef enum _dbgr_status_t {
     // Program will continue running in DS_STEP_IN mode until right before the next line
     DS_PAUSE_REQUESTED,
 
-    // Stepping in/out/over code
-    DS_STEP_IN,
+    // Stepping into/out/over code
+    DS_STEP_INTO,
     DS_STEP_OUT,
     DS_STEP_OVER,
 
