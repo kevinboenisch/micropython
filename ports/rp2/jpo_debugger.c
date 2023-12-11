@@ -9,11 +9,25 @@
 #include "py/qstr.h"
 #include "pico/multicore.h"
 
+// Disable output
+#undef DBG_SEND
+#define DBG_SEND(...)
+
 #define MUTEX_TIMEOUT_MS 100
 auto_init_mutex(_dbgr_mutex);
 
 #if JPO_DBGR_BUILD
 dbgr_status_t dbgr_status = DS_NOT_ENABLED;
+
+#define CMD_LENGTH 8
+
+#define MAX_BREAKPOINTS 100
+
+// Odd items are qstr file, even items are line numbers
+// Valid items are on top, free items (file=0) are at the bottom
+static uint16_t breakpoints[MAX_BREAKPOINTS * 2] = {0};
+#define FILE(breakpoints, idx) (breakpoints[idx * 2])
+#define LINE(breakpoints, idx) (breakpoints[idx * 2 + 1])
 
 // Reset vars to initial state
 void reset_vars() {
@@ -22,6 +36,113 @@ void reset_vars() {
 #else
 void reset_vars() {}
 #endif // JPO_DBGR_BUILD
+
+static void bkpt_clear_all_inlock() {
+    for(int bp_idx = 0; bp_idx < MAX_BREAKPOINTS; bp_idx++) {
+        FILE(breakpoints, bp_idx) = 0;
+        LINE(breakpoints, bp_idx) = 0; // Could skip
+    }
+}
+
+/// @brief Compact the breakpoints array, putting all empty items at the bottom
+static void bkpt_compact_inlock() {
+    for(int bp_idx = 0; bp_idx < MAX_BREAKPOINTS; bp_idx++) {
+        if (FILE(breakpoints, bp_idx) == 0) {
+            // Found a free spot
+            for(int bp_idx2 = bp_idx + 1; bp_idx2 < MAX_BREAKPOINTS; bp_idx2++) {
+                if (FILE(breakpoints, bp_idx2) != 0) {
+                    FILE(breakpoints, bp_idx) = FILE(breakpoints, bp_idx2);
+                    LINE(breakpoints, bp_idx) = LINE(breakpoints, bp_idx2);
+                    FILE(breakpoints, bp_idx2) = 0;
+                    LINE(breakpoints, bp_idx2) = 0; // Could skip
+                    break;
+                }
+            }
+        }
+    }
+}
+static void bkpt_clear_inlock(qstr file) {
+    DBG_SEND("bkpt_clear() file:%s", qstr_str(file));
+
+    for(int bp_idx = 0; bp_idx < MAX_BREAKPOINTS; bp_idx++) {
+        if (FILE(breakpoints, bp_idx) == file) {
+            FILE(breakpoints, bp_idx) = 0;
+            LINE(breakpoints, bp_idx) = 0; // Could skip
+        }
+    }
+    bkpt_compact_inlock();
+}
+static bool bkpt_is_set_inlock(qstr file, int line_num) {    
+    for(int bp_idx = 0; bp_idx < MAX_BREAKPOINTS; bp_idx++) {
+        if (FILE(breakpoints, bp_idx) == 0) {
+            // Reached the end
+            return false;
+        }
+        if (FILE(breakpoints, bp_idx) == file
+            && LINE(breakpoints, bp_idx) == line_num) {
+            // Found it
+            return true;
+        }
+    }
+    return false;
+}
+static bool bkpt_is_set(qstr file, int line_num) {
+    bool has_mutex = mutex_enter_timeout_ms(&_dbgr_mutex, MUTEX_TIMEOUT_MS);
+    if (!has_mutex) {
+        DBG_SEND("Error: bkpt_is_set() failed to get mutex");
+        return false;
+    }
+    bool is_set = bkpt_is_set_inlock(file, line_num);
+    mutex_exit(&_dbgr_mutex);
+    return is_set;
+}
+
+static void bkpt_set_inlock(qstr file, int line_num) {    
+    DBG_SEND("bkpt_set() file:%s line:%d", qstr_str(file), line_num);
+
+    for(int bp_idx = 0; bp_idx < MAX_BREAKPOINTS; bp_idx++) {
+        if (FILE(breakpoints, bp_idx) == 0) {
+            // Free spot
+            // Is it safe to cast qstr to uint16_t?
+            if (file != (uint16_t)file) { DBG_SEND("Warning: bkpt_set() file qstr:%d doesn't fit in uint16_t", file); }
+
+            FILE(breakpoints, bp_idx) = (uint16_t)file;
+            LINE(breakpoints, bp_idx) = (uint16_t)line_num;
+            return;
+        }
+    }
+    // No free spot
+    DBG_SEND("Warning: bkpt_set() no free spot for file:%s line:%d", qstr_str(file), line_num);
+}
+
+// Expected format: file\0num1num2num3...
+static void bkpt_set_from_msg_inlock(JCOMP_MSG msg) {
+    int delim_pos = jcomp_msg_find_byte(msg, CMD_LENGTH, (uint8_t)'\0');
+    if (delim_pos == -1) {
+        DBG_SEND("Error: bkpt no '\\0' found");
+        return;
+    }
+
+    // get file
+    size_t file_len = delim_pos - CMD_LENGTH;
+    char file[file_len + 1];
+    jcomp_msg_get_str(msg, CMD_LENGTH, file, file_len + 1);
+    qstr file_qstr = qstr_find_strn(file, file_len);
+    if (file_qstr == 0) {
+        DBG_SEND("Warning: bkpt file '%s' not found as qstr, ignoring.", file);
+        return;
+    }
+
+    // Clear all breakpoints for this file
+    bkpt_clear_inlock(file_qstr);
+
+    // Set the new ones
+    uint16_t pos = delim_pos + 1;
+    while(pos < jcomp_msg_payload_size(msg)) {
+        uint32_t line_num = jcomp_msg_get_uint32(msg, pos);
+        bkpt_set_inlock(file_qstr, line_num);
+    }
+}
 
 static bool jcomp_handler_inlock(JCOMP_MSG msg) {
     if (jcomp_msg_has_str(msg, 0, CMD_DBG_TERMINATE)) {
@@ -32,15 +153,19 @@ static bool jcomp_handler_inlock(JCOMP_MSG msg) {
 #if JPO_DBGR_BUILD
     if (jcomp_msg_has_str(msg, 0, CMD_DBG_START)) {
         DBG_SEND("CMD_DBG_START");
-        dbgr_status = DS_RUNNING;
+        bkpt_clear_all_inlock();
+        dbgr_status = DS_STARTING;
         return true;
     }
     if (dbgr_status != DS_NOT_ENABLED) {
         if (jcomp_msg_has_str(msg, 0, CMD_DBG_PAUSE)) {
             DBG_SEND("CMD_DBG_PAUSE");
-            // If already stopped, do nothing
             dbgr_status = DS_PAUSE_REQUESTED;
             return true;
+        }
+        if (jcomp_msg_has_str(msg, 0, CMD_SET_BREAKPOINTS)) {
+            DBG_SEND("CMD_DBG_SET_BREAKPOINTS");
+            bkpt_set_from_msg_inlock(msg);
         }
         // Other messages are handled on core0, in process_jcomp_message_while_stopped
     }
@@ -78,9 +203,9 @@ void jpo_dbgr_init(void) {
 static void send_done(int ret) {
     //DBG_SEND("Event: %s %d", EVT_DBG_DONE, ret);
 
-    JCOMP_CREATE_EVENT(evt, 12);
+    JCOMP_CREATE_EVENT(evt, CMD_LENGTH + 4);
     jcomp_msg_set_str(evt, 0, EVT_DBG_DONE);
-    jcomp_msg_set_uint32(evt, 8, (uint32_t) ret);
+    jcomp_msg_set_uint32(evt, CMD_LENGTH, (uint32_t) ret);
     jcomp_send_msg(evt);
 }
 void jpo_parse_compile_execute_done(int ret) {
@@ -93,9 +218,9 @@ void jpo_parse_compile_execute_done(int ret) {
 static void send_stopped(const char* reason8ch) {
     DBG_SEND("Event: %s%s", EVT_DBG_STOPPED, reason8ch);
 
-    JCOMP_CREATE_EVENT(evt, 16);
+    JCOMP_CREATE_EVENT(evt, CMD_LENGTH + 8);
     jcomp_msg_set_str(evt, 0, EVT_DBG_STOPPED);
-    jcomp_msg_set_str(evt, 8, reason8ch);
+    jcomp_msg_set_str(evt, CMD_LENGTH, reason8ch);
     jcomp_send_msg(evt);
 }
 
@@ -159,7 +284,7 @@ static JCOMP_RV append_frame(JCOMP_MSG resp, int frame_idx, jpo_bytecode_pos_t *
  */
 static void send_stack_response(JCOMP_MSG request, jpo_bytecode_pos_t *bc_stack_top) {
     // request: 8-byte name, 4-byte start frame index
-    uint32_t start_frame_idx = jcomp_msg_get_uint32(request, 8);
+    uint32_t start_frame_idx = jcomp_msg_get_uint32(request, CMD_LENGTH);
     DBG_SEND("start_frame_idx %d", start_frame_idx);
     
     JCOMP_CREATE_RESPONSE(resp, jcomp_msg_id(request), JCOMP_MAX_PAYLOAD_SIZE);
@@ -246,10 +371,6 @@ static bool try_process_command(jpo_bytecode_pos_t *bc_stack_top) {
     return false;
 }
 
-static bool breakpoint_hit(jpo_source_pos_t *cur_pos) {
-    return false;
-}
-
 static bool source_pos_equal(jpo_source_pos_t *a, jpo_source_pos_t *b) {
     return (a->file == b->file
         && a->line == b->line
@@ -273,24 +394,23 @@ static void on_pos_change(jpo_source_pos_t *cur_pos, jpo_bytecode_pos_t *bc_stac
     // locals
     char* stopped_reason = "";
 
-    if (breakpoint_hit(cur_pos)) {
+    if (bkpt_is_set(cur_pos->file, cur_pos->line)) {
         stopped_reason = R_STOPPED_BREAKPOINT;
         dbgr_status = DS_STOPPED;
     }
 
-    // if (dbgr_status != DS_RUNNING) {
-    //     DBG_SEND("status:%d cur_pos:f%d/l%d/b%d/d%d last_pos: f%d/l%d/b%d/d%d", dbgr_status, 
-    //             cur_pos->file, cur_pos->line, cur_pos->block, cur_pos->depth,
-    //             step_pos.file, step_pos.line, step_pos.block, step_pos.depth);
-    // } 
-
-    // Normal run, no breakpoints or pause/step in progress    
     switch (dbgr_status)
     {
     case DS_RUNNING:
         // Continue execution
         return;
 
+    // Reasons to stop
+    case DS_STARTING:
+        stopped_reason = R_STOPPED_STARTING;
+        dbgr_status = DS_STOPPED;
+        break;
+    
     case DS_PAUSE_REQUESTED:
         stopped_reason = R_STOPPED_PAUSED;
         dbgr_status = DS_STOPPED;
@@ -298,7 +418,7 @@ static void on_pos_change(jpo_source_pos_t *cur_pos, jpo_bytecode_pos_t *bc_stac
 
     case DS_STEP_INTO:
         // Triggered on any source position change
-        DBG_SEND("check step_into: always true");
+        //DBG_SEND("check step_into: always true");
         stopped_reason = R_STOPPED_STEP_INTO;
         dbgr_status = DS_STOPPED;
         break;
@@ -307,7 +427,7 @@ static void on_pos_change(jpo_source_pos_t *cur_pos, jpo_bytecode_pos_t *bc_stac
         // Only triggered if the depth is lower than the last depth
         // NOT-BUG: after stepping out, the fn call line is highlighted again.
         // That's ok, PC Python debugger does the same.
-        DBG_SEND("check step_out: cur_pos->depth < last_pos->depth", cur_pos->depth < step_pos.depth);
+        //DBG_SEND("check step_out: cur_pos->depth < last_pos->depth", cur_pos->depth < step_pos.depth);
         if (cur_pos->depth < step_pos.depth) {
             stopped_reason = R_STOPPED_STEP_OUT;
             dbgr_status = DS_STOPPED;

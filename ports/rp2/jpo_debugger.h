@@ -21,12 +21,15 @@
     // Commands while paused
     #define CMD_DBG_CONTINUE "DBG_CONT"
 
-    #define CMD_STEP_INTO  "DBG_SINT"
-    #define CMD_STEP_OVER  "DBG_SOVR"
-    #define CMD_STEP_OUT   "DBG_SOUT"
+    #define CMD_STEP_INTO    "DBG_SINT"
+    #define CMD_STEP_OVER    "DBG_SOVR"
+    #define CMD_STEP_OUT     "DBG_SOUT"
+
+    #define CMD_SET_BREAKPOINTS "DBG_BRKP"
 
     // Events Brain sends when stopped
     #define EVT_DBG_STOPPED  "DBG_STOP" // + 8-byte reason str
+    #define R_STOPPED_STARTING   ":STARTIN"
     #define R_STOPPED_PAUSED     ":PAUSED_"    
     #define R_STOPPED_BREAKPOINT ":BREAKPT"
     #define R_STOPPED_STEP_INTO  ":SINT___"
@@ -86,21 +89,22 @@ void jpo_parse_compile_execute_done(int ret);
 
 typedef enum _dbgr_status_t {
     // Debugging not enabled by the PC. Program might be running or done, irrelevant.
-    DS_NOT_ENABLED = 0, // -> DS_RUNNING
+    DS_NOT_ENABLED = 0, // -> DS_STARTING
+    DS_STARTING,        // -> DS_RUNNING 
     // Debugging enabled, program is running
-    DS_RUNNING,     // -> DS_PAUSED
+    DS_RUNNING,         // -> DS_PAUSED, DS_NOT_ENABLED (done)
     // Pause was requested, with _stoppedReason to indicate why
     // Program will continue running in DS_STEP_IN mode until right before the next line
-    DS_PAUSE_REQUESTED,
+    DS_PAUSE_REQUESTED, // -> DS_STOPPED
 
     // Stepping into/out/over code
-    DS_STEP_INTO,
-    DS_STEP_OUT,
-    DS_STEP_OVER,
+    DS_STEP_INTO,       // -> DS_STOPPED
+    DS_STEP_OUT,        // -> DS_STOPPED
+    DS_STEP_OVER,       // -> DS_STOPPED
 
     // Stopped, waiting for commands (e.g. continue, breakpoints). _stoppedReason indicates why.
     // Fires a StoppedEvent when entering.
-    DS_STOPPED,
+    DS_STOPPED,         // -> DS_RUNNING, DS_STEP_*
     
     // Program terminated: DS_NOT_ENABLED
 } dbgr_status_t;
