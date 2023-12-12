@@ -107,7 +107,7 @@ void jpo_parse_compile_execute_done(int ret) {
 static bool breakpoint_hit(qstr file, int line_num) {
     bool has_mutex = mutex_enter_timeout_ms(&_dbgr_mutex, MUTEX_TIMEOUT_MS);
     if (!has_mutex) {
-        DBG_SEND("Error: bkpt_is_set() failed to get mutex");
+        DBG_SEND("Error: breakpoint_hit() failed to get mutex");
         return false;
     }
     bool is_set = bkpt_is_set(file, line_num);
@@ -298,6 +298,7 @@ static void on_pos_change(jpo_source_pos_t *cur_pos, jpo_bytecode_pos_t *bc_stac
     char* stopped_reason = "";
 
     if (breakpoint_hit(cur_pos->file, cur_pos->line)) {
+         DBG_SEND("breakpoint_hit %s:%d", qstr_str(cur_pos->file), cur_pos->line);
          stopped_reason = R_STOPPED_BREAKPOINT;
          dbgr_status = DS_STOPPED;
     }
@@ -355,13 +356,13 @@ static void on_pos_change(jpo_source_pos_t *cur_pos, jpo_bytecode_pos_t *bc_stac
 
     case DS_STOPPED:
         // Do nothing
-        return;
+        break;
 
     default:
         DBG_SEND("Error: unexpected dbgr_status: %d, continuing", dbgr_status);
         return;
     }
-        
+    
     // Stopped
     send_stopped(stopped_reason);
 

@@ -55,11 +55,13 @@ bool bkpt_is_set(qstr file, int line_num) {
     for(int bp_idx = 0; bp_idx < MAX_BREAKPOINTS; bp_idx++) {
         if (FILE(breakpoints, bp_idx) == 0) {
             // Reached the end
+            //DBG_SEND("bkpt_is_set() %s:%d not found", qstr_str(file), line_num);
             return false;
         }
         if (FILE(breakpoints, bp_idx) == file
             && LINE(breakpoints, bp_idx) == line_num) {
             // Found it
+            //DBG_SEND("bkpt_is_set() %s:%d FOUND", qstr_str(file), line_num);
             return true;
         }
     }
