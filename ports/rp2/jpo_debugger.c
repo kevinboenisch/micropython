@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include "jpo_debugger.h"
+#include "jpo_breakpoints.h"
 #include "jpo/jcomp_protocol.h"
 #include "jpo/debug.h"
 
@@ -10,8 +11,8 @@
 #include "pico/multicore.h"
 
 // Disable output
-#undef DBG_SEND
-#define DBG_SEND(...)
+//#undef DBG_SEND
+//#define DBG_SEND(...)
 
 #define MUTEX_TIMEOUT_MS 100
 auto_init_mutex(_dbgr_mutex);
@@ -21,128 +22,15 @@ dbgr_status_t dbgr_status = DS_NOT_ENABLED;
 
 #define CMD_LENGTH 8
 
-#define MAX_BREAKPOINTS 100
-
-// Odd items are qstr file, even items are line numbers
-// Valid items are on top, free items (file=0) are at the bottom
-static uint16_t breakpoints[MAX_BREAKPOINTS * 2] = {0};
-#define FILE(breakpoints, idx) (breakpoints[idx * 2])
-#define LINE(breakpoints, idx) (breakpoints[idx * 2 + 1])
-
 // Reset vars to initial state
 void reset_vars() {
     dbgr_status = DS_NOT_ENABLED;
+    bkpt_clear_all();
 }
+
 #else
 void reset_vars() {}
 #endif // JPO_DBGR_BUILD
-
-static void bkpt_clear_all_inlock() {
-    for(int bp_idx = 0; bp_idx < MAX_BREAKPOINTS; bp_idx++) {
-        FILE(breakpoints, bp_idx) = 0;
-        LINE(breakpoints, bp_idx) = 0; // Could skip
-    }
-}
-
-/// @brief Compact the breakpoints array, putting all empty items at the bottom
-static void bkpt_compact_inlock() {
-    for(int bp_idx = 0; bp_idx < MAX_BREAKPOINTS; bp_idx++) {
-        if (FILE(breakpoints, bp_idx) == 0) {
-            // Found a free spot
-            for(int bp_idx2 = bp_idx + 1; bp_idx2 < MAX_BREAKPOINTS; bp_idx2++) {
-                if (FILE(breakpoints, bp_idx2) != 0) {
-                    FILE(breakpoints, bp_idx) = FILE(breakpoints, bp_idx2);
-                    LINE(breakpoints, bp_idx) = LINE(breakpoints, bp_idx2);
-                    FILE(breakpoints, bp_idx2) = 0;
-                    LINE(breakpoints, bp_idx2) = 0; // Could skip
-                    break;
-                }
-            }
-        }
-    }
-}
-static void bkpt_clear_inlock(qstr file) {
-    DBG_SEND("bkpt_clear() file:%s", qstr_str(file));
-
-    for(int bp_idx = 0; bp_idx < MAX_BREAKPOINTS; bp_idx++) {
-        if (FILE(breakpoints, bp_idx) == file) {
-            FILE(breakpoints, bp_idx) = 0;
-            LINE(breakpoints, bp_idx) = 0; // Could skip
-        }
-    }
-    bkpt_compact_inlock();
-}
-static bool bkpt_is_set_inlock(qstr file, int line_num) {    
-    for(int bp_idx = 0; bp_idx < MAX_BREAKPOINTS; bp_idx++) {
-        if (FILE(breakpoints, bp_idx) == 0) {
-            // Reached the end
-            return false;
-        }
-        if (FILE(breakpoints, bp_idx) == file
-            && LINE(breakpoints, bp_idx) == line_num) {
-            // Found it
-            return true;
-        }
-    }
-    return false;
-}
-static bool bkpt_is_set(qstr file, int line_num) {
-    bool has_mutex = mutex_enter_timeout_ms(&_dbgr_mutex, MUTEX_TIMEOUT_MS);
-    if (!has_mutex) {
-        DBG_SEND("Error: bkpt_is_set() failed to get mutex");
-        return false;
-    }
-    bool is_set = bkpt_is_set_inlock(file, line_num);
-    mutex_exit(&_dbgr_mutex);
-    return is_set;
-}
-
-static void bkpt_set_inlock(qstr file, int line_num) {    
-    DBG_SEND("bkpt_set() file:%s line:%d", qstr_str(file), line_num);
-
-    for(int bp_idx = 0; bp_idx < MAX_BREAKPOINTS; bp_idx++) {
-        if (FILE(breakpoints, bp_idx) == 0) {
-            // Free spot
-            // Is it safe to cast qstr to uint16_t?
-            if (file != (uint16_t)file) { DBG_SEND("Warning: bkpt_set() file qstr:%d doesn't fit in uint16_t", file); }
-
-            FILE(breakpoints, bp_idx) = (uint16_t)file;
-            LINE(breakpoints, bp_idx) = (uint16_t)line_num;
-            return;
-        }
-    }
-    // No free spot
-    DBG_SEND("Warning: bkpt_set() no free spot for file:%s line:%d", qstr_str(file), line_num);
-}
-
-// Expected format: file\0num1num2num3...
-static void bkpt_set_from_msg_inlock(JCOMP_MSG msg) {
-    int delim_pos = jcomp_msg_find_byte(msg, CMD_LENGTH, (uint8_t)'\0');
-    if (delim_pos == -1) {
-        DBG_SEND("Error: bkpt no '\\0' found");
-        return;
-    }
-
-    // get file
-    size_t file_len = delim_pos - CMD_LENGTH;
-    char file[file_len + 1];
-    jcomp_msg_get_str(msg, CMD_LENGTH, file, file_len + 1);
-    qstr file_qstr = qstr_find_strn(file, file_len);
-    if (file_qstr == 0) {
-        DBG_SEND("Warning: bkpt file '%s' not found as qstr, ignoring.", file);
-        return;
-    }
-
-    // Clear all breakpoints for this file
-    bkpt_clear_inlock(file_qstr);
-
-    // Set the new ones
-    uint16_t pos = delim_pos + 1;
-    while(pos < jcomp_msg_payload_size(msg)) {
-        uint32_t line_num = jcomp_msg_get_uint32(msg, pos);
-        bkpt_set_inlock(file_qstr, line_num);
-    }
-}
 
 static bool jcomp_handler_inlock(JCOMP_MSG msg) {
     if (jcomp_msg_has_str(msg, 0, CMD_DBG_TERMINATE)) {
@@ -153,7 +41,7 @@ static bool jcomp_handler_inlock(JCOMP_MSG msg) {
 #if JPO_DBGR_BUILD
     if (jcomp_msg_has_str(msg, 0, CMD_DBG_START)) {
         DBG_SEND("CMD_DBG_START");
-        bkpt_clear_all_inlock();
+        bkpt_clear_all();
         dbgr_status = DS_STARTING;
         return true;
     }
@@ -163,9 +51,10 @@ static bool jcomp_handler_inlock(JCOMP_MSG msg) {
             dbgr_status = DS_PAUSE_REQUESTED;
             return true;
         }
-        if (jcomp_msg_has_str(msg, 0, CMD_SET_BREAKPOINTS)) {
+        if (jcomp_msg_has_str(msg, 0, CMD_DBG_SET_BREAKPOINTS)) {
             DBG_SEND("CMD_DBG_SET_BREAKPOINTS");
-            bkpt_set_from_msg_inlock(msg);
+            bkpt_set_from_msg(msg);
+            return true;
         }
         // Other messages are handled on core0, in process_jcomp_message_while_stopped
     }
@@ -214,6 +103,17 @@ void jpo_parse_compile_execute_done(int ret) {
 }
 
 #if JPO_DBGR_BUILD
+
+static bool breakpoint_hit(qstr file, int line_num) {
+    bool has_mutex = mutex_enter_timeout_ms(&_dbgr_mutex, MUTEX_TIMEOUT_MS);
+    if (!has_mutex) {
+        DBG_SEND("Error: bkpt_is_set() failed to get mutex");
+        return false;
+    }
+    bool is_set = bkpt_is_set(file, line_num);
+    mutex_exit(&_dbgr_mutex);
+    return is_set;
+}
 
 static void send_stopped(const char* reason8ch) {
     DBG_SEND("Event: %s%s", EVT_DBG_STOPPED, reason8ch);
@@ -345,6 +245,10 @@ static bool try_process_command(jpo_bytecode_pos_t *bc_stack_top) {
         return rv;
     }
 
+    char buf[CMD_LENGTH + 1];
+    jcomp_msg_get_str(msg, 0, buf, CMD_LENGTH + 1);
+    DBG_SEND("try_process_command: %s", buf);
+
     if (jcomp_msg_has_str(msg, 0, CMD_DBG_CONTINUE)) {
         dbgr_status = DS_RUNNING;
         return true;
@@ -362,7 +266,6 @@ static bool try_process_command(jpo_bytecode_pos_t *bc_stack_top) {
         return true;
     }
     else if (jcomp_msg_has_str(msg, 0, REQ_DBG_STACK)) {
-        DBG_SEND("%s", REQ_DBG_STACK);
         send_stack_response(msg, bc_stack_top);
         return true;
     }
@@ -389,14 +292,14 @@ static bool source_pos_equal_no_depth(jpo_source_pos_t *a, jpo_source_pos_t *b) 
 static void on_pos_change(jpo_source_pos_t *cur_pos, jpo_bytecode_pos_t *bc_stack_top) {
     // static/global
     // position at the start of the step over/into/out
-    static jpo_source_pos_t step_pos = {0};    
+    static jpo_source_pos_t step_pos = {0};
 
     // locals
     char* stopped_reason = "";
 
-    if (bkpt_is_set(cur_pos->file, cur_pos->line)) {
-        stopped_reason = R_STOPPED_BREAKPOINT;
-        dbgr_status = DS_STOPPED;
+    if (breakpoint_hit(cur_pos->file, cur_pos->line)) {
+         stopped_reason = R_STOPPED_BREAKPOINT;
+         dbgr_status = DS_STOPPED;
     }
 
     switch (dbgr_status)
@@ -439,7 +342,7 @@ static void on_pos_change(jpo_source_pos_t *cur_pos, jpo_bytecode_pos_t *bc_stac
     
     case DS_STEP_OVER:
         // Triggered if the depth is same or lower than one set when step over was requested
-        DBG_SEND("check step_over: cur_pos->depth:%d <= step_pos.depth:%d", cur_pos->depth, step_pos.depth);
+        // DBG_SEND("check step_over: cur_pos->depth:%d <= step_pos.depth:%d", cur_pos->depth, step_pos.depth);
         if (cur_pos->depth <= step_pos.depth
             && !source_pos_equal_no_depth(cur_pos, &step_pos)) {
             stopped_reason = R_STOPPED_STEP_OVER;
@@ -506,7 +409,6 @@ void dbgr_process(jpo_bytecode_pos_t *bc_pos) {
     on_pos_change(&cur_pos, bc_pos);
     last_pos = cur_pos;
 }
-
 
 
 

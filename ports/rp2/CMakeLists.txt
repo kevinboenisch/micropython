@@ -152,6 +152,7 @@ set(MICROPY_SOURCE_PORT
     fatfs_port.c
     help.c
     jpo_debugger.c
+    jpo_breakpoints.c
     machine_adc.c
     machine_bitstream.c
     machine_i2c.c
@@ -184,6 +185,7 @@ set(MICROPY_SOURCE_QSTR
     ${MICROPY_DIR}/shared/runtime/mpirq.c
     ${MICROPY_DIR}/shared/runtime/sys_stdio_mphal.c
     ${MICROPY_PORT_DIR}/jpo_debugger.c
+    ${MICROPY_PORT_DIR}/jpo_breakpoints.c
     ${MICROPY_PORT_DIR}/machine_adc.c
     ${MICROPY_PORT_DIR}/machine_i2c.c
     ${MICROPY_PORT_DIR}/machine_i2s.c

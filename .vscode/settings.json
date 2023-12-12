@@ -16,7 +16,8 @@
         "stackctrl.h": "c",
         "bc.h": "c",
         "runtime.h": "c",
-        "mpconfigboard.h": "c"
+        "mpconfigboard.h": "c",
+        "jpo_breakpoints.h": "c"
     },
     "workbench.colorCustomizations": {
         "titleBar.activeBackground": "#292e33",

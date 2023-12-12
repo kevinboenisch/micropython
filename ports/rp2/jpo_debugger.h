@@ -12,6 +12,7 @@
 ///////////////////////////
 // Events/commands/requests
 ///////////////////////////
+
 #if JPO_DBGR_BUILD
     // PC sends to start debugging.
     // Debugging will be stopped when the program terminates.
@@ -25,7 +26,7 @@
     #define CMD_STEP_OVER    "DBG_SOVR"
     #define CMD_STEP_OUT     "DBG_SOUT"
 
-    #define CMD_SET_BREAKPOINTS "DBG_BRKP"
+    #define CMD_DBG_SET_BREAKPOINTS "DBG_BRKP"
 
     // Events Brain sends when stopped
     #define EVT_DBG_STOPPED  "DBG_STOP" // + 8-byte reason str
