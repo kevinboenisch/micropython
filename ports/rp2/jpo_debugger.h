@@ -37,6 +37,8 @@
     #define R_STOPPED_STEP_OVER  ":SOVR___"
     #define R_STOPPED_STEP_OUT   ":SOUT___"
 
+    #define EVT_DBG_MODULE_LOADED "DBG_MODL" // + <u8 qstr_code><source_file>
+
     // Requests with responses
     #define REQ_DBG_STACK    "DBG_STAC"
 #endif
@@ -65,7 +67,7 @@ void jpo_dbgr_init(void);
 void jpo_after_parse_compile_execute(int ret);
 
 /**
- * Check and perform debugger actions as needed, before an opcode for given ip is executed.
+ * @brief Call before before an opcode for a given ip is executed.
  * Potentially blocks for a long time, returns when the user continues.
  * @param ip instruction pointer
  * @param bc_pos position within the bytecode, ip will be updated.
@@ -116,6 +118,7 @@ extern dbgr_status_t dbgr_status;
 /** @brief For internal use by JPO_BEFORE_EXECUTE_BYTECODE. */
 void dbgr_before_execute_bytecode(dbgr_bytecode_pos_t *bc_pos);
 
+/** @brief Call after a module has been compiled (mp_compile) */
 void dbgr_after_compile_module(qstr module_name);
 
 /** @brief in vm.c, for use by debugger.c */

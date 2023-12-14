@@ -21,22 +21,67 @@ void bkpt_clear_all() {
     }
 }
 
-/// @brief Compact the breakpoints array, putting all empty items at the bottom
-static void bkpt_compact() {
-    for(int bp_idx = 0; bp_idx < MAX_BREAKPOINTS; bp_idx++) {
+static int find_free_idx(int start) {
+    for(int bp_idx = start; bp_idx < MAX_BREAKPOINTS; bp_idx++) {
         if (FILE(breakpoints, bp_idx) == 0) {
-            // Found a free spot
-            for(int bp_idx2 = bp_idx + 1; bp_idx2 < MAX_BREAKPOINTS; bp_idx2++) {
-                if (FILE(breakpoints, bp_idx2) != 0) {
-                    FILE(breakpoints, bp_idx) = FILE(breakpoints, bp_idx2);
-                    LINE(breakpoints, bp_idx) = LINE(breakpoints, bp_idx2);
-                    FILE(breakpoints, bp_idx2) = 0;
-                    LINE(breakpoints, bp_idx2) = 0; // Could skip
-                    break;
-                }
-            }
+            return bp_idx;
         }
     }
+    return -1;
+}
+static int find_set_idx(int start) {
+    for(int bp_idx = start; bp_idx < MAX_BREAKPOINTS; bp_idx++) {
+        if (FILE(breakpoints, bp_idx) != 0) {
+            return bp_idx;
+        }
+    }
+    return -1;
+}
+
+static void dbg_send_breakpoints() {
+    int i = 0;
+    DBG_SEND("[%d] 0:%d/%d 1:%d/%d 2:%d/%d 3:%d:%d 4:%d/%d 5:%d/%d 6:%d/%d 7:%d/%d 8:%d/%d 9:%d/%d", i,
+        FILE(breakpoints, i+0), LINE(breakpoints, i+0),
+        FILE(breakpoints, i+1), LINE(breakpoints, i+1),
+        FILE(breakpoints, i+2), LINE(breakpoints, i+2),
+        FILE(breakpoints, i+3), LINE(breakpoints, i+3),
+        FILE(breakpoints, i+4), LINE(breakpoints, i+4),
+        FILE(breakpoints, i+5), LINE(breakpoints, i+5),
+        FILE(breakpoints, i+6), LINE(breakpoints, i+6),
+        FILE(breakpoints, i+7), LINE(breakpoints, i+7),
+        FILE(breakpoints, i+8), LINE(breakpoints, i+8),
+        FILE(breakpoints, i+9), LINE(breakpoints, i+9));
+}
+
+/// @brief Compact the breakpoints array, putting all empty items at the bottom
+static void bkpt_compact() {
+    DBG_SEND("bkpt_compact()");
+    dbg_send_breakpoints();
+
+    int cur_idx = 0;
+    while(true) {
+        int free_idx = find_free_idx(cur_idx);
+        if (free_idx == -1) {
+            break;
+        }
+        int next_set_idx = find_set_idx(free_idx + 1);
+        if (next_set_idx == -1) {
+            // No more set items
+            break;
+        }
+        //DBG_SEND("bkpt_compact() cur_idx:%d free_idx:%d next_set_idx:%d", cur_idx, free_idx, next_set_idx);
+        // move set item to free spot
+        FILE(breakpoints, free_idx) = FILE(breakpoints, next_set_idx);
+        LINE(breakpoints, free_idx) = LINE(breakpoints, next_set_idx);
+        // clear the set item
+        FILE(breakpoints, next_set_idx) = 0;
+        LINE(breakpoints, next_set_idx) = 0;
+
+        // search on from the next spot
+        cur_idx = free_idx + 1;
+    }
+
+    dbg_send_breakpoints();
 }
 
 void bkpt_clear(qstr file) {
@@ -69,7 +114,7 @@ bool bkpt_is_set(qstr file, int line_num) {
 }
 
 bool bkpt_set(qstr file, int line_num) {    
-    DBG_SEND("bkpt_set() file:%s '%d' line:%d", file, qstr_str(file), line_num);
+    DBG_SEND("bkpt_set() file:%d '%s' line:%d", file, qstr_str(file), line_num);
 
     for(int bp_idx = 0; bp_idx < MAX_BREAKPOINTS; bp_idx++) {
         if (FILE(breakpoints, bp_idx) == 0) {
@@ -108,7 +153,6 @@ void bkpt_set_from_msg(JCOMP_MSG msg) {
     // Clear all breakpoints for this file
     bkpt_clear(file_qstr);
 
-    // Set the new ones
     uint16_t pos = delim_pos + 1;
     while(pos < jcomp_msg_payload_size(msg)) {
         uint32_t line_num = jcomp_msg_get_uint32(msg, pos);

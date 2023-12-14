@@ -1,8 +1,11 @@
 #include <stdio.h>
+#include <string.h>
+
 #include "jpo_debugger.h"
 #include "jpo_breakpoints.h"
 #include "jpo/jcomp_protocol.h"
 #include "jpo/debug.h"
+
 
 #include "mphalport.h" // for JPO_DBGR_BUILD
 
@@ -130,6 +133,19 @@ static void send_stopped(const char* reason8ch) {
     jcomp_send_msg(evt);
 }
 
+static void send_module_loaded(qstr module_name) {
+    DBG_SEND("Event: module loaded file:%d '%s'", module_name, qstr_str(module_name));
+
+    const char* module_name_str = qstr_str(module_name);
+    JCOMP_CREATE_EVENT(evt, CMD_LENGTH + sizeof(uint32_t) + strlen(module_name_str));
+
+    jcomp_msg_append_str(evt, EVT_DBG_MODULE_LOADED);
+    jcomp_msg_append_uint32(evt, (uint32_t)module_name);
+    jcomp_msg_append_str(evt, module_name_str);
+
+    jcomp_send_msg(evt);
+}
+
 // Helpers to append "token:"
 #define NUM_BUF_SIZE 10
 static JCOMP_RV append_int_token(JCOMP_MSG resp, int num) {
@@ -235,8 +251,12 @@ static void send_stack_response(const JCOMP_MSG request, dbgr_bytecode_pos_t *bc
     }
 }
 
-// Returns true if a command was processed
-// Sets dbgr_status as appropriate
+/**
+ * @brief Process a command while the program is stopped
+ * Sets dbgr_status depending on the command notably to DS_RUNNING on continue. 
+ * @param bc_stack_top the top of the stack, or NULL if not available
+ * @return true if a command was processed.
+ */
 static bool try_process_command(dbgr_bytecode_pos_t *bc_stack_top) {
     JCOMP_RECEIVE_MSG(msg, rv, 0);
 
@@ -253,7 +273,7 @@ static bool try_process_command(dbgr_bytecode_pos_t *bc_stack_top) {
         if (rv != JCOMP_ERR_TIMEOUT) {
             DBG_SEND("Error: while paused, receive failed: %d", rv);
         }
-        return rv;
+        return false;
     }
 
     char buf[CMD_LENGTH + 1];
@@ -436,10 +456,22 @@ void dbgr_after_compile_module(qstr module_name) {
     }
 
     // Send an stopped event with the module name and qstr
+    dbgr_status = DS_STOPPED;
+    send_module_loaded(module_name);
 
-    // PC will send breakpoints and then a continue command
+    // Client will send CMD_DBG_SET_BREAKPOINTS, processed on core1,
+    // followed by a continue;
 
-
+    // Wait for a continue command
+    while (true) {
+        if (try_process_command(NULL)) {
+            if (dbgr_status == DS_RUNNING) {
+                return;
+            }
+        }
+        // Spin-wait
+        MICROPY_EVENT_POLL_HOOK_FAST;
+    }
 }
 
 
