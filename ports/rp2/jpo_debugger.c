@@ -25,7 +25,6 @@ dbgr_status_t dbgr_status = DS_NOT_ENABLED;
 // Last source position examined by dbgr_process
 static const jpo_source_pos_t empty_source_pos = {0};
 static jpo_source_pos_t g_last_pos = empty_source_pos;
-static void on_pos_change(jpo_source_pos_t *cur_pos, jpo_bytecode_pos_t *bc_stack_top);
 
 // Reset vars to initial state
 void reset_vars() {
@@ -105,13 +104,7 @@ static void send_done(int ret) {
 }
 
 void jpo_parse_compile_execute_before() {
-#ifdef JPO_DBGR_BUILD
-    if (dbgr_status == DS_STARTING) {
-        // Execute *before* evaluationg the initial line
-        jpo_source_pos_t pos = {0};
-        on_pos_change(&pos, NULL);
-    }
-#endif // JPO_DBGR_BUILD
+    // Empty for now
 }
 void jpo_parse_compile_execute_after(int ret) {
     send_done(ret);
@@ -198,7 +191,7 @@ static JCOMP_RV append_frame(JCOMP_MSG resp, int frame_idx, jpo_bytecode_pos_t *
  * Complete frame info ends with "::". 
  * "<end>" alone is a valid response.
  */
-static void send_stack_response(JCOMP_MSG request, jpo_bytecode_pos_t *bc_stack_top) {
+static void send_stack_response(const JCOMP_MSG request, jpo_bytecode_pos_t *bc_stack_top) {
     if (bc_stack_top == NULL) {
         DBG_SEND("Error: send_stack_reply(): bc_stack_top is NULL");
         return;
@@ -295,21 +288,21 @@ static bool try_process_command(jpo_bytecode_pos_t *bc_stack_top) {
     return false;
 }
 
-static bool source_pos_equal(jpo_source_pos_t *a, jpo_source_pos_t *b) {
+static bool source_pos_equal(const jpo_source_pos_t *a, const jpo_source_pos_t *b) {
     return (a->file == b->file
         && a->line == b->line
         && a->block == b->block
         && a->depth == b->depth);
 }
 
-static bool source_pos_equal_no_depth(jpo_source_pos_t *a, jpo_source_pos_t *b) {
+static bool source_pos_equal_no_depth(const jpo_source_pos_t *a, const jpo_source_pos_t *b) {
     return (a->file == b->file
         && a->line == b->line
         && a->block == b->block);
 }
 
 // Called when source position changes (any field)
-static void on_pos_change(jpo_source_pos_t *cur_pos, jpo_bytecode_pos_t *bc_stack_top) {
+static void on_pos_change(const jpo_source_pos_t *cur_pos, jpo_bytecode_pos_t *bc_stack_top) {
     // static/global
     // position at the start of the step over/into/out
     static jpo_source_pos_t step_pos = {0};
@@ -422,6 +415,14 @@ void dbgr_process(jpo_bytecode_pos_t *bc_pos) {
     if (bc_pos == NULL) {
         DBG_SEND("Warning: dbgr_check(): bc_pos is NULL, skipping the check");
         return;
+    }
+
+    // Edge case: execute the initial on_pos_change
+    // before executing it for the first line of the program
+    // It will pause to accept breakpoints, and then another call
+    // is needed for the breakpoint on the first line to be hit.
+    if (dbgr_status == DS_STARTING) {
+        on_pos_change(&empty_source_pos, bc_pos);
     }
 
     jpo_source_pos_t cur_pos = dbgr_get_source_pos(bc_pos);
