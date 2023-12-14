@@ -204,7 +204,7 @@
 //  MP_VM_RETURN_EXCEPTION, exception in state[0]
 mp_vm_return_kind_t MICROPY_WRAP_MP_EXECUTE_BYTECODE(mp_execute_bytecode)(mp_code_state_t *code_state, 
 #if JPO_DBGR_BUILD
-    jpo_bytecode_pos_t* bc_pos,
+    dbgr_bytecode_pos_t* bc_pos,
 #endif
 volatile mp_obj_t inject_exc) {
 
@@ -237,7 +237,7 @@ volatile mp_obj_t inject_exc) {
         TRACE(ip); \
         MARK_EXC_IP_GLOBAL(); \
         TRACE_TICK(ip, sp, false); \
-        JPO_DBGR_PROCESS(ip); \
+        JPO_DBGR_BEFORE_EXECUTE_BYTECODE(ip); \
         goto *entry_table[*ip++]; \
     } while (0)
     #define DISPATCH_WITH_PEND_EXC_CHECK() goto pending_exception_check
@@ -319,7 +319,7 @@ dispatch_loop:
                 TRACE(ip);
                 MARK_EXC_IP_GLOBAL();
                 TRACE_TICK(ip, sp, false);
-                JPO_DBGR_PROCESS(ip);
+                JPO_DBGR_BEFORE_EXECUTE_BYTECODE(ip);
                 switch (*ip++) {
                 #endif
 
@@ -1516,7 +1516,7 @@ unwind_loop:
 
 #if JPO_DBGR_BUILD
 // Defined here to use the macros from vm.c
-jpo_source_pos_t dbgr_get_source_pos(jpo_bytecode_pos_t *bc_pos) {
+dbgr_source_pos_t dbgr_get_source_pos(dbgr_bytecode_pos_t *bc_pos) {
     // Similar to code under the unwind_loop label
     // Replaced code_state with bc_pos
     const byte *ip = bc_pos->fun_bc->bytecode;
@@ -1539,7 +1539,7 @@ jpo_source_pos_t dbgr_get_source_pos(jpo_bytecode_pos_t *bc_pos) {
 
     //mp_obj_exception_add_traceback(MP_OBJ_FROM_PTR(nlr.ret_val), source_file, source_line, block_name);
 
-    jpo_source_pos_t source_pos = {
+    dbgr_source_pos_t source_pos = {
         .file = source_file,
         .line = source_line,
         .block = block_name,

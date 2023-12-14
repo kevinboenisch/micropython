@@ -6,7 +6,7 @@
 
 #include "mphalport.h" // for JPO_DBGR_BUILD
 
-#include "py/runtime.h" // for jpo_bytecode_pos_t
+#include "py/runtime.h" // for dbgr_bytecode_pos_t
 #include "py/qstr.h"
 #include "pico/multicore.h"
 
@@ -22,9 +22,9 @@ auto_init_mutex(_dbgr_mutex);
 
 dbgr_status_t dbgr_status = DS_NOT_ENABLED;
 
-// Last source position examined by dbgr_process
-static const jpo_source_pos_t empty_source_pos = {0};
-static jpo_source_pos_t g_last_pos = empty_source_pos;
+// Last source position examined by dbgr_before_execute_bytecode
+static const dbgr_source_pos_t empty_source_pos = {0};
+static dbgr_source_pos_t g_last_pos = empty_source_pos;
 
 // Reset vars to initial state
 void reset_vars() {
@@ -103,10 +103,7 @@ static void send_done(int ret) {
     jcomp_send_msg(evt);
 }
 
-void jpo_parse_compile_execute_before() {
-    // Empty for now
-}
-void jpo_parse_compile_execute_after(int ret) {
+void jpo_after_parse_compile_execute(int ret) {
     send_done(ret);
     reset_vars();
 }
@@ -154,14 +151,14 @@ static JCOMP_RV append_str_token(JCOMP_MSG resp, const char* str) {
  * If complete, it will be terminated with "::"
  * @returns JCOMP_OK if ok, an error (likely JCOMP_ERR_BUFFER_TOO_SMALL) if failed
  */
-static JCOMP_RV append_frame(JCOMP_MSG resp, int frame_idx, jpo_bytecode_pos_t *bc_pos) {
+static JCOMP_RV append_frame(JCOMP_MSG resp, int frame_idx, dbgr_bytecode_pos_t *bc_pos) {
     JCOMP_RV rv = JCOMP_OK;
 
     // frame_idx
     rv = append_int_token(resp, frame_idx);
     if (rv) { return rv; }
 
-    jpo_source_pos_t source_pos = dbgr_get_source_pos(bc_pos);
+    dbgr_source_pos_t source_pos = dbgr_get_source_pos(bc_pos);
 
     // file
     rv = append_str_token(resp, qstr_str(source_pos.file));
@@ -191,7 +188,7 @@ static JCOMP_RV append_frame(JCOMP_MSG resp, int frame_idx, jpo_bytecode_pos_t *
  * Complete frame info ends with "::". 
  * "<end>" alone is a valid response.
  */
-static void send_stack_response(const JCOMP_MSG request, jpo_bytecode_pos_t *bc_stack_top) {
+static void send_stack_response(const JCOMP_MSG request, dbgr_bytecode_pos_t *bc_stack_top) {
     if (bc_stack_top == NULL) {
         DBG_SEND("Error: send_stack_reply(): bc_stack_top is NULL");
         return;
@@ -208,7 +205,7 @@ static void send_stack_response(const JCOMP_MSG request, jpo_bytecode_pos_t *bc_
 
     JCOMP_RV rv = JCOMP_OK;
 
-    jpo_bytecode_pos_t *bc_pos = bc_stack_top;
+    dbgr_bytecode_pos_t *bc_pos = bc_stack_top;
     int frame_idx = 0;
     bool is_end = false;
     while(true) {
@@ -240,7 +237,7 @@ static void send_stack_response(const JCOMP_MSG request, jpo_bytecode_pos_t *bc_
 
 // Returns true if a command was processed
 // Sets dbgr_status as appropriate
-static bool try_process_command(jpo_bytecode_pos_t *bc_stack_top) {
+static bool try_process_command(dbgr_bytecode_pos_t *bc_stack_top) {
     JCOMP_RECEIVE_MSG(msg, rv, 0);
 
     // // Print stack info for debugging
@@ -288,24 +285,24 @@ static bool try_process_command(jpo_bytecode_pos_t *bc_stack_top) {
     return false;
 }
 
-static bool source_pos_equal(const jpo_source_pos_t *a, const jpo_source_pos_t *b) {
+static bool source_pos_equal(const dbgr_source_pos_t *a, const dbgr_source_pos_t *b) {
     return (a->file == b->file
         && a->line == b->line
         && a->block == b->block
         && a->depth == b->depth);
 }
 
-static bool source_pos_equal_no_depth(const jpo_source_pos_t *a, const jpo_source_pos_t *b) {
+static bool source_pos_equal_no_depth(const dbgr_source_pos_t *a, const dbgr_source_pos_t *b) {
     return (a->file == b->file
         && a->line == b->line
         && a->block == b->block);
 }
 
 // Called when source position changes (any field)
-static void on_pos_change(const jpo_source_pos_t *cur_pos, jpo_bytecode_pos_t *bc_stack_top) {
+static void on_pos_change(const dbgr_source_pos_t *cur_pos, dbgr_bytecode_pos_t *bc_stack_top) {
     // static/global
     // position at the start of the step over/into/out
-    static jpo_source_pos_t step_pos = {0};
+    static dbgr_source_pos_t step_pos = {0};
 
     // DBG_SEND("on_pos_change: status %d curPos %s:%d:%s:d%d", dbgr_status, 
     //     qstr_str(cur_pos->file), cur_pos->line, qstr_str(cur_pos->block), cur_pos->depth);
@@ -407,7 +404,7 @@ static void on_pos_change(const jpo_source_pos_t *cur_pos, jpo_bytecode_pos_t *b
 }
 
 // Main debugger function, called before every opcode execution
-void dbgr_process(jpo_bytecode_pos_t *bc_pos) {
+void dbgr_before_execute_bytecode(dbgr_bytecode_pos_t *bc_pos) {
     // Already checked, but doesn't hurt
     if (dbgr_status == DS_NOT_ENABLED) {
         return;
@@ -425,7 +422,7 @@ void dbgr_process(jpo_bytecode_pos_t *bc_pos) {
         on_pos_change(&empty_source_pos, bc_pos);
     }
 
-    jpo_source_pos_t cur_pos = dbgr_get_source_pos(bc_pos);
+    dbgr_source_pos_t cur_pos = dbgr_get_source_pos(bc_pos);
     if (source_pos_equal(&cur_pos, &g_last_pos)) {
         return;
     } 
@@ -433,6 +430,17 @@ void dbgr_process(jpo_bytecode_pos_t *bc_pos) {
     g_last_pos = cur_pos;
 }
 
+void dbgr_after_compile_module(qstr module_name) {
+    if (dbgr_status == DS_NOT_ENABLED) {
+        return;
+    }
+
+    // Send an stopped event with the module name and qstr
+
+    // PC will send breakpoints and then a continue command
+
+
+}
 
 
 //////////////

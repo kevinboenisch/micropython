@@ -273,7 +273,7 @@ STATIC mp_obj_t fun_bc_call(mp_obj_t self_in, size_t n_args, size_t n_kw, const 
     
     #if JPO_DBGR_BUILD
     // Push call position info onto the stack
-    jpo_bytecode_pos_t bc_pos = { 
+    dbgr_bytecode_pos_t bc_pos = { 
         .fun_bc = code_state->fun_bc, 
         .ip = code_state->ip,
         .depth = MP_STATE_THREAD(bytecode_pos_stack_top) ? MP_STATE_THREAD(bytecode_pos_stack_top)->depth + 1 : 0,

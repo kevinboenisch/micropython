@@ -40,7 +40,7 @@ static void bkpt_compact() {
 }
 
 void bkpt_clear(qstr file) {
-    DBG_SEND("bkpt_clear() file:%s", qstr_str(file));
+    DBG_SEND("bkpt_clear() file:%d '%s'", file, qstr_str(file));
 
     for(int bp_idx = 0; bp_idx < MAX_BREAKPOINTS; bp_idx++) {
         if (FILE(breakpoints, bp_idx) == file) {
@@ -55,13 +55,13 @@ bool bkpt_is_set(qstr file, int line_num) {
     for(int bp_idx = 0; bp_idx < MAX_BREAKPOINTS; bp_idx++) {
         if (FILE(breakpoints, bp_idx) == 0) {
             // Reached the end
-            //DBG_SEND("bkpt_is_set() %s:%d not found", qstr_str(file), line_num);
+            //DBG_SEND("bkpt_is_set() %d '%s' line:%d not found", file, qstr_str(file), line_num);
             return false;
         }
         if (FILE(breakpoints, bp_idx) == file
             && LINE(breakpoints, bp_idx) == line_num) {
             // Found it
-            //DBG_SEND("bkpt_is_set() %s:%d FOUND", qstr_str(file), line_num);
+            //DBG_SEND("bkpt_is_set() %d '%s' line:%d FOUND", file, qstr_str(file), line_num);
             return true;
         }
     }
@@ -69,7 +69,7 @@ bool bkpt_is_set(qstr file, int line_num) {
 }
 
 bool bkpt_set(qstr file, int line_num) {    
-    DBG_SEND("bkpt_set() file:%s line:%d", qstr_str(file), line_num);
+    DBG_SEND("bkpt_set() file:%s '%d' line:%d", file, qstr_str(file), line_num);
 
     for(int bp_idx = 0; bp_idx < MAX_BREAKPOINTS; bp_idx++) {
         if (FILE(breakpoints, bp_idx) == 0) {
@@ -83,7 +83,7 @@ bool bkpt_set(qstr file, int line_num) {
         }
     }
     // No free spot
-    DBG_SEND("Warning: bkpt_set() no free spot for file:%s line:%d", qstr_str(file), line_num);
+    DBG_SEND("Warning: bkpt_set() no free spot for file:%d '%s' line:%d", qstr_str(file), line_num);
     return false;
 }
 
@@ -101,7 +101,7 @@ void bkpt_set_from_msg(JCOMP_MSG msg) {
     jcomp_msg_get_str(msg, CMD_LENGTH, file, file_len + 1);
     qstr file_qstr = qstr_find_strn(file, file_len);
     if (file_qstr == 0) {
-        DBG_SEND("Warning: bkpt file '%s' not found as qstr, ignoring.", file);
+        DBG_SEND("Warning: file '%s' not found as qstr, ignoring.", file);
         return;
     }
 

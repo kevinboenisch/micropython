@@ -123,6 +123,10 @@ STATIC int parse_compile_execute(const void *source, mp_parse_input_kind_t input
             qstr source_name = lex->source_name;
             mp_parse_tree_t parse_tree = mp_parse(lex, input_kind);
             module_fun = mp_compile(&parse_tree, source_name, exec_flags & EXEC_FLAG_IS_REPL);
+            #ifdef JPO_DBGR_BUILD
+            dbgr_after_compile_module(source_name);
+            #endif
+
             #else
             mp_raise_msg(&mp_type_RuntimeError, MP_ERROR_TEXT("script compilation not supported"));
             #endif
@@ -563,10 +567,9 @@ raw_repl_reset:
         }
 
 #ifdef JPO_DBGR
-        // Always wrap to send the done event, even if not debugging
-        jpo_parse_compile_execute_before();
+        // Always send the done event, even if not debugging in JPO_DBGR_BUILD
         int ret = parse_compile_execute(&line, MP_PARSE_FILE_INPUT, EXEC_FLAG_PRINT_EOF | EXEC_FLAG_SOURCE_IS_VSTR);
-        jpo_parse_compile_execute_after(ret);
+        jpo_after_parse_compile_execute(ret);
 #else
         int ret = parse_compile_execute(&line, MP_PARSE_FILE_INPUT, EXEC_FLAG_PRINT_EOF | EXEC_FLAG_SOURCE_IS_VSTR);
 #endif //JPO_DBGR
@@ -715,10 +718,9 @@ friendly_repl_reset:
         }
 
 #ifdef JPO_DBGR
-        // Always wrap to send the done event, even if not debugging
-        jpo_parse_compile_execute_before();
+        // Always send the done event, even if not debugging in JPO_DBGR_BUILD
         ret = parse_compile_execute(&line, parse_input_kind, EXEC_FLAG_ALLOW_DEBUGGING | EXEC_FLAG_IS_REPL | EXEC_FLAG_SOURCE_IS_VSTR);
-        jpo_parse_compile_execute_after(ret);
+        jpo_after_parse_compile_execute(ret);
 #else
         ret = parse_compile_execute(&line, parse_input_kind, EXEC_FLAG_ALLOW_DEBUGGING | EXEC_FLAG_IS_REPL | EXEC_FLAG_SOURCE_IS_VSTR);
 #endif //JPO_DBGR

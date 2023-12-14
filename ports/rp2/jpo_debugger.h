@@ -4,7 +4,7 @@
 #include <stdbool.h>
 #include "mpconfigport.h" // for JPO_DBGR_BUILD
 
-#include "py/mpstate.h" // for jpo_bytecode_pos_t
+#include "py/mpstate.h" // for dbgr_bytecode_pos_t
 
 // Minimal debugger features are always enabled
 #define JPO_DBGR (1)
@@ -49,6 +49,7 @@
 
 ///////////////////
 // Always available
+// (jpo_*)
 ///////////////////
 
 /**
@@ -61,16 +62,7 @@ void jpo_dbgr_init(void);
  * @brief Wrap around pyexec.c::parse_compile_execute
  * Call it even if not JPO_DBGR_BUILD.
  */
-void jpo_parse_compile_execute_before();
-void jpo_parse_compile_execute_after(int ret);
-
-/**
- * @brief Inform the PC that executing user code finished, either normally or with an error.
- * Call it even if not JPO_DBGR_BUILD.
- * Do not call on every module excution, only for the entire user program.
- * @param ret return value from parse_compile_execute
- */
-void jpo_parse_compile_execute_done(int ret);
+void jpo_after_parse_compile_execute(int ret);
 
 /**
  * Check and perform debugger actions as needed, before an opcode for given ip is executed.
@@ -80,18 +72,19 @@ void jpo_parse_compile_execute_done(int ret);
  *        Can't pass it as an arg, needs to be a variable in scope. 
  */
 #if JPO_DBGR_BUILD
-#define JPO_DBGR_PROCESS(ip) \
+#define JPO_DBGR_BEFORE_EXECUTE_BYTECODE(ip) \
     if (dbgr_status != 0) { \
         if (bc_pos) { bc_pos->ip = ip; } \
-        dbgr_process(bc_pos); \
+        dbgr_before_execute_bytecode(bc_pos); \
     }
 #else
-#define JPO_DBGR_PROCESS(ip)
+#define JPO_DBGR_BEFORE_EXECUTE_BYTECODE(ip)
 #endif //JPO_DBGR_BUILD
 
 
 //////////////////////
 // Debugger build only
+// (dbgr_*)
 //////////////////////
 #if JPO_DBGR_BUILD
 
@@ -117,20 +110,22 @@ typedef enum _dbgr_status_t {
     // Program terminated: DS_NOT_ENABLED
 } dbgr_status_t;
 
-/** @brief For internal use by JPO_DBGR_PROCESS. Do NOT set (except in debugger.c). */
+/** @brief For internal use by JPO_BEFORE_EXECUTE_BYTECODE. Do NOT set (except in debugger.c). */
 extern dbgr_status_t dbgr_status;
 
-/** @brief For internal use by JPO_DBGR_PROCESS. */
-void dbgr_process(jpo_bytecode_pos_t *bc_pos);
+/** @brief For internal use by JPO_BEFORE_EXECUTE_BYTECODE. */
+void dbgr_before_execute_bytecode(dbgr_bytecode_pos_t *bc_pos);
+
+void dbgr_after_compile_module(qstr module_name);
 
 /** @brief in vm.c, for use by debugger.c */
-typedef struct _jpo_source_pos_t {
+typedef struct _dbgr_source_pos_t {
     qstr file;
     size_t line;
     qstr block;
     uint16_t depth;
-} jpo_source_pos_t;
-jpo_source_pos_t dbgr_get_source_pos(jpo_bytecode_pos_t *bc_pos);
+} dbgr_source_pos_t;
+dbgr_source_pos_t dbgr_get_source_pos(dbgr_bytecode_pos_t *bc_pos);
 
 /** @brief Diagonstics. Check if there is a stack overflow, DBG_SEND info. */
 bool dbgr_check_stack_overflow(bool show_if_ok);
