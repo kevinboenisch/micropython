@@ -563,10 +563,10 @@ raw_repl_reset:
         }
 
 #ifdef JPO_DBGR
-        //jpo_dbgr_start(ret);
+        // Always wrap to send the done event, even if not debugging
+        jpo_parse_compile_execute_before();
         int ret = parse_compile_execute(&line, MP_PARSE_FILE_INPUT, EXEC_FLAG_PRINT_EOF | EXEC_FLAG_SOURCE_IS_VSTR);
-        // Always send the end event, even if not debugging
-        jpo_parse_compile_execute_done(ret);
+        jpo_parse_compile_execute_after(ret);
 #else
         int ret = parse_compile_execute(&line, MP_PARSE_FILE_INPUT, EXEC_FLAG_PRINT_EOF | EXEC_FLAG_SOURCE_IS_VSTR);
 #endif //JPO_DBGR
@@ -715,10 +715,10 @@ friendly_repl_reset:
         }
 
 #ifdef JPO_DBGR
-        //jpo_dbgr_start(ret);
+        // Always wrap to send the done event, even if not debugging
+        jpo_parse_compile_execute_before();
         ret = parse_compile_execute(&line, parse_input_kind, EXEC_FLAG_ALLOW_DEBUGGING | EXEC_FLAG_IS_REPL | EXEC_FLAG_SOURCE_IS_VSTR);
-        // Always send the end event, even if not debugging
-        jpo_parse_compile_execute_done(ret);
+        jpo_parse_compile_execute_after(ret);
 #else
         ret = parse_compile_execute(&line, parse_input_kind, EXEC_FLAG_ALLOW_DEBUGGING | EXEC_FLAG_IS_REPL | EXEC_FLAG_SOURCE_IS_VSTR);
 #endif //JPO_DBGR

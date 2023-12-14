@@ -18,12 +18,18 @@
 auto_init_mutex(_dbgr_mutex);
 
 #if JPO_DBGR_BUILD
+#define CMD_LENGTH 8
+
 dbgr_status_t dbgr_status = DS_NOT_ENABLED;
 
-#define CMD_LENGTH 8
+// Last source position examined by dbgr_process
+static const jpo_source_pos_t empty_source_pos = {0};
+static jpo_source_pos_t g_last_pos = empty_source_pos;
+static void on_pos_change(jpo_source_pos_t *cur_pos, jpo_bytecode_pos_t *bc_stack_top);
 
 // Reset vars to initial state
 void reset_vars() {
+    g_last_pos = empty_source_pos;
     dbgr_status = DS_NOT_ENABLED;
     bkpt_clear_all();
 }
@@ -41,7 +47,7 @@ static bool jcomp_handler_inlock(JCOMP_MSG msg) {
 #if JPO_DBGR_BUILD
     if (jcomp_msg_has_str(msg, 0, CMD_DBG_START)) {
         DBG_SEND("CMD_DBG_START");
-        bkpt_clear_all();
+        reset_vars();
         dbgr_status = DS_STARTING;
         return true;
     }
@@ -97,9 +103,19 @@ static void send_done(int ret) {
     jcomp_msg_set_uint32(evt, CMD_LENGTH, (uint32_t) ret);
     jcomp_send_msg(evt);
 }
-void jpo_parse_compile_execute_done(int ret) {
-    reset_vars();
+
+void jpo_parse_compile_execute_before() {
+#ifdef JPO_DBGR_BUILD
+    if (dbgr_status == DS_STARTING) {
+        // Execute *before* evaluationg the initial line
+        jpo_source_pos_t pos = {0};
+        on_pos_change(&pos, NULL);
+    }
+#endif // JPO_DBGR_BUILD
+}
+void jpo_parse_compile_execute_after(int ret) {
     send_done(ret);
+    reset_vars();
 }
 
 #if JPO_DBGR_BUILD
@@ -116,7 +132,7 @@ static bool breakpoint_hit(qstr file, int line_num) {
 }
 
 static void send_stopped(const char* reason8ch) {
-    DBG_SEND("Event: %s%s", EVT_DBG_STOPPED, reason8ch);
+    DBG_SEND("Event: %s %s", EVT_DBG_STOPPED, reason8ch);
 
     JCOMP_CREATE_EVENT(evt, CMD_LENGTH + 8);
     jcomp_msg_set_str(evt, 0, EVT_DBG_STOPPED);
@@ -183,9 +199,14 @@ static JCOMP_RV append_frame(JCOMP_MSG resp, int frame_idx, jpo_bytecode_pos_t *
  * "<end>" alone is a valid response.
  */
 static void send_stack_response(JCOMP_MSG request, jpo_bytecode_pos_t *bc_stack_top) {
+    if (bc_stack_top == NULL) {
+        DBG_SEND("Error: send_stack_reply(): bc_stack_top is NULL");
+        return;
+    }
+    
     // request: 8-byte name, 4-byte start frame index
     uint32_t start_frame_idx = jcomp_msg_get_uint32(request, CMD_LENGTH);
-    DBG_SEND("start_frame_idx %d", start_frame_idx);
+    DBG_SEND("send_stack_response start_frame_idx %d", start_frame_idx);
     
     JCOMP_CREATE_RESPONSE(resp, jcomp_msg_id(request), JCOMP_MAX_PAYLOAD_SIZE);
     if (resp == NULL) {
@@ -288,11 +309,13 @@ static bool source_pos_equal_no_depth(jpo_source_pos_t *a, jpo_source_pos_t *b) 
 }
 
 // Called when source position changes (any field)
-// last_pos and cur_pos are guaranteed to be different
 static void on_pos_change(jpo_source_pos_t *cur_pos, jpo_bytecode_pos_t *bc_stack_top) {
     // static/global
     // position at the start of the step over/into/out
     static jpo_source_pos_t step_pos = {0};
+
+    // DBG_SEND("on_pos_change: status %d curPos %s:%d:%s:d%d", dbgr_status, 
+    //     qstr_str(cur_pos->file), cur_pos->line, qstr_str(cur_pos->block), cur_pos->depth);
 
     // locals
     char* stopped_reason = "";
@@ -331,7 +354,7 @@ static void on_pos_change(jpo_source_pos_t *cur_pos, jpo_bytecode_pos_t *bc_stac
         // Only triggered if the depth is lower than the last depth
         // NOT-BUG: after stepping out, the fn call line is highlighted again.
         // That's ok, PC Python debugger does the same.
-        //DBG_SEND("check step_out: cur_pos->depth < last_pos->depth", cur_pos->depth < step_pos.depth);
+        //DBG_SEND("check step_out: cur_pos->depth < step_pos->depth", cur_pos->depth < step_pos.depth);
         if (cur_pos->depth < step_pos.depth) {
             stopped_reason = R_STOPPED_STEP_OUT;
             dbgr_status = DS_STOPPED;
@@ -392,8 +415,6 @@ static void on_pos_change(jpo_source_pos_t *cur_pos, jpo_bytecode_pos_t *bc_stac
 
 // Main debugger function, called before every opcode execution
 void dbgr_process(jpo_bytecode_pos_t *bc_pos) {
-    static jpo_source_pos_t last_pos = {0};
-
     // Already checked, but doesn't hurt
     if (dbgr_status == DS_NOT_ENABLED) {
         return;
@@ -404,11 +425,11 @@ void dbgr_process(jpo_bytecode_pos_t *bc_pos) {
     }
 
     jpo_source_pos_t cur_pos = dbgr_get_source_pos(bc_pos);
-    if (source_pos_equal(&cur_pos, &last_pos)) {
+    if (source_pos_equal(&cur_pos, &g_last_pos)) {
         return;
     } 
     on_pos_change(&cur_pos, bc_pos);
-    last_pos = cur_pos;
+    g_last_pos = cur_pos;
 }
 
 

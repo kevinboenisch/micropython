@@ -58,6 +58,13 @@
 void jpo_dbgr_init(void);
 
 /**
+ * @brief Wrap around pyexec.c::parse_compile_execute
+ * Call it even if not JPO_DBGR_BUILD.
+ */
+void jpo_parse_compile_execute_before();
+void jpo_parse_compile_execute_after(int ret);
+
+/**
  * @brief Inform the PC that executing user code finished, either normally or with an error.
  * Call it even if not JPO_DBGR_BUILD.
  * Do not call on every module excution, only for the entire user program.
