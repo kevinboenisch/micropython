@@ -457,23 +457,34 @@ void dbgr_after_compile_module(qstr module_name) {
         return;
     }
 
-    // Send an stopped event with the module name and qstr
-    dbgr_status = DS_STOPPED;
+    // Save the old status so we can restore it after the pause
+    dbgr_status_t old_status = dbgr_status;
+
+    // Special stopped state for the module loaded event.
+    // The debugger does not expect any kind of command (e.g. stack trace request),
+    // only set breakpoints (optional) and a continue (required). 
+    dbgr_status = DS_STOPPED_TEMP;
     send_module_loaded(module_name);
 
     // Client will send CMD_DBG_SET_BREAKPOINTS, processed on core1,
     // followed by a continue;
 
     // Wait for a continue command
+    // TODO: shouldn't continue if we were trying to step in/over/out before the break, 
+    // but do that action instead
     while (true) {
         if (try_process_command(NULL)) {
             if (dbgr_status == DS_RUNNING) {
-                return;
+                break;
             }
         }
         // Spin-wait
         MICROPY_EVENT_POLL_HOOK_FAST;
     }
+
+    // Restore the old status (e.g. step into/over/out)
+    dbgr_status = old_status;
+
 }
 
 

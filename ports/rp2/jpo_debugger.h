@@ -108,7 +108,10 @@ typedef enum _dbgr_status_t {
     // Stopped, waiting for commands (e.g. continue, breakpoints). _stoppedReason indicates why.
     // Fires a StoppedEvent when entering.
     DS_STOPPED,         // -> DS_RUNNING, DS_STEP_*
-    
+
+    // Temporarily stopped, waiting for specific commands and a continue. A special event (not stopped) is raised.
+    DS_STOPPED_TEMP,
+
     // Program terminated: DS_NOT_ENABLED
 } dbgr_status_t;
 
