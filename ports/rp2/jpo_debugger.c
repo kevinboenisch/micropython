@@ -319,7 +319,7 @@ static bool source_pos_equal_no_depth(const dbgr_source_pos_t *a, const dbgr_sou
 }
 
 // Called when source position changes (any field)
-static void on_pos_change(const dbgr_source_pos_t *cur_pos, dbgr_bytecode_pos_t *bc_stack_top) {
+static void on_pos_change(const dbgr_source_pos_t *cur_pos, const dbgr_source_pos_t *last_pos, dbgr_bytecode_pos_t *bc_stack_top) {
     // static/global
     // position at the start of the step over/into/out
     static dbgr_source_pos_t step_pos = {0};
@@ -330,7 +330,9 @@ static void on_pos_change(const dbgr_source_pos_t *cur_pos, dbgr_bytecode_pos_t 
     // locals
     char* stopped_reason = "";
 
-    if (breakpoint_hit(cur_pos->file, cur_pos->line)) {
+    if (breakpoint_hit(cur_pos->file, cur_pos->line)
+        // Prevent function breakpoint from being hit on exit
+        && cur_pos->depth >= last_pos->depth) {            
          DBG_SEND("breakpoint_hit %s:%d", qstr_str(cur_pos->file), cur_pos->line);
          stopped_reason = R_STOPPED_BREAKPOINT;
          dbgr_status = DS_STOPPED;
@@ -438,15 +440,15 @@ void dbgr_before_execute_bytecode(dbgr_bytecode_pos_t *bc_pos) {
     // before executing it for the first line of the program
     // It will pause to accept breakpoints, and then another call
     // is needed for the breakpoint on the first line to be hit.
-    if (dbgr_status == DS_STARTING) {
-        on_pos_change(&empty_source_pos, bc_pos);
-    }
+    // if (dbgr_status == DS_STARTING) {
+    //     on_pos_change(&empty_source_pos, &empty_source_pos, bc_pos);
+    // }
 
     dbgr_source_pos_t cur_pos = dbgr_get_source_pos(bc_pos);
     if (source_pos_equal(&cur_pos, &g_last_pos)) {
         return;
     } 
-    on_pos_change(&cur_pos, bc_pos);
+    on_pos_change(&cur_pos, &g_last_pos, bc_pos);
     g_last_pos = cur_pos;
 }
 
