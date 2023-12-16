@@ -1,4 +1,4 @@
-#include "jpo_breakpoints.h"
+#include "jpo_dbgr_breakpoints.h"
 
 #include "jpo/jcomp_protocol.h"
 #include "jpo/debug.h"
