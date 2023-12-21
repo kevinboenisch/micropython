@@ -3,7 +3,6 @@
 
 #include "jpo_debugger.h"
 #include "jpo_dbgr_breakpoints.h"
-#include "jpo_dbgr_stackframes.h"
 
 #include "jpo/jcomp_protocol.h"
 #include "jpo/debug.h"
@@ -15,8 +14,9 @@
 #include "pico/multicore.h"
 
 // Disable output
-//#undef DBG_SEND
-//#define DBG_SEND(...)
+#undef DBG_SEND
+#define DBG_SEND(...)
+
 
 #define MUTEX_TIMEOUT_MS 100
 auto_init_mutex(_dbgr_mutex);
@@ -196,6 +196,10 @@ static bool try_process_command(dbgr_bytecode_pos_t *bc_stack_top) {
         dbgr_send_stack_response(msg, bc_stack_top);
         return true;
     }
+    else if (jcomp_msg_has_str(msg, 0, REQ_DBG_VARIABLES)) {
+        dbgr_send_variables_response(msg, bc_stack_top);
+        return true;
+    }
 
     DBG_SEND("Error: not a dbgr message id:%d", jcomp_msg_id(msg));
     return false;
@@ -220,15 +224,14 @@ static void on_pos_change(const dbgr_source_pos_t *cur_pos, const dbgr_source_po
     // position at the start of the step over/into/out
     static dbgr_source_pos_t step_pos = {0};
 
-    // DBG_SEND("on_pos_change: status %d curPos %s:%d:%s:d%d", dbgr_status, 
-    //     qstr_str(cur_pos->file), cur_pos->line, qstr_str(cur_pos->block), cur_pos->depth);
+    // DBG_SEND("on_pos_change: dbgr_status:%d", dbgr_status); 
 
     // locals
     char* stopped_reason = "";
 
     if (breakpoint_hit(cur_pos->file, cur_pos->line)
         // Prevent function breakpoint from being hit on exit
-        && cur_pos->depth >= last_pos->depth) {            
+        && cur_pos->depth >= last_pos->depth) {
          DBG_SEND("breakpoint_hit %s:%d", qstr_str(cur_pos->file), cur_pos->line);
          stopped_reason = R_STOPPED_BREAKPOINT;
          dbgr_status = DS_STOPPED;
@@ -253,7 +256,6 @@ static void on_pos_change(const dbgr_source_pos_t *cur_pos, const dbgr_source_po
 
     case DS_STEP_INTO:
         // Triggered on any source position change
-        //DBG_SEND("check step_into: always true");
         stopped_reason = R_STOPPED_STEP_INTO;
         dbgr_status = DS_STOPPED;
         break;
@@ -262,7 +264,6 @@ static void on_pos_change(const dbgr_source_pos_t *cur_pos, const dbgr_source_po
         // Only triggered if the depth is lower than the last depth
         // NOT-BUG: after stepping out, the fn call line is highlighted again.
         // That's ok, PC Python debugger does the same.
-        //DBG_SEND("check step_out: cur_pos->depth < step_pos->depth", cur_pos->depth < step_pos.depth);
         if (cur_pos->depth < step_pos.depth) {
             stopped_reason = R_STOPPED_STEP_OUT;
             dbgr_status = DS_STOPPED;
@@ -274,7 +275,6 @@ static void on_pos_change(const dbgr_source_pos_t *cur_pos, const dbgr_source_po
     
     case DS_STEP_OVER:
         // Triggered if the depth is same or lower than one set when step over was requested
-        // DBG_SEND("check step_over: cur_pos->depth:%d <= step_pos.depth:%d", cur_pos->depth, step_pos.depth);
         if (cur_pos->depth <= step_pos.depth
             && !source_pos_equal_no_depth(cur_pos, &step_pos)) {
             stopped_reason = R_STOPPED_STEP_OVER;
@@ -305,7 +305,6 @@ static void on_pos_change(const dbgr_source_pos_t *cur_pos, const dbgr_source_po
                 case DS_STEP_INTO:
                 case DS_STEP_OUT:
                 case DS_STEP_OVER:
-                    DBG_SEND("cmd: step %d", dbgr_status);
                     step_pos = *cur_pos;
                     return;
                 case DS_STOPPED:
@@ -340,10 +339,16 @@ void dbgr_before_execute_bytecode(dbgr_bytecode_pos_t *bc_pos) {
     //     on_pos_change(&empty_source_pos, &empty_source_pos, bc_pos);
     // }
 
+    DBG_SEND("opcode: 0x%x", *(bc_pos->ip));
     dbgr_source_pos_t cur_pos = dbgr_get_source_pos(bc_pos);
     if (source_pos_equal(&cur_pos, &g_last_pos)) {
         return;
-    } 
+    }
+
+    DBG_SEND("g_last_pos: %s:%d/%s/d%d\r\n---cur_pos: %s:%d/%s/d%d",
+        g_last_pos.file, g_last_pos.line, g_last_pos.block, g_last_pos.depth,
+        cur_pos.file, cur_pos.line, cur_pos.block, cur_pos.depth);
+
     on_pos_change(&cur_pos, &g_last_pos, bc_pos);
     g_last_pos = cur_pos;
 }

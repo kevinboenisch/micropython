@@ -6,6 +6,8 @@
 
 #include "py/mpstate.h" // for dbgr_bytecode_pos_t
 
+#include "jpo/jcomp_protocol.h" // for JCOMP_MSG
+
 // Minimal debugger features are always enabled
 #define JPO_DBGR (1)
 
@@ -40,7 +42,8 @@
     #define EVT_DBG_MODULE_LOADED "DBG_MODL" // + <u8 qstr_code><source_file>
 
     // Requests with responses
-    #define REQ_DBG_STACK    "DBG_STAC"
+    #define REQ_DBG_STACK     "DBG_STAC"
+    #define REQ_DBG_VARIABLES "DBG_VARS"
 #endif
 
 // PC sends anytime to stop the program.
@@ -132,6 +135,14 @@ typedef struct _dbgr_source_pos_t {
     uint16_t depth;
 } dbgr_source_pos_t;
 dbgr_source_pos_t dbgr_get_source_pos(dbgr_bytecode_pos_t *bc_pos);
+
+
+// Internal, in jpo_dbgr_stackframes.c
+void dbgr_send_stack_response(const JCOMP_MSG request, dbgr_bytecode_pos_t *bc_stack_top);
+
+// Internal, in jpo_dbgr_variables.c
+void dbgr_send_variables_response(const JCOMP_MSG request, dbgr_bytecode_pos_t *bc_stack_top);
+
 
 /** @brief Diagonstics. Check if there is a stack overflow, DBG_SEND info. */
 bool dbgr_check_stack_overflow(bool show_if_ok);

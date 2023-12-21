@@ -3,8 +3,12 @@
 #include "jpo/jcomp_protocol.h"
 #include "jpo/debug.h"
 
-#define CMD_LENGTH 8
+// Disable debugging
+#undef DBG_SEND
+#define DBG_SEND(...)
 
+
+#define CMD_LENGTH 8
 #define MAX_BREAKPOINTS 100
 
 // Odd items are qstr file, even items are line numbers
@@ -40,6 +44,7 @@ static int find_set_idx(int start) {
 
 static void dbg_send_breakpoints() {
     int i = 0;
+    (void)(i); // suppress warning
     DBG_SEND("[%d] 0:%d/%d 1:%d/%d 2:%d/%d 3:%d:%d 4:%d/%d 5:%d/%d 6:%d/%d 7:%d/%d 8:%d/%d 9:%d/%d", i,
         FILE(breakpoints, i+0), LINE(breakpoints, i+0),
         FILE(breakpoints, i+1), LINE(breakpoints, i+1),

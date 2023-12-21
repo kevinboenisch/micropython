@@ -154,6 +154,7 @@ set(MICROPY_SOURCE_PORT
     jpo_debugger.c
     jpo_dbgr_breakpoints.c
     jpo_dbgr_stackframes.c
+    jpo_dbgr_variables.c
     machine_adc.c
     machine_bitstream.c
     machine_i2c.c

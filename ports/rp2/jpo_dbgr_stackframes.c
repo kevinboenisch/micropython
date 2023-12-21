@@ -1,14 +1,17 @@
-#include "jpo_dbgr_stackframes.h"
+#include "jpo_debugger.h" 
 
 #include <stdio.h>
 #include <string.h>
 
 #include "jpo/jcomp_protocol.h"
 #include "jpo/debug.h"
-#include "jpo_debugger.h" // for dbgr_get_source_pos
+
+// Disable debugging
+#undef DBG_SEND
+#define DBG_SEND(...)
+
 
 #define CMD_LENGTH 8
-
 // make it smaller for testing
 //#define FRAME_PAYLOAD_SIZE JCOMP_MAX_PAYLOAD_SIZE
 #define FRAME_PAYLOAD_SIZE 200
@@ -71,7 +74,7 @@ static JCOMP_RV append_frame(JCOMP_MSG resp, int frame_idx, dbgr_bytecode_pos_t 
  */
 void dbgr_send_stack_response(const JCOMP_MSG request, dbgr_bytecode_pos_t *bc_stack_top) {
     if (bc_stack_top == NULL) {
-        DBG_SEND("Error: send_stack_reply(): bc_stack_top is NULL");
+        DBG_SEND("Error: dbgr_send_stack_response(): bc_stack_top is NULL");
         return;
     }
     
@@ -81,7 +84,7 @@ void dbgr_send_stack_response(const JCOMP_MSG request, dbgr_bytecode_pos_t *bc_s
     
     JCOMP_CREATE_RESPONSE(resp, jcomp_msg_id(request), FRAME_PAYLOAD_SIZE);
     if (resp == NULL) {
-        DBG_SEND("Error in send_stack_reply(): JCOMP_CREATE_RESPONSE failed");
+        DBG_SEND("Error in dbgr_send_stack_response(): JCOMP_CREATE_RESPONSE failed");
     }
 
     JCOMP_RV rv = JCOMP_OK;
