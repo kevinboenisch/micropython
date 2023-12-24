@@ -5,6 +5,7 @@
 #include "mpconfigport.h" // for JPO_DBGR_BUILD
 
 #include "py/mpstate.h" // for dbgr_bytecode_pos_t
+#include "py/profile.h" // for frame
 
 #include "jpo/jcomp_protocol.h" // for JCOMP_MSG
 
@@ -120,6 +121,13 @@ typedef enum _dbgr_status_t {
 
 /** @brief For internal use by JPO_BEFORE_EXECUTE_BYTECODE. Do NOT set (except in debugger.c). */
 extern dbgr_status_t dbgr_status;
+
+#define DBGR_IS_ENABLED (dbgr_status != DS_NOT_ENABLED)
+
+void dbgr_trace_call(mp_obj_frame_t* frame);
+void dbgr_trace_line(mp_obj_frame_t* frame);
+void dbgr_trace_return(mp_obj_frame_t* frame);
+void dbgr_trace_exception(mp_obj_frame_t* frame);
 
 /** @brief For internal use by JPO_BEFORE_EXECUTE_BYTECODE. */
 void dbgr_before_execute_bytecode(dbgr_bytecode_pos_t *bc_pos);

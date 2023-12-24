@@ -29,6 +29,9 @@
 #include "py/gc.h"
 #include "py/objfun.h"
 
+#include "jpo_debugger.h"
+// #include "jpo/debug.h" // for DBG_SEND
+
 #if MICROPY_PY_SYS_SETTRACE
 
 #define prof_trace_cb MP_STATE_THREAD(prof_trace_callback)
@@ -334,9 +337,9 @@ mp_obj_t mp_prof_frame_enter(mp_code_state_t *code_state) {
     }
     code_state->frame = frame;
 
-    if (!prof_trace_cb) {
-        return MP_OBJ_NULL;
-    }
+    // if (!prof_trace_cb) {
+    //     return MP_OBJ_NULL;
+    // }
 
     mp_obj_t top;
     prof_callback_args_t _args, *args = &_args;
@@ -345,7 +348,19 @@ mp_obj_t mp_prof_frame_enter(mp_code_state_t *code_state) {
     // SETTRACE event CALL
     args->event = MP_OBJ_NEW_QSTR(MP_QSTR_call);
     args->arg = mp_const_none;
-    top = mp_prof_callback_invoke(prof_trace_cb, args);
+
+    #if JPO_DBGR_BUILD
+    if (DBGR_IS_ENABLED) {
+        dbgr_trace_call(args->frame);
+    }
+    #endif
+
+    if (prof_trace_cb) {
+        top = mp_prof_callback_invoke(prof_trace_cb, args);
+    }
+    else {
+        top = mp_const_none;
+    }
 
     code_state->frame->callback = mp_obj_is_callable(top) ? top : MP_OBJ_NULL;
 
@@ -397,7 +412,19 @@ mp_obj_t mp_prof_instr_tick(mp_code_state_t *code_state, bool is_exception) {
     // SETTRACE event EXCEPTION
     if (is_exception) {
         args->event = MP_OBJ_NEW_QSTR(MP_QSTR_exception);
-        top = mp_prof_callback_invoke(callback, args);
+
+        #if JPO_DBGR_BUILD
+        if (DBGR_IS_ENABLED) {
+            dbgr_trace_exception(args->frame);
+        }
+        #endif
+
+        if (callback) {
+            top = mp_prof_callback_invoke(callback, args);
+        }
+        else {
+            top = mp_const_none;
+        }
         return top;
     }
 
@@ -409,14 +436,39 @@ mp_obj_t mp_prof_instr_tick(mp_code_state_t *code_state, bool is_exception) {
     if (prev_line_no != current_line_no) {
         args->frame->lineno = current_line_no;
         args->event = MP_OBJ_NEW_QSTR(MP_QSTR_line);
-        top = mp_prof_callback_invoke(callback, args);
+
+        #if JPO_DBGR_BUILD
+        if (DBGR_IS_ENABLED) {
+            dbgr_trace_line(args->frame);
+        }
+        #endif
+
+        if (callback) {
+            top = mp_prof_callback_invoke(callback, args);
+        }
+        else {
+            top = mp_const_none;
+        }
     }
 
     // SETTRACE event RETURN
     const byte *ip = code_state->ip;
     if (*ip == MP_BC_RETURN_VALUE || *ip == MP_BC_YIELD_VALUE) {
         args->event = MP_OBJ_NEW_QSTR(MP_QSTR_return);
-        top = mp_prof_callback_invoke(callback, args);
+
+        #if JPO_DBGR_BUILD
+        if (DBGR_IS_ENABLED) {
+            dbgr_trace_return(args->frame);
+        }
+        #endif
+
+        if (callback) {
+            top = mp_prof_callback_invoke(callback, args);
+        }
+        else {
+            top = mp_const_none;
+        }
+
         if (code_state->prev_state && *ip == MP_BC_RETURN_VALUE) {
             code_state->frame->callback = MP_OBJ_NULL;
         }

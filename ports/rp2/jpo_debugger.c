@@ -14,8 +14,8 @@
 #include "pico/multicore.h"
 
 // Disable output
-#undef DBG_SEND
-#define DBG_SEND(...)
+// #undef DBG_SEND
+// #define DBG_SEND(...)
 
 
 #define MUTEX_TIMEOUT_MS 100
@@ -339,15 +339,15 @@ void dbgr_before_execute_bytecode(dbgr_bytecode_pos_t *bc_pos) {
     //     on_pos_change(&empty_source_pos, &empty_source_pos, bc_pos);
     // }
 
-    DBG_SEND("opcode: 0x%x", *(bc_pos->ip));
+    //DBG_SEND("opcode: 0x%x", *(bc_pos->ip));
     dbgr_source_pos_t cur_pos = dbgr_get_source_pos(bc_pos);
     if (source_pos_equal(&cur_pos, &g_last_pos)) {
         return;
     }
 
-    DBG_SEND("g_last_pos: %s:%d/%s/d%d\r\n---cur_pos: %s:%d/%s/d%d",
-        g_last_pos.file, g_last_pos.line, g_last_pos.block, g_last_pos.depth,
-        cur_pos.file, cur_pos.line, cur_pos.block, cur_pos.depth);
+    // DBG_SEND("g_last_pos: %s:%d/%s/d%d\r\n---cur_pos: %s:%d/%s/d%d",
+    //     qstr_str(g_last_pos.file), g_last_pos.line, qstr_str(g_last_pos.block), g_last_pos.depth,
+    //     qstr_str(cur_pos.file), cur_pos.line, qstr_str(cur_pos.block), cur_pos.depth);
 
     on_pos_change(&cur_pos, &g_last_pos, bc_pos);
     g_last_pos = cur_pos;
@@ -386,6 +386,28 @@ void dbgr_after_compile_module(qstr module_name) {
     // Restore the old status (e.g. step into/over/out)
     dbgr_status = old_status;
 
+}
+
+void print_trace(const char* prefix, mp_obj_frame_t* frame) {
+
+}
+
+// TODO: reset g_trace_depth state
+int g_trace_depth = 0;
+void dbgr_trace_call(mp_obj_frame_t* frame) {
+    g_trace_depth++;
+    DBG_SEND("trace: call depth:%d", g_trace_depth);
+}
+void dbgr_trace_line(mp_obj_frame_t* frame) {
+    DBG_SEND("trace: line %d depth:%d", frame->lineno, g_trace_depth);
+}
+void dbgr_trace_return(mp_obj_frame_t* frame) {
+    g_trace_depth--;
+    DBG_SEND("trace: return new-depth:%d", g_trace_depth);
+}
+void dbgr_trace_exception(mp_obj_frame_t* frame) {
+    g_trace_depth--;
+    DBG_SEND("trace: exception new-depth:%d", g_trace_depth);
 }
 
 

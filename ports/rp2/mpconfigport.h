@@ -55,6 +55,13 @@
 // TODO: move into build settings, (0) for fast execution, (1) for debug
 #define JPO_DBGR_BUILD (1)
 
+#ifdef JPO_DBGR_BUILD
+#define MICROPY_PY_SYS_SETTRACE         (1)
+// requirement for MICROPY_PY_SYS_SETTRACE
+#define MICROPY_COMP_CONST              (0)
+#define MICROPY_PERSISTENT_CODE_SAVE    (1)
+#endif
+
 #ifdef JPO_JCOMP
     // Disable mpy's USB-CDC serial port, 
     // to allow pico-sdk stdio and JCOMP to use it

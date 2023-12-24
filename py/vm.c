@@ -177,6 +177,19 @@
     } \
 } while(0)
 
+#if JPO_DBGR_BUILD
+// Adds the condition to execute instr_tick() if debugger is enabled
+#define TRACE_TICK(current_ip, current_sp, is_exception) do { \
+    assert(code_state != code_state->prev_state); \
+    assert(MP_STATE_THREAD(current_code_state) == code_state); \
+    if (!mp_prof_is_executing && code_state->frame && MP_STATE_THREAD(prof_trace_callback)) { \
+        MP_PROF_INSTR_DEBUG_PRINT(code_state->ip); \
+    } \
+    if (!mp_prof_is_executing && code_state->frame && ((dbgr_status != DS_NOT_ENABLED) || code_state->frame->callback)) { \
+        mp_prof_instr_tick(code_state, is_exception); \
+    } \
+} while(0)
+#else
 #define TRACE_TICK(current_ip, current_sp, is_exception) do { \
     assert(code_state != code_state->prev_state); \
     assert(MP_STATE_THREAD(current_code_state) == code_state); \
@@ -187,6 +200,7 @@
         mp_prof_instr_tick(code_state, is_exception); \
     } \
 } while(0)
+#endif // JPO_DBGR_BUILD
 
 #else // MICROPY_PY_SYS_SETTRACE
 #define FRAME_SETUP()
