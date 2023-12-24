@@ -261,6 +261,11 @@ typedef struct _dbgr_bytecode_pos_t {
     const byte *ip;
     uint16_t depth;
     struct _dbgr_bytecode_pos_t *caller_pos; // next in stack
+
+    // Extra info to retrieve variables
+    uint16_t n_state; // code_state->n_state
+    mp_obj_t* state;  // code_state->state
+
 } dbgr_bytecode_pos_t;
 #endif
 

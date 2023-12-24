@@ -20,7 +20,8 @@
         "jpo_breakpoints.h": "c",
         "parse.h": "c",
         "jpo_dbgr_breakpoints.h": "c",
-        "stdio.h": "c"
+        "stdio.h": "c",
+        "obj.h": "c"
     },
     "workbench.colorCustomizations": {
         "titleBar.activeBackground": "#292e33",

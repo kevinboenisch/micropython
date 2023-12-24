@@ -277,7 +277,10 @@ STATIC mp_obj_t fun_bc_call(mp_obj_t self_in, size_t n_args, size_t n_kw, const 
         .fun_bc = code_state->fun_bc, 
         .ip = code_state->ip,
         .depth = MP_STATE_THREAD(bytecode_pos_stack_top) ? MP_STATE_THREAD(bytecode_pos_stack_top)->depth + 1 : 0,
-        .caller_pos = MP_STATE_THREAD(bytecode_pos_stack_top) // might be NULL
+        .caller_pos = MP_STATE_THREAD(bytecode_pos_stack_top), // might be NULL
+        // Var info
+        .n_state = code_state->n_state,
+        .state = code_state->state,
     };
     MP_STATE_THREAD(bytecode_pos_stack_top) = &bc_pos;
 
@@ -407,6 +410,11 @@ mp_obj_t mp_obj_new_fun_bc(const mp_obj_t *def_args, const byte *code, const mp_
     o->bytecode = code;
     o->context = context;
     o->child_table = child_table;
+    #ifdef JPO_DBGR_BUILD
+    o->has_kw_args = (def_kw_args != MP_OBJ_NULL) ? 1 : 0;
+    o->n_pos_args = n_extra_args - o->has_kw_args;
+    #endif
+
     if (def_pos_args != NULL) {
         memcpy(o->extra_args, def_pos_args->items, n_def_args * sizeof(mp_obj_t));
     }
