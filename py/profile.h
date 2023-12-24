@@ -61,6 +61,20 @@ mp_obj_t mp_obj_new_frame(const mp_code_state_t *code_state);
 // This is the implementation for the sys.settrace
 mp_obj_t mp_prof_settrace(mp_obj_t callback);
 
+/**
+ * Set the C callback for the settrace feature.
+ * Function is:
+ * void callback(mp_prof_trace_type_t type, mp_obj_frame_t* frame);
+ */
+typedef enum {
+    MP_PROF_TRACE_CALL,
+    MP_PROF_TRACE_LINE,
+    MP_PROF_TRACE_RETURN,
+    MP_PROF_TRACE_EXCEPTION,
+} mp_prof_trace_type_t;
+typedef void (*mp_prof_callback_t)(mp_prof_trace_type_t, mp_obj_frame_t*);
+extern mp_prof_callback_t mp_prof_callback_c; 
+
 mp_obj_t mp_prof_frame_enter(mp_code_state_t *code_state);
 mp_obj_t mp_prof_frame_update(const mp_code_state_t *code_state);
 

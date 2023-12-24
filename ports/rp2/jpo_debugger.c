@@ -11,6 +11,7 @@
 
 #include "py/runtime.h" // for dbgr_bytecode_pos_t
 #include "py/qstr.h"
+#include "py/profile.h"
 #include "pico/multicore.h"
 
 // Disable output
@@ -30,10 +31,14 @@ dbgr_status_t dbgr_status = DS_NOT_ENABLED;
 static const dbgr_source_pos_t empty_source_pos = {0};
 static dbgr_source_pos_t g_last_pos = empty_source_pos;
 
+// type: mp_prof_callback_t
+void dbgr_trace_callback(mp_prof_trace_type_t type, mp_obj_frame_t* frame);
+
 // Reset vars to initial state
 void reset_vars() {
     g_last_pos = empty_source_pos;
     dbgr_status = DS_NOT_ENABLED;
+    mp_prof_callback_c = NULL;
     bkpt_clear_all();
 }
 
@@ -52,6 +57,7 @@ static bool jcomp_handler_inlock(JCOMP_MSG msg) {
         DBG_SEND("CMD_DBG_START");
         reset_vars();
         dbgr_status = DS_STARTING;
+        mp_prof_callback_c = dbgr_trace_callback;
         return true;
     }
     if (dbgr_status != DS_NOT_ENABLED) {
@@ -394,20 +400,40 @@ void print_trace(const char* prefix, mp_obj_frame_t* frame) {
 
 // TODO: reset g_trace_depth state
 int g_trace_depth = 0;
-void dbgr_trace_call(mp_obj_frame_t* frame) {
+void trace_call(mp_obj_frame_t* frame) {
     g_trace_depth++;
     DBG_SEND("trace: call depth:%d", g_trace_depth);
 }
-void dbgr_trace_line(mp_obj_frame_t* frame) {
+void trace_line(mp_obj_frame_t* frame) {
     DBG_SEND("trace: line %d depth:%d", frame->lineno, g_trace_depth);
 }
-void dbgr_trace_return(mp_obj_frame_t* frame) {
+void trace_return(mp_obj_frame_t* frame) {
     g_trace_depth--;
     DBG_SEND("trace: return new-depth:%d", g_trace_depth);
 }
-void dbgr_trace_exception(mp_obj_frame_t* frame) {
+void trace_exception(mp_obj_frame_t* frame) {
     g_trace_depth--;
     DBG_SEND("trace: exception new-depth:%d", g_trace_depth);
+}
+
+void dbgr_trace_callback(mp_prof_trace_type_t type, mp_obj_frame_t* frame) {
+    switch(type) {
+        case MP_PROF_TRACE_CALL:
+            trace_call(frame);
+            break;
+        case MP_PROF_TRACE_LINE:
+            trace_line(frame);
+            break;
+        case MP_PROF_TRACE_RETURN:
+            trace_return(frame);
+            break;
+        case MP_PROF_TRACE_EXCEPTION:
+            trace_exception(frame);
+            break;
+        default:
+            DBG_SEND("Unkown trace type: %s", qstr_str(type));
+            break;
+    }
 }
 
 

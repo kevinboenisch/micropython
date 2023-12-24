@@ -29,13 +29,15 @@
 #include "py/gc.h"
 #include "py/objfun.h"
 
-#include "jpo_debugger.h"
 // #include "jpo/debug.h" // for DBG_SEND
 
 #if MICROPY_PY_SYS_SETTRACE
 
 #define prof_trace_cb MP_STATE_THREAD(prof_trace_callback)
 #define QSTR_MAP(context, idx) (context->constants.qstr_table[idx])
+
+// C trace callback fn
+mp_prof_callback_t mp_prof_callback_c = NULL;
 
 STATIC uint mp_prof_bytecode_lineno(const mp_raw_code_t *rc, size_t bc) {
     const mp_bytecode_prelude_t *prelude = &rc->prelude;
@@ -349,11 +351,9 @@ mp_obj_t mp_prof_frame_enter(mp_code_state_t *code_state) {
     args->event = MP_OBJ_NEW_QSTR(MP_QSTR_call);
     args->arg = mp_const_none;
 
-    #if JPO_DBGR_BUILD
-    if (DBGR_IS_ENABLED) {
-        dbgr_trace_call(args->frame);
+    if (mp_prof_callback_c) {
+        mp_prof_callback_c(MP_PROF_TRACE_CALL, args->frame);
     }
-    #endif
 
     if (prof_trace_cb) {
         top = mp_prof_callback_invoke(prof_trace_cb, args);
@@ -413,11 +413,9 @@ mp_obj_t mp_prof_instr_tick(mp_code_state_t *code_state, bool is_exception) {
     if (is_exception) {
         args->event = MP_OBJ_NEW_QSTR(MP_QSTR_exception);
 
-        #if JPO_DBGR_BUILD
-        if (DBGR_IS_ENABLED) {
-            dbgr_trace_exception(args->frame);
+        if (mp_prof_callback_c) {
+            mp_prof_callback_c(MP_PROF_TRACE_EXCEPTION, args->frame);
         }
-        #endif
 
         if (callback) {
             top = mp_prof_callback_invoke(callback, args);
@@ -437,11 +435,9 @@ mp_obj_t mp_prof_instr_tick(mp_code_state_t *code_state, bool is_exception) {
         args->frame->lineno = current_line_no;
         args->event = MP_OBJ_NEW_QSTR(MP_QSTR_line);
 
-        #if JPO_DBGR_BUILD
-        if (DBGR_IS_ENABLED) {
-            dbgr_trace_line(args->frame);
+        if (mp_prof_callback_c) {
+            mp_prof_callback_c(MP_PROF_TRACE_LINE, args->frame);
         }
-        #endif
 
         if (callback) {
             top = mp_prof_callback_invoke(callback, args);
@@ -456,11 +452,9 @@ mp_obj_t mp_prof_instr_tick(mp_code_state_t *code_state, bool is_exception) {
     if (*ip == MP_BC_RETURN_VALUE || *ip == MP_BC_YIELD_VALUE) {
         args->event = MP_OBJ_NEW_QSTR(MP_QSTR_return);
 
-        #if JPO_DBGR_BUILD
-        if (DBGR_IS_ENABLED) {
-            dbgr_trace_return(args->frame);
+        if (mp_prof_callback_c) {
+            mp_prof_callback_c(MP_PROF_TRACE_RETURN, args->frame);
         }
-        #endif
 
         if (callback) {
             top = mp_prof_callback_invoke(callback, args);
