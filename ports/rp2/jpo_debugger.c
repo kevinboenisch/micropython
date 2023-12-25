@@ -27,16 +27,14 @@ auto_init_mutex(_dbgr_mutex);
 
 dbgr_status_t dbgr_status = DS_NOT_ENABLED;
 
-// Last source position examined by dbgr_before_execute_bytecode
-static const dbgr_source_pos_t empty_source_pos = {0};
-static dbgr_source_pos_t g_last_pos = empty_source_pos;
+int g_trace_depth = 0;
 
 // type: mp_prof_callback_t
 void dbgr_trace_callback(mp_prof_trace_type_t type, mp_obj_frame_t* frame);
 
 // Reset vars to initial state
 void reset_vars() {
-    g_last_pos = empty_source_pos;
+    g_trace_depth = 0;
     dbgr_status = DS_NOT_ENABLED;
     mp_prof_callback_c = NULL;
     bkpt_clear_all();
@@ -159,7 +157,7 @@ static void send_module_loaded(qstr module_name) {
  * @param bc_stack_top the top of the stack, or NULL if not available
  * @return true if a command was processed.
  */
-static bool try_process_command(dbgr_bytecode_pos_t *bc_stack_top) {
+static bool try_process_command(mp_obj_frame_t* frame) {
     JCOMP_RECEIVE_MSG(msg, rv, 0);
 
     // // Print stack info for debugging
@@ -199,23 +197,16 @@ static bool try_process_command(dbgr_bytecode_pos_t *bc_stack_top) {
         return true;
     }
     else if (jcomp_msg_has_str(msg, 0, REQ_DBG_STACK)) {
-        dbgr_send_stack_response(msg, bc_stack_top);
+        dbgr_send_stack_response(msg, frame);
         return true;
     }
     else if (jcomp_msg_has_str(msg, 0, REQ_DBG_VARIABLES)) {
-        dbgr_send_variables_response(msg, bc_stack_top);
+        dbgr_send_variables_response(msg, frame);
         return true;
     }
 
     DBG_SEND("Error: not a dbgr message id:%d", jcomp_msg_id(msg));
     return false;
-}
-
-static bool source_pos_equal(const dbgr_source_pos_t *a, const dbgr_source_pos_t *b) {
-    return (a->file == b->file
-        && a->line == b->line
-        && a->block == b->block
-        && a->depth == b->depth);
 }
 
 static bool source_pos_equal_no_depth(const dbgr_source_pos_t *a, const dbgr_source_pos_t *b) {
@@ -225,20 +216,17 @@ static bool source_pos_equal_no_depth(const dbgr_source_pos_t *a, const dbgr_sou
 }
 
 // Called when source position changes (any field)
-static void on_pos_change(const dbgr_source_pos_t *cur_pos, const dbgr_source_pos_t *last_pos, dbgr_bytecode_pos_t *bc_stack_top) {
+static void on_pos_change(mp_obj_frame_t* frame) {
     // static/global
     // position at the start of the step over/into/out
     static dbgr_source_pos_t step_pos = {0};
 
-    // DBG_SEND("on_pos_change: dbgr_status:%d", dbgr_status); 
-
     // locals
     char* stopped_reason = "";
+    dbgr_source_pos_t cur_pos = dbgr_get_source_pos(frame);
 
-    if (breakpoint_hit(cur_pos->file, cur_pos->line)
-        // Prevent function breakpoint from being hit on exit
-        && cur_pos->depth >= last_pos->depth) {
-         DBG_SEND("breakpoint_hit %s:%d", qstr_str(cur_pos->file), cur_pos->line);
+    if (breakpoint_hit(cur_pos.file, cur_pos.line)) {
+         DBG_SEND("breakpoint_hit %s:%d", qstr_str(cur_pos.file), cur_pos.line);
          stopped_reason = R_STOPPED_BREAKPOINT;
          dbgr_status = DS_STOPPED;
     }
@@ -270,7 +258,7 @@ static void on_pos_change(const dbgr_source_pos_t *cur_pos, const dbgr_source_po
         // Only triggered if the depth is lower than the last depth
         // NOT-BUG: after stepping out, the fn call line is highlighted again.
         // That's ok, PC Python debugger does the same.
-        if (cur_pos->depth < step_pos.depth) {
+        if (cur_pos.depth < step_pos.depth) {
             stopped_reason = R_STOPPED_STEP_OUT;
             dbgr_status = DS_STOPPED;
         }
@@ -281,8 +269,8 @@ static void on_pos_change(const dbgr_source_pos_t *cur_pos, const dbgr_source_po
     
     case DS_STEP_OVER:
         // Triggered if the depth is same or lower than one set when step over was requested
-        if (cur_pos->depth <= step_pos.depth
-            && !source_pos_equal_no_depth(cur_pos, &step_pos)) {
+        if (cur_pos.depth <= step_pos.depth
+            && !source_pos_equal_no_depth(&cur_pos, &step_pos)) {
             stopped_reason = R_STOPPED_STEP_OVER;
             dbgr_status = DS_STOPPED;
         }
@@ -304,14 +292,14 @@ static void on_pos_change(const dbgr_source_pos_t *cur_pos, const dbgr_source_po
     send_stopped(stopped_reason);
 
     while (true) {
-        if (try_process_command(bc_stack_top)) {
+        if (try_process_command(frame)) {
             switch(dbgr_status) {
                 case DS_RUNNING:
                     return;
                 case DS_STEP_INTO:
                 case DS_STEP_OUT:
                 case DS_STEP_OVER:
-                    step_pos = *cur_pos;
+                    step_pos = cur_pos;
                     return;
                 case DS_STOPPED:
                     // do nothing, continue polling while paused
@@ -326,38 +314,6 @@ static void on_pos_change(const dbgr_source_pos_t *cur_pos, const dbgr_source_po
     }
 }
 
-// Main debugger function, called before every opcode execution
-void dbgr_before_execute_bytecode(dbgr_bytecode_pos_t *bc_pos) {
-    // Already checked, but doesn't hurt
-    if (dbgr_status == DS_NOT_ENABLED) {
-        return;
-    }
-    if (bc_pos == NULL) {
-        DBG_SEND("Warning: dbgr_check(): bc_pos is NULL, skipping the check");
-        return;
-    }
-
-    // Edge case: execute the initial on_pos_change
-    // before executing it for the first line of the program
-    // It will pause to accept breakpoints, and then another call
-    // is needed for the breakpoint on the first line to be hit.
-    // if (dbgr_status == DS_STARTING) {
-    //     on_pos_change(&empty_source_pos, &empty_source_pos, bc_pos);
-    // }
-
-    //DBG_SEND("opcode: 0x%x", *(bc_pos->ip));
-    dbgr_source_pos_t cur_pos = dbgr_get_source_pos(bc_pos);
-    if (source_pos_equal(&cur_pos, &g_last_pos)) {
-        return;
-    }
-
-    // DBG_SEND("g_last_pos: %s:%d/%s/d%d\r\n---cur_pos: %s:%d/%s/d%d",
-    //     qstr_str(g_last_pos.file), g_last_pos.line, qstr_str(g_last_pos.block), g_last_pos.depth,
-    //     qstr_str(cur_pos.file), cur_pos.line, qstr_str(cur_pos.block), cur_pos.depth);
-
-    on_pos_change(&cur_pos, &g_last_pos, bc_pos);
-    g_last_pos = cur_pos;
-}
 
 void dbgr_after_compile_module(qstr module_name) {
     if (dbgr_status == DS_NOT_ENABLED) {
@@ -394,41 +350,28 @@ void dbgr_after_compile_module(qstr module_name) {
 
 }
 
-void print_trace(const char* prefix, mp_obj_frame_t* frame) {
-
-}
-
-// TODO: reset g_trace_depth state
-int g_trace_depth = 0;
-void trace_call(mp_obj_frame_t* frame) {
-    g_trace_depth++;
-    DBG_SEND("trace: call depth:%d", g_trace_depth);
-}
-void trace_line(mp_obj_frame_t* frame) {
-    DBG_SEND("trace: line %d depth:%d", frame->lineno, g_trace_depth);
-}
-void trace_return(mp_obj_frame_t* frame) {
-    g_trace_depth--;
-    DBG_SEND("trace: return new-depth:%d", g_trace_depth);
-}
-void trace_exception(mp_obj_frame_t* frame) {
-    g_trace_depth--;
-    DBG_SEND("trace: exception new-depth:%d", g_trace_depth);
-}
-
 void dbgr_trace_callback(mp_prof_trace_type_t type, mp_obj_frame_t* frame) {
+    if (dbgr_status == DS_NOT_ENABLED) {
+        return;
+    }
+
     switch(type) {
-        case MP_PROF_TRACE_CALL:
-            trace_call(frame);
-            break;
         case MP_PROF_TRACE_LINE:
-            trace_line(frame);
+            DBG_SEND("trace: line %d depth:%d", frame->lineno, g_trace_depth);
+            on_pos_change(frame);
+            break;
+
+        case MP_PROF_TRACE_CALL:
+            g_trace_depth++;
+            DBG_SEND("trace: call depth:%d", g_trace_depth);
             break;
         case MP_PROF_TRACE_RETURN:
-            trace_return(frame);
+            g_trace_depth--;
+            DBG_SEND("trace: return new-depth:%d", g_trace_depth);
             break;
         case MP_PROF_TRACE_EXCEPTION:
-            trace_exception(frame);
+            g_trace_depth--;
+            DBG_SEND("trace: exception new-depth:%d", g_trace_depth);
             break;
         default:
             DBG_SEND("Unkown trace type: %s", qstr_str(type));

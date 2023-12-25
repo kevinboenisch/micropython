@@ -5,8 +5,10 @@
 #include "mpconfigport.h" // for JPO_DBGR_BUILD
 
 #include "py/mpstate.h" // for dbgr_bytecode_pos_t
+#include "py/profile.h" // for frame
 
 #include "jpo/jcomp_protocol.h" // for JCOMP_MSG
+
 
 // Minimal debugger features are always enabled
 #define JPO_DBGR (1)
@@ -69,22 +71,6 @@ void jpo_dbgr_init(void);
  */
 void jpo_after_parse_compile_execute(int ret);
 
-/**
- * @brief Call before before an opcode for a given ip is executed.
- * Potentially blocks for a long time, returns when the user continues.
- * @param ip instruction pointer
- * @param bc_pos position within the bytecode, ip will be updated.
- *        Can't pass it as an arg, needs to be a variable in scope. 
- */
-#if JPO_DBGR_BUILD
-#define JPO_DBGR_BEFORE_EXECUTE_BYTECODE(ip) \
-    if (dbgr_status != 0) { \
-        if (bc_pos) { bc_pos->ip = ip; } \
-        dbgr_before_execute_bytecode(bc_pos); \
-    }
-#else
-#define JPO_DBGR_BEFORE_EXECUTE_BYTECODE(ip)
-#endif //JPO_DBGR_BUILD
 
 
 //////////////////////
@@ -121,9 +107,6 @@ typedef enum _dbgr_status_t {
 /** @brief For internal use by JPO_BEFORE_EXECUTE_BYTECODE. Do NOT set (except in debugger.c). */
 extern dbgr_status_t dbgr_status;
 
-/** @brief For internal use by JPO_BEFORE_EXECUTE_BYTECODE. */
-void dbgr_before_execute_bytecode(dbgr_bytecode_pos_t *bc_pos);
-
 /** @brief Call after a module has been compiled (mp_compile) */
 void dbgr_after_compile_module(qstr module_name);
 
@@ -134,14 +117,14 @@ typedef struct _dbgr_source_pos_t {
     qstr block;
     uint16_t depth;
 } dbgr_source_pos_t;
-dbgr_source_pos_t dbgr_get_source_pos(dbgr_bytecode_pos_t *bc_pos);
+dbgr_source_pos_t dbgr_get_source_pos(mp_obj_frame_t* frame);
 
 
 // Internal, in jpo_dbgr_stackframes.c
-void dbgr_send_stack_response(const JCOMP_MSG request, dbgr_bytecode_pos_t *bc_stack_top);
+void dbgr_send_stack_response(const JCOMP_MSG request, mp_obj_frame_t* top_frame);
 
 // Internal, in jpo_dbgr_variables.c
-void dbgr_send_variables_response(const JCOMP_MSG request, dbgr_bytecode_pos_t *bc_stack_top);
+void dbgr_send_variables_response(const JCOMP_MSG request, mp_obj_frame_t* top_frame);
 
 
 /** @brief Diagonstics. Check if there is a stack overflow, DBG_SEND info. */

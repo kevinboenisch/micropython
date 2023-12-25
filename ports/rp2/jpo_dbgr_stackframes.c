@@ -26,8 +26,8 @@ static JCOMP_RV append_str_token(JCOMP_MSG msg, const char* str) {
     return jcomp_msg_append_bytes(msg, (uint8_t*) str, strlen(str) + 1);
 }
 
-static int get_frame_size(dbgr_bytecode_pos_t *bc_pos) {
-    dbgr_source_pos_t source_pos = dbgr_get_source_pos(bc_pos);
+static int get_frame_size(mp_obj_frame_t* frame) {
+    dbgr_source_pos_t source_pos = dbgr_get_source_pos(frame);
     const char* file = qstr_str(source_pos.file);
     const char* block = qstr_str(source_pos.block);
 
@@ -38,10 +38,10 @@ static int get_frame_size(dbgr_bytecode_pos_t *bc_pos) {
  * @brief Append a frame to a response
  * @returns JCOMP_OK if ok, an error (likely JCOMP_ERR_BUFFER_TOO_SMALL) if failed
  */
-static JCOMP_RV append_frame(JCOMP_MSG resp, int frame_idx, dbgr_bytecode_pos_t *bc_pos) {
+static JCOMP_RV append_frame(JCOMP_MSG resp, int frame_idx, mp_obj_frame_t* frame) {
     JCOMP_RV rv = JCOMP_OK;
 
-    dbgr_source_pos_t source_pos = dbgr_get_source_pos(bc_pos);
+    dbgr_source_pos_t source_pos = dbgr_get_source_pos(frame);
     const char* file = qstr_str(source_pos.file);
     const char* block = qstr_str(source_pos.block);
 
@@ -72,9 +72,9 @@ static JCOMP_RV append_frame(JCOMP_MSG resp, int frame_idx, dbgr_bytecode_pos_t 
  * @return a packet of format <file>\0<block>\0<4b u32 line_num><4b u32 frame_idx>
  * "<end>" alone is a valid response.
  */
-void dbgr_send_stack_response(const JCOMP_MSG request, dbgr_bytecode_pos_t *bc_stack_top) {
-    if (bc_stack_top == NULL) {
-        DBG_SEND("Error: dbgr_send_stack_response(): bc_stack_top is NULL");
+void dbgr_send_stack_response(const JCOMP_MSG request, mp_obj_frame_t* top_frame) {
+    if (top_frame == NULL) {
+        DBG_SEND("Error: dbgr_send_stack_response(): top_frame is NULL");
         return;
     }
     
@@ -89,27 +89,27 @@ void dbgr_send_stack_response(const JCOMP_MSG request, dbgr_bytecode_pos_t *bc_s
 
     JCOMP_RV rv = JCOMP_OK;
 
-    dbgr_bytecode_pos_t *bc_pos = bc_stack_top;
+    mp_obj_frame_t *cur_frame = top_frame;
     int frame_idx = 0;
     bool is_end = false;
     int pos = 0;
     while(true) {
         if (frame_idx >= start_frame_idx) {
-            int frame_size = get_frame_size(bc_pos);
+            int frame_size = get_frame_size(cur_frame);
             if (pos + frame_size > FRAME_PAYLOAD_SIZE) {
                 break;
             }
             pos += frame_size;
 
-            rv = append_frame(resp, frame_idx, bc_pos);
+            rv = append_frame(resp, frame_idx, cur_frame);
             if (rv) { 
                 DBG_SEND("Error in dbgr_send_stack_response: append_frame rv:%d", rv);
                 return; 
             }
         }
         frame_idx++;
-        bc_pos = bc_pos->caller_pos;
-        if (bc_pos == NULL) {
+        top_frame = top_frame->back;
+        if (top_frame == NULL) {
             is_end = true;
             break;
         }

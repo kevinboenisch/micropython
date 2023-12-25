@@ -218,13 +218,7 @@ mp_vm_return_kind_t mp_obj_gen_resume(mp_obj_t self_in, mp_obj_t send_value, mp_
     #endif
     {
         // A bytecode generator
-        #if JPO_DBGR_BUILD
-        // TODO: implement, push/pop etc.
-        // Likely the same code as in objfun.c
-        ret_kind = mp_execute_bytecode(&self->code_state, NULL, throw_value);
-        #else //JPO_DBGR_BUILD
         ret_kind = mp_execute_bytecode(&self->code_state, throw_value);
-        #endif
     }
 
     mp_globals_set(self->code_state.old_globals);

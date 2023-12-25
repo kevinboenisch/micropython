@@ -28,14 +28,13 @@ void print_obj(int i, mp_obj_t obj) {
     }
 }
 
-void dbgr_send_variables_response(const JCOMP_MSG request, dbgr_bytecode_pos_t *bc_stack_top) {
-    if (bc_stack_top == NULL) {
-        DBG_SEND("Error: dbgr_send_variables_response(): bc_stack_top is NULL");
+void dbgr_send_variables_response(const JCOMP_MSG request, mp_obj_frame_t* frame) {
+    if (frame == NULL) {
+        DBG_SEND("Error: dbgr_send_variables_response(): frame is NULL");
         return;
     }
 
-    dbgr_bytecode_pos_t *cur_bc = bc_stack_top;
-
+    const mp_code_state_t* cur_bc = frame->code_state;
 
     DBG_SEND("variables in state: cur_bc:0x%p->n_state:%d", cur_bc, cur_bc->n_state);
     for(int i=0; i < cur_bc->n_state; i++) {

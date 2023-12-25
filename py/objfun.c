@@ -271,27 +271,7 @@ STATIC mp_obj_t fun_bc_call(mp_obj_t self_in, size_t n_args, size_t n_kw, const 
     // execute the byte code with the correct globals context
     mp_globals_set(self->context->module.globals);
     
-    #if JPO_DBGR_BUILD
-    // Push call position info onto the stack
-    dbgr_bytecode_pos_t bc_pos = { 
-        .fun_bc = code_state->fun_bc, 
-        .ip = code_state->ip,
-        .depth = MP_STATE_THREAD(bytecode_pos_stack_top) ? MP_STATE_THREAD(bytecode_pos_stack_top)->depth + 1 : 0,
-        .caller_pos = MP_STATE_THREAD(bytecode_pos_stack_top), // might be NULL
-        // Var info
-        .n_state = code_state->n_state,
-        .state = code_state->state,
-    };
-    MP_STATE_THREAD(bytecode_pos_stack_top) = &bc_pos;
-
-    mp_vm_return_kind_t vm_return_kind = mp_execute_bytecode(code_state, &bc_pos, MP_OBJ_NULL);
-
-    // Pop it off
-    MP_STATE_THREAD(bytecode_pos_stack_top) = bc_pos.caller_pos;
-    #else //JPO_DBGR_BUILD
-
     mp_vm_return_kind_t vm_return_kind = mp_execute_bytecode(code_state, MP_OBJ_NULL);
-    #endif
 
     mp_globals_set(code_state->old_globals);
 
