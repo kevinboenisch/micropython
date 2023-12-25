@@ -8,15 +8,14 @@
 #include "jpo/debug.h"
 
 #include "mphalport.h" // for JPO_DBGR_BUILD
-
-#include "py/runtime.h" // for dbgr_bytecode_pos_t
 #include "py/qstr.h"
 #include "py/profile.h"
+
 #include "pico/multicore.h"
 
 // Disable output
-// #undef DBG_SEND
-// #define DBG_SEND(...)
+#undef DBG_SEND
+#define DBG_SEND(...)
 
 
 #define MUTEX_TIMEOUT_MS 100
@@ -25,16 +24,39 @@ auto_init_mutex(_dbgr_mutex);
 #if JPO_DBGR_BUILD
 #define CMD_LENGTH 8
 
-dbgr_status_t dbgr_status = DS_NOT_ENABLED;
 
-int g_trace_depth = 0;
+typedef enum _dbgr_status_t {
+    // Debugging not enabled by the PC. Program might be running or done, irrelevant.
+    DS_NOT_ENABLED = 0, // -> DS_STARTING
+    DS_STARTING,        // -> DS_RUNNING 
+    // Debugging enabled, program is running
+    DS_RUNNING,         // -> DS_PAUSED, DS_NOT_ENABLED (done)
+    // Pause was requested, with _stoppedReason to indicate why
+    // Program will continue running in DS_STEP_IN mode until right before the next line
+    DS_PAUSE_REQUESTED, // -> DS_STOPPED
+
+    // Stepping into/out/over code
+    DS_STEP_INTO,       // -> DS_STOPPED
+    DS_STEP_OUT,        // -> DS_STOPPED
+    DS_STEP_OVER,       // -> DS_STOPPED
+
+    // Stopped, waiting for commands (e.g. continue, breakpoints). _stoppedReason indicates why.
+    // Fires a StoppedEvent when entering.
+    DS_STOPPED,         // -> DS_RUNNING, DS_STEP_*
+
+    // Temporarily stopped, waiting for specific commands and a continue. A special event (not stopped) is raised.
+    DS_STOPPED_TEMP,
+
+    // Program terminated: DS_NOT_ENABLED
+} dbgr_status_t;
+
+dbgr_status_t dbgr_status = DS_NOT_ENABLED;
 
 // type: mp_prof_callback_t
 void dbgr_trace_callback(mp_prof_trace_type_t type, mp_obj_frame_t* frame);
 
 // Reset vars to initial state
 void reset_vars() {
-    g_trace_depth = 0;
     dbgr_status = DS_NOT_ENABLED;
     mp_prof_callback_c = NULL;
     bkpt_clear_all();
@@ -209,24 +231,30 @@ static bool try_process_command(mp_obj_frame_t* frame) {
     return false;
 }
 
-static bool source_pos_equal_no_depth(const dbgr_source_pos_t *a, const dbgr_source_pos_t *b) {
-    return (a->file == b->file
-        && a->line == b->line
-        && a->block == b->block);
+static int get_call_depth(mp_obj_frame_t* frame) {
+    // Slightly inefficient, maybe add a field to frame struct.
+    int depth = 0;
+    // Warning: frame->back is not set to a previous frame. Not sure what it's meant for. 
+    const mp_code_state_t *cur_state = frame->code_state;
+    while(cur_state->prev_state) {
+        cur_state = cur_state->prev_state;
+        depth++;
+    }
+    return depth;
 }
 
-// Called when source position changes (any field)
-static void on_pos_change(mp_obj_frame_t* frame) {
+static void on_trace_line(mp_obj_frame_t* frame) {
     // static/global
     // position at the start of the step over/into/out
-    static dbgr_source_pos_t step_pos = {0};
+    static int step_depth = -1;
 
     // locals
     char* stopped_reason = "";
-    dbgr_source_pos_t cur_pos = dbgr_get_source_pos(frame);
+    qstr file = dbgr_get_source_file(frame->code_state);
+    int line = (int)frame->lineno;
 
-    if (breakpoint_hit(cur_pos.file, cur_pos.line)) {
-         DBG_SEND("breakpoint_hit %s:%d", qstr_str(cur_pos.file), cur_pos.line);
+    if (breakpoint_hit(file, line)) {
+         DBG_SEND("breakpoint_hit %s:%d", qstr_str(file), line);
          stopped_reason = R_STOPPED_BREAKPOINT;
          dbgr_status = DS_STOPPED;
     }
@@ -255,10 +283,13 @@ static void on_pos_change(mp_obj_frame_t* frame) {
         break;
 
     case DS_STEP_OUT:
+    {
         // Only triggered if the depth is lower than the last depth
         // NOT-BUG: after stepping out, the fn call line is highlighted again.
         // That's ok, PC Python debugger does the same.
-        if (cur_pos.depth < step_pos.depth) {
+        int cur_depth = get_call_depth(frame);
+        DBG_SEND("DS_STEP_OUT: cur_depth %d < step_depth %d ?", cur_depth, step_depth);
+        if (cur_depth < step_depth) {
             stopped_reason = R_STOPPED_STEP_OUT;
             dbgr_status = DS_STOPPED;
         }
@@ -266,11 +297,13 @@ static void on_pos_change(mp_obj_frame_t* frame) {
             return;
         }
         break;
-    
+    }
     case DS_STEP_OVER:
+    {
         // Triggered if the depth is same or lower than one set when step over was requested
-        if (cur_pos.depth <= step_pos.depth
-            && !source_pos_equal_no_depth(&cur_pos, &step_pos)) {
+        int cur_depth = get_call_depth(frame);
+        DBG_SEND("DS_STEP_OVER: cur_depth %d <= step_depth %d ?", cur_depth, step_depth);
+        if (cur_depth <= step_depth) {
             stopped_reason = R_STOPPED_STEP_OVER;
             dbgr_status = DS_STOPPED;
         }
@@ -278,7 +311,7 @@ static void on_pos_change(mp_obj_frame_t* frame) {
             return;
         }
         break;
-
+    }
     case DS_STOPPED:
         // Do nothing
         break;
@@ -299,7 +332,8 @@ static void on_pos_change(mp_obj_frame_t* frame) {
                 case DS_STEP_INTO:
                 case DS_STEP_OUT:
                 case DS_STEP_OVER:
-                    step_pos = cur_pos;
+                    step_depth = get_call_depth(frame);
+                    DBG_SEND("STEP set step_depth=%d", step_depth);
                     return;
                 case DS_STOPPED:
                     // do nothing, continue polling while paused
@@ -357,24 +391,21 @@ void dbgr_trace_callback(mp_prof_trace_type_t type, mp_obj_frame_t* frame) {
 
     switch(type) {
         case MP_PROF_TRACE_LINE:
-            DBG_SEND("trace: line %d depth:%d", frame->lineno, g_trace_depth);
-            on_pos_change(frame);
+            //DBG_SEND("trace: line %d depth:%d", frame->lineno, get_call_depth(frame));
+            on_trace_line(frame);
             break;
 
-        case MP_PROF_TRACE_CALL:
-            g_trace_depth++;
-            DBG_SEND("trace: call depth:%d", g_trace_depth);
-            break;
-        case MP_PROF_TRACE_RETURN:
-            g_trace_depth--;
-            DBG_SEND("trace: return new-depth:%d", g_trace_depth);
-            break;
-        case MP_PROF_TRACE_EXCEPTION:
-            g_trace_depth--;
-            DBG_SEND("trace: exception new-depth:%d", g_trace_depth);
-            break;
+        // case MP_PROF_TRACE_CALL:
+        //     DBG_SEND("trace: call depth:%d", get_call_depth(frame));
+        //     break;
+        // case MP_PROF_TRACE_RETURN:
+        //     DBG_SEND("trace: return new-depth:%d", get_call_depth(frame));
+        //     break;
+        // case MP_PROF_TRACE_EXCEPTION:
+        //     DBG_SEND("trace: exception new-depth:%d", get_call_depth(frame));
+        //     break;
         default:
-            DBG_SEND("Unkown trace type: %s", qstr_str(type));
+            // DBG_SEND("Unkown trace type: %s", qstr_str(type));
             break;
     }
 }

@@ -34,9 +34,6 @@
 #include "py/bc0.h"
 #include "py/profile.h"
 
-#include "jpo_debugger.h"
-#include "jpo/debug.h" // for DBG_SEND
-
 // *FORMAT-OFF*
 
 #if 0
@@ -1492,45 +1489,24 @@ unwind_loop:
     }
 }
 
-#if JPO_DBGR_BUILD
+// For use in JPO_DBGR_BUILD
 // Defined here to use the macros from vm.c
-dbgr_source_pos_t dbgr_get_source_pos(mp_obj_frame_t* frame) {
-    const mp_code_state_t *code_state = frame->code_state;
-    // Similar to code under the unwind_loop label
+// Based on code under the unwind_loop label
+qstr dbgr_get_source_file(const mp_code_state_t *code_state) {
+    #if MICROPY_EMIT_BYTECODE_USES_QSTR_TABLE
+    return code_state->fun_bc->context->constants.qstr_table[0];
+    #else
+    return code_state->fun_bc->context->constants.source_file;
+    #endif
+}
+qstr dbgr_get_block_name(const mp_code_state_t *code_state) {
+    // Macros below matter for decoding block_name
     const byte *ip = code_state->fun_bc->bytecode;
     MP_BC_PRELUDE_SIG_DECODE(ip);
     MP_BC_PRELUDE_SIZE_DECODE(ip);
-    const byte *line_info_top = ip + n_info;
-    const byte *bytecode_start = ip + n_info + n_cell;
-    size_t bc = code_state->ip - bytecode_start;
     qstr block_name = mp_decode_uint_value(ip);
-    for (size_t i = 0; i < 1 + n_pos_args + n_kwonly_args; ++i) {
-        ip = mp_decode_uint_skip(ip);
-    }
     #if MICROPY_EMIT_BYTECODE_USES_QSTR_TABLE
     block_name = code_state->fun_bc->context->constants.qstr_table[block_name];
-    qstr source_file = code_state->fun_bc->context->constants.qstr_table[0];
-    #else
-    qstr source_file = code_state->fun_bc->context->constants.source_file;
     #endif
-    size_t source_line = mp_bytecode_get_source_line(ip, line_info_top, bc);
-
-    //mp_obj_exception_add_traceback(MP_OBJ_FROM_PTR(nlr.ret_val), source_file, source_line, block_name);
-    
-    // Measure depth. Slightly inefficient, maybe add a field to frame.
-    uint16_t depth = 0;
-    mp_obj_frame_t* cur_frame = frame;
-    while(cur_frame->back) {
-        cur_frame = cur_frame->back;
-        depth++;
-    }
-
-    dbgr_source_pos_t source_pos = {
-        .file = source_file,
-        .line = source_line,
-        .block = block_name,
-        .depth = depth,
-    };
-    return source_pos;
+    return block_name;
 }
-#endif

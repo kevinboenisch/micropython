@@ -27,11 +27,18 @@ static JCOMP_RV append_str_token(JCOMP_MSG msg, const char* str) {
 }
 
 static int get_frame_size(mp_obj_frame_t* frame) {
-    dbgr_source_pos_t source_pos = dbgr_get_source_pos(frame);
-    const char* file = qstr_str(source_pos.file);
-    const char* block = qstr_str(source_pos.block);
+    if (frame == NULL) {
+        DBG_SEND("Error: get_frame_size(): frame is NULL");
+        return 0;
+    }
+    
+    qstr file = dbgr_get_source_file(frame->code_state);
+    qstr block = dbgr_get_block_name(frame->code_state);
 
-    return (strlen(file) + 1) + (strlen(block) + 1) + 4 + 4;
+    const char* str_file = qstr_str(file);
+    const char* str_block = qstr_str(block);
+
+    return (strlen(str_file) + 1) + (strlen(str_block) + 1) + 4 + 4;
 }
 
 /**
@@ -39,22 +46,28 @@ static int get_frame_size(mp_obj_frame_t* frame) {
  * @returns JCOMP_OK if ok, an error (likely JCOMP_ERR_BUFFER_TOO_SMALL) if failed
  */
 static JCOMP_RV append_frame(JCOMP_MSG resp, int frame_idx, mp_obj_frame_t* frame) {
+    if (resp == NULL || frame == NULL) {
+        DBG_SEND("Error: append_frame(): resp or frame is NULL");
+        return JCOMP_ERR_ARG_NULL;
+    }
+
     JCOMP_RV rv = JCOMP_OK;
 
-    dbgr_source_pos_t source_pos = dbgr_get_source_pos(frame);
-    const char* file = qstr_str(source_pos.file);
-    const char* block = qstr_str(source_pos.block);
+    qstr file = dbgr_get_source_file(frame->code_state);
+    qstr block = dbgr_get_block_name(frame->code_state);
+    const char* str_file = qstr_str(file);
+    const char* str_block = qstr_str(block);
 
     // file
-    rv = append_str_token(resp, file);
+    rv = append_str_token(resp, str_file);
     if (rv) { return rv; }
 
     // block
-    rv = append_str_token(resp, block);
+    rv = append_str_token(resp, str_block);
     if (rv) { return rv; }
 
     // line
-    rv = append_int_token(resp, source_pos.line);
+    rv = append_int_token(resp, frame->lineno);
     if (rv) { return rv; }
 
     // frame_idx
@@ -89,27 +102,28 @@ void dbgr_send_stack_response(const JCOMP_MSG request, mp_obj_frame_t* top_frame
 
     JCOMP_RV rv = JCOMP_OK;
 
-    mp_obj_frame_t *cur_frame = top_frame;
+    const mp_code_state_t *cur_state = top_frame->code_state;
     int frame_idx = 0;
     bool is_end = false;
     int pos = 0;
     while(true) {
         if (frame_idx >= start_frame_idx) {
-            int frame_size = get_frame_size(cur_frame);
+            int frame_size = get_frame_size(cur_state->frame);
             if (pos + frame_size > FRAME_PAYLOAD_SIZE) {
                 break;
             }
             pos += frame_size;
 
-            rv = append_frame(resp, frame_idx, cur_frame);
+            rv = append_frame(resp, frame_idx, cur_state->frame);
             if (rv) { 
                 DBG_SEND("Error in dbgr_send_stack_response: append_frame rv:%d", rv);
                 return; 
             }
         }
         frame_idx++;
-        top_frame = top_frame->back;
-        if (top_frame == NULL) {
+
+        cur_state = cur_state->prev_state;
+        if (cur_state == NULL) {
             is_end = true;
             break;
         }

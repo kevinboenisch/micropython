@@ -72,101 +72,30 @@ void jpo_dbgr_init(void);
 void jpo_after_parse_compile_execute(int ret);
 
 
-
 //////////////////////
 // Debugger build only
 // (dbgr_*)
 //////////////////////
 #if JPO_DBGR_BUILD
 
-typedef enum _dbgr_status_t {
-    // Debugging not enabled by the PC. Program might be running or done, irrelevant.
-    DS_NOT_ENABLED = 0, // -> DS_STARTING
-    DS_STARTING,        // -> DS_RUNNING 
-    // Debugging enabled, program is running
-    DS_RUNNING,         // -> DS_PAUSED, DS_NOT_ENABLED (done)
-    // Pause was requested, with _stoppedReason to indicate why
-    // Program will continue running in DS_STEP_IN mode until right before the next line
-    DS_PAUSE_REQUESTED, // -> DS_STOPPED
-
-    // Stepping into/out/over code
-    DS_STEP_INTO,       // -> DS_STOPPED
-    DS_STEP_OUT,        // -> DS_STOPPED
-    DS_STEP_OVER,       // -> DS_STOPPED
-
-    // Stopped, waiting for commands (e.g. continue, breakpoints). _stoppedReason indicates why.
-    // Fires a StoppedEvent when entering.
-    DS_STOPPED,         // -> DS_RUNNING, DS_STEP_*
-
-    // Temporarily stopped, waiting for specific commands and a continue. A special event (not stopped) is raised.
-    DS_STOPPED_TEMP,
-
-    // Program terminated: DS_NOT_ENABLED
-} dbgr_status_t;
-
-/** @brief For internal use by JPO_BEFORE_EXECUTE_BYTECODE. Do NOT set (except in debugger.c). */
-extern dbgr_status_t dbgr_status;
-
 /** @brief Call after a module has been compiled (mp_compile) */
 void dbgr_after_compile_module(qstr module_name);
 
-/** @brief in vm.c, for use by debugger.c */
-typedef struct _dbgr_source_pos_t {
-    qstr file;
-    size_t line;
-    qstr block;
-    uint16_t depth;
-} dbgr_source_pos_t;
-dbgr_source_pos_t dbgr_get_source_pos(mp_obj_frame_t* frame);
+// in py/vm.c
+qstr dbgr_get_block_name(const mp_code_state_t *code_state);
+qstr dbgr_get_source_file(const mp_code_state_t *code_state);
 
-
-// Internal, in jpo_dbgr_stackframes.c
+// in jpo_dbgr_stackframes.c
 void dbgr_send_stack_response(const JCOMP_MSG request, mp_obj_frame_t* top_frame);
 
-// Internal, in jpo_dbgr_variables.c
+// in jpo_dbgr_variables.c
 void dbgr_send_variables_response(const JCOMP_MSG request, mp_obj_frame_t* top_frame);
-
 
 /** @brief Diagonstics. Check if there is a stack overflow, DBG_SEND info. */
 bool dbgr_check_stack_overflow(bool show_if_ok);
 /** @brief Diagonstics. DBG_SEND stack info. */
 void dbgr_print_stack_info(void);
 
-
-
-// See RobotMesh
-
-// // Initial check, send an event, see if the PC replies
-// void dbgr_init(void);
-
-// // Disable so it doesn't interfere with loading of built-ins
-// void dbgr_disable(void);
-
-// // True if debugger was disabled.
-// // only used in dev.py
-// uint8_t dbgr_isDisabled(void);
-
-// /**
-//  * Check for debug events at the start of every invocation.
-//  * Returns PM_RET_OK if the execution should continue, or
-//  * PM_RET_BREAK if it should break to prevent running of code
-//  * (shouldRunIterate to be called on the next iteration).
-//  */
-// PmReturn_t dbgr_shouldRunIterate(void);
-
-// /**
-//  * Check if breaking is necessary. Returns PM_RET_OK if
-//  * execution should continue, PM_RET_BREAK if it should break
-//  * (a breakpoint is set or stepping through code).
-//  */
-// PmReturn_t dbgr_tryBreak(void);
-
-// /**
-//  * Break on error
-//  */
-// PmReturn_t dbgr_breakOnError(void);
-
 #endif //JPO_DBGR_BUILD
-
 
 #endif
