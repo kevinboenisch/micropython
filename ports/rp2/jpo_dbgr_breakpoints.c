@@ -1,4 +1,5 @@
 #include "jpo_dbgr_breakpoints.h"
+#include "jpo_dbgr_protocol.h"
 
 #include "jpo/jcomp_protocol.h"
 #include "jpo/debug.h"
@@ -137,7 +138,6 @@ bool bkpt_set(qstr file, int line_num) {
     return false;
 }
 
-// Expected format: file\0num1num2num3
 void bkpt_set_from_msg(JCOMP_MSG msg) {
     int delim_pos = jcomp_msg_find_byte(msg, CMD_LENGTH, (uint8_t)'\0');
     if (delim_pos == -1) {

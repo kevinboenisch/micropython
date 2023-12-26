@@ -1,4 +1,5 @@
 #include "jpo_debugger.h" 
+#include "jpo_dbgr_protocol.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -10,14 +11,8 @@
 #undef DBG_SEND
 #define DBG_SEND(...)
 
-
-#define CMD_LENGTH 8
 // make it smaller for testing
-//#define FRAME_PAYLOAD_SIZE JCOMP_MAX_PAYLOAD_SIZE
-#define FRAME_PAYLOAD_SIZE 200
-
-#define END_TOKEN "<end>"
-#define END_TOKEN_SIZE (strlen(END_TOKEN) + 1)
+#define FRAME_PAYLOAD_SIZE JCOMP_MAX_PAYLOAD_SIZE
 
 static JCOMP_RV append_int_token(JCOMP_MSG msg, int num) {
     return jcomp_msg_append_uint32(msg, num);
@@ -78,6 +73,39 @@ static JCOMP_RV append_frame(JCOMP_MSG resp, int frame_idx, mp_obj_frame_t* fram
     return JCOMP_OK;
 }
 
+int dbgr_get_call_depth(mp_obj_frame_t* frame) {
+    // Slightly inefficient, maybe add a field to the frame or state struct.
+    int depth = 0;
+    // Warning: frame->back is not set to a previous frame. Not sure what it's meant for. 
+    const mp_code_state_t *cur_state = frame->code_state;
+    while(cur_state->prev_state) {
+        cur_state = cur_state->prev_state;
+        depth++;
+    }
+    return depth;
+}
+
+
+mp_obj_frame_t* dbgr_find_frame(int frame_idx, mp_obj_frame_t* top_frame) {
+    if (top_frame == NULL) {
+        return NULL;
+    }
+ 
+    const mp_code_state_t *cur_state = top_frame->code_state;
+    int cur_frame_idx = 0;
+    while(true) {
+        if (cur_frame_idx == frame_idx) {
+            return cur_state->frame;
+        }
+
+        cur_frame_idx++;
+        cur_state = cur_state->prev_state;
+        if (cur_state == NULL) {
+            break;
+        }
+    }
+    return NULL;
+}
 
 /**
  * @brief send a reply to a stack request

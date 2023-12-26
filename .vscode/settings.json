@@ -22,7 +22,15 @@
         "jpo_dbgr_breakpoints.h": "c",
         "stdio.h": "c",
         "obj.h": "c",
-        "qstr.h": "c"
+        "qstr.h": "c",
+        "optional": "c",
+        "istream": "c",
+        "ostream": "c",
+        "system_error": "c",
+        "array": "c",
+        "tuple": "c",
+        "type_traits": "c",
+        "utility": "c"
     },
     "workbench.colorCustomizations": {
         "titleBar.activeBackground": "#292e33",

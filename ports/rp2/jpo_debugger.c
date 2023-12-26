@@ -2,6 +2,7 @@
 #include <string.h>
 
 #include "jpo_debugger.h"
+#include "jpo_dbgr_protocol.h"
 #include "jpo_dbgr_breakpoints.h"
 
 #include "jpo/jcomp_protocol.h"
@@ -14,18 +15,16 @@
 #include "pico/multicore.h"
 
 // Disable output
-#undef DBG_SEND
-#define DBG_SEND(...)
+// #undef DBG_SEND
+// #define DBG_SEND(...)
 
 
 #define MUTEX_TIMEOUT_MS 100
 auto_init_mutex(_dbgr_mutex);
 
 #if JPO_DBGR_BUILD
-#define CMD_LENGTH 8
 
-
-typedef enum _dbgr_status_t {
+typedef enum {
     // Debugging not enabled by the PC. Program might be running or done, irrelevant.
     DS_NOT_ENABLED = 0, // -> DS_STARTING
     DS_STARTING,        // -> DS_RUNNING 
@@ -231,27 +230,15 @@ static bool try_process_command(mp_obj_frame_t* frame) {
     return false;
 }
 
-static int get_call_depth(mp_obj_frame_t* frame) {
-    // Slightly inefficient, maybe add a field to frame struct.
-    int depth = 0;
-    // Warning: frame->back is not set to a previous frame. Not sure what it's meant for. 
-    const mp_code_state_t *cur_state = frame->code_state;
-    while(cur_state->prev_state) {
-        cur_state = cur_state->prev_state;
-        depth++;
-    }
-    return depth;
-}
-
-static void on_trace_line(mp_obj_frame_t* frame) {
+static void on_trace_line(mp_obj_frame_t* top_frame) {
     // static/global
     // position at the start of the step over/into/out
     static int step_depth = -1;
 
     // locals
     char* stopped_reason = "";
-    qstr file = dbgr_get_source_file(frame->code_state);
-    int line = (int)frame->lineno;
+    qstr file = dbgr_get_source_file(top_frame->code_state);
+    int line = (int)top_frame->lineno;
 
     if (breakpoint_hit(file, line)) {
          DBG_SEND("breakpoint_hit %s:%d", qstr_str(file), line);
@@ -287,7 +274,7 @@ static void on_trace_line(mp_obj_frame_t* frame) {
         // Only triggered if the depth is lower than the last depth
         // NOT-BUG: after stepping out, the fn call line is highlighted again.
         // That's ok, PC Python debugger does the same.
-        int cur_depth = get_call_depth(frame);
+        int cur_depth = dbgr_get_call_depth(top_frame);
         DBG_SEND("DS_STEP_OUT: cur_depth %d < step_depth %d ?", cur_depth, step_depth);
         if (cur_depth < step_depth) {
             stopped_reason = R_STOPPED_STEP_OUT;
@@ -301,7 +288,7 @@ static void on_trace_line(mp_obj_frame_t* frame) {
     case DS_STEP_OVER:
     {
         // Triggered if the depth is same or lower than one set when step over was requested
-        int cur_depth = get_call_depth(frame);
+        int cur_depth = dbgr_get_call_depth(top_frame);
         DBG_SEND("DS_STEP_OVER: cur_depth %d <= step_depth %d ?", cur_depth, step_depth);
         if (cur_depth <= step_depth) {
             stopped_reason = R_STOPPED_STEP_OVER;
@@ -325,14 +312,14 @@ static void on_trace_line(mp_obj_frame_t* frame) {
     send_stopped(stopped_reason);
 
     while (true) {
-        if (try_process_command(frame)) {
+        if (try_process_command(top_frame)) {
             switch(dbgr_status) {
                 case DS_RUNNING:
                     return;
                 case DS_STEP_INTO:
                 case DS_STEP_OUT:
                 case DS_STEP_OVER:
-                    step_depth = get_call_depth(frame);
+                    step_depth = dbgr_get_call_depth(top_frame);
                     DBG_SEND("STEP set step_depth=%d", step_depth);
                     return;
                 case DS_STOPPED:
