@@ -16,7 +16,7 @@
 
 #define VARS_PAYLOAD_SIZE JCOMP_MAX_PAYLOAD_SIZE
 
-void print_obj(int i, mp_obj_t obj) {
+static void dbg_print_obj(int i, mp_obj_t obj) {
     if (obj) {
         mp_printf(&mp_plat_print, "[%d] t:%s ", i, mp_obj_get_type_str(obj));
         mp_obj_print(obj, PRINT_REPR);
@@ -43,8 +43,12 @@ typedef struct {
 
 static void var_info_clear(var_info_t* vi) {
     vstr_clear(&(vi->name));
+    vi->name.len = 0;
+    
     vstr_clear(&(vi->value));
-    vi->type = 0;
+    vi->value.len = 0;
+
+    vi->type = 0; // qstr
     vi->address = 0;
 }
 
@@ -94,28 +98,51 @@ static void iter_init(vars_iter_t* iter, const vars_request_t* args, mp_obj_fram
         return;
     }
 }
-static bool iter_next(vars_iter_t* iter) {
-    if (iter->cur_idx >= iter->size) {
-        return false;
-    }
-    iter->cur_idx++;
-
-    // clear previous info
-    var_info_clear(&iter->vi);
-
+static bool iter_has_next(vars_iter_t* iter) {
     if (iter->objs == NULL) {
         return false;
     }
 
     // skip nulls
-    while (iter->objs[iter->cur_idx] == NULL) {
-        iter->cur_idx++;
+    int next_idx = iter->cur_idx + 1;
+    while(true) {
+        if (next_idx > iter->size) {
+            return false;
+        }
+        if (iter->objs[next_idx] != NULL) {
+            return true;
+        }
+        next_idx++;
+    }
+    // not found
+    return false;
+}
+static bool iter_next(vars_iter_t* iter) {
+    if (iter->objs == NULL) {
+        return false;
+    }
+
+    // advance to the next
+    iter->cur_idx++;
+    //DBG_SEND("iter_next() idx:%d size:%d", iter->cur_idx, iter->size);
+
+    // skip  nulls    
+    while(true) {
         if (iter->cur_idx >= iter->size) {
             return false;
         }
+        if (iter->objs[iter->cur_idx] != NULL) {
+            break;
+        }
+        iter->cur_idx++;
     }
 
+    // clear previous info
+    var_info_clear(&iter->vi);
+
     mp_obj_t obj = iter->objs[iter->cur_idx];
+
+    dbg_print_obj(iter->cur_idx, obj);
 
     // name
     // for local vars (VSCOPE_FRAME/VKIND_VARIABLES) names are not available
@@ -139,9 +166,10 @@ static bool iter_next(vars_iter_t* iter) {
 }
 static int iter_get_size(vars_iter_t* iter) {
     // name, value, type, address
-    return (iter->vi.name.len + 
-            iter->vi.value.len + 
-            strlen(qstr_str(iter->vi.type)) + 
+    //DBG_SEND("length of name:%d value:%d type:%d", iter->vi.name.len, iter->vi.value.len, strlen(qstr_str(iter->vi.type)));
+    return (iter->vi.name.len + 1 + 
+            iter->vi.value.len + 1 +
+            strlen(qstr_str(iter->vi.type)) + 1 + 
             4);
 }
 static void iter_append(vars_iter_t* iter, JCOMP_MSG resp) {
@@ -149,6 +177,10 @@ static void iter_append(vars_iter_t* iter, JCOMP_MSG resp) {
     const char* name = vstr_str(&(iter->vi.name));
     const char* value = vstr_str(&(iter->vi.value));
     const char* type = qstr_str(iter->vi.type); 
+
+    if (name == NULL) { name = ""; }
+    if (value == NULL) { value = ""; }
+    if (type == NULL) { type = ""; }
 
     jcomp_msg_append_str0(resp, name);
     jcomp_msg_append_str0(resp, value);
@@ -158,7 +190,7 @@ static void iter_append(vars_iter_t* iter, JCOMP_MSG resp) {
 
 
 void send_vars_response(uint8_t req_id, const vars_request_t* args, mp_obj_frame_t* top_frame) {
-    DBG_SEND("send_vars_response: scope_type:%d list_kind:%d scope_id:%d var_start_idx:%d",
+    DBG_SEND("send_vars_response: req: scope_type:%d list_kind:%d scope_id:%d var_start_idx:%d",
         args->scope_type, args->list_kind, args->scope_id, args->var_start_idx);
 
     JCOMP_CREATE_RESPONSE(resp, req_id, VARS_PAYLOAD_SIZE);
@@ -177,12 +209,12 @@ void send_vars_response(uint8_t req_id, const vars_request_t* args, mp_obj_frame
     iter_init(&iter, args, top_frame);
 
     int var_idx = 0;
-    bool is_end = true;
     while(iter_next(&iter)) {
+        //DBG_SEND("loop: iter->cur_idx:%d var_idx:%d var_start_idx:%d", iter.cur_idx, var_idx, args->var_start_idx);
         if (var_idx >= args->var_start_idx) {
             int var_size = iter_get_size(&iter);
+            //DBG_SEND("pos: %d var_size:%d", pos, var_size);
             if (pos + var_size > VARS_PAYLOAD_SIZE) {
-                is_end = false;
                 break;
             }
             pos += var_size;
@@ -193,6 +225,7 @@ void send_vars_response(uint8_t req_id, const vars_request_t* args, mp_obj_frame
         var_idx++;
     }
 
+    bool is_end = !iter_has_next(&iter);
     if (is_end) {        
         if (pos + END_TOKEN_SIZE > VARS_PAYLOAD_SIZE) {
             // no room for the end token, send what we have
@@ -202,7 +235,9 @@ void send_vars_response(uint8_t req_id, const vars_request_t* args, mp_obj_frame
             pos += END_TOKEN_SIZE;
         }
     }
-    
+
+    iter_clear(&iter);
+
     jcomp_msg_set_payload_size(resp, pos);
 
     JCOMP_RV rv = jcomp_send_msg(resp);

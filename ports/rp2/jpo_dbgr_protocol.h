@@ -6,6 +6,7 @@
 ///////////////////
 // Always available
 ///////////////////
+
 #define CMD_LENGTH 8
 
 // PC sends anytime to stop the program.
@@ -88,18 +89,18 @@
  */
 #define REQ_DBG_VARIABLES "DBG_VARS"
 
+typedef enum _var_scope_type_t {
+    VSCOPE_FRAME = 1,
+    VSCOPE_GLOBAL,
+    VSCOPE_OBJECT,
+} var_scope_type_t;
+
 typedef enum _var_list_kind_t {
     VKIND_VARIABLES = 1,
     VKIND_INTERNALS,
     VKIND_FUNCTIONS,
     VKIND_CLASSES,
 } var_list_kind_t;
-
-typedef enum _var_scope_type_t {
-    VSCOPE_FRAME = 1,
-    VSCOPE_GLOBAL,
-    VSCOPE_OBJECT,
-} var_scope_type_t;
 
 // 5 chars + \0
 #define END_TOKEN_SIZE 6    
