@@ -54,7 +54,8 @@ STATIC mp_obj_t dict_update(size_t n_args, const mp_obj_t *args, mp_map_t *kwarg
 // This is a helper function to iterate through a dictionary.  The state of
 // the iteration is held in *cur and should be initialised with zero for the
 // first call.  Will return NULL when no more elements are available.
-STATIC mp_map_elem_t *dict_iter_next(mp_obj_dict_t *dict, size_t *cur) {
+// Used by the JPO debugger (not STATIC).
+mp_map_elem_t *dict_iter_next(mp_obj_dict_t *dict, size_t *cur) {
     size_t max = dict->map.alloc;
     mp_map_t *map = &dict->map;
 

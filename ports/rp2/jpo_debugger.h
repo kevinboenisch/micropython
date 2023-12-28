@@ -51,6 +51,9 @@ mp_obj_frame_t* dbgr_find_frame(int frame_idx, mp_obj_frame_t* top_frame);
 // in jpo_dbgr_variables.c
 void dbgr_send_variables_response(const JCOMP_MSG request, mp_obj_frame_t* top_frame);
 
+/// in objdict.c
+mp_map_elem_t *dict_iter_next(mp_obj_dict_t *dict, size_t *cur);
+
 /** @brief Diagonstics. Check if there is a stack overflow, DBG_SEND info. */
 bool dbgr_check_stack_overflow(bool show_if_ok);
 /** @brief Diagonstics. DBG_SEND stack info. */

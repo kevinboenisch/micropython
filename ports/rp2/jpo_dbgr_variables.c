@@ -6,6 +6,7 @@
 
 #include "py/bc.h" // for mp_code_state_t
 #include "py/objfun.h"
+#include "py/obj.h"
 
 #include "jpo/jcomp_protocol.h"
 #include "jpo/debug.h"
@@ -15,8 +16,9 @@
 // #define DBG_SEND(...)
 
 #define VARS_PAYLOAD_SIZE JCOMP_MAX_PAYLOAD_SIZE
+#define OBJ_RER_MAX_SIZE 50
 
-static void dbg_print_obj(int i, mp_obj_t obj) {
+void dbg_print_obj(int i, mp_obj_t obj) {
     if (obj) {
         mp_printf(&mp_plat_print, "[%d] t:%s ", i, mp_obj_get_type_str(obj));
         mp_obj_print(obj, PRINT_REPR);
@@ -39,9 +41,9 @@ typedef struct {
     vstr_t value;
     qstr type;
     uint32_t address;
-} var_info_t;
+} varinfo_t;
 
-static void var_info_clear(var_info_t* vi) {
+static void varinfo_clear(varinfo_t* vi) {
     vstr_clear(&(vi->name));
     vi->name.len = 0;
     
@@ -54,20 +56,27 @@ static void var_info_clear(var_info_t* vi) {
 
 typedef struct {
     const vars_request_t* args;
-    int size;
+
+    // Usually iterating a dict
+    mp_obj_dict_t* dict;
+
+    // Sometimes it's a list
+    int objs_size;
     const mp_obj_t* objs;
 
     int cur_idx;
-    var_info_t vi;
+    varinfo_t vi;
 } vars_iter_t;
 
 static void iter_clear(vars_iter_t* iter) {
     iter->args = NULL;
-    iter->size = 0;
+
+    iter->dict = NULL;
+    iter->objs_size = 0;
     iter->objs = NULL;
 
     iter->cur_idx = -1;
-    var_info_clear(&iter->vi);
+    varinfo_clear(&iter->vi);
 }
 static void iter_init(vars_iter_t* iter, const vars_request_t* args, mp_obj_frame_t* top_frame) {
     iter_clear(iter);
@@ -80,18 +89,15 @@ static void iter_init(vars_iter_t* iter, const vars_request_t* args, mp_obj_fram
             return;
         }
         const mp_code_state_t* cur_bc = frame->code_state;
-        iter->size = cur_bc->n_state;
+
+        iter->objs_size = cur_bc->n_state;
         iter->objs = cur_bc->state;
     }
     else if (args->scope_type == VSCOPE_GLOBAL) {
-        // TODO
-        iter->size = 0;
-        iter->objs = NULL;
+        iter->dict = MP_STATE_THREAD(dict_globals);
     }
     else if (args->scope_type == VSCOPE_OBJECT) {
         // TODO
-        iter->size = 0;
-        iter->objs = NULL;
     }
     else {
         DBG_SEND("Error: iter_start(): unknown scope_type:%d", args->scope_type);
@@ -99,84 +105,133 @@ static void iter_init(vars_iter_t* iter, const vars_request_t* args, mp_obj_fram
     }
 }
 static bool iter_has_next(vars_iter_t* iter) {
-    if (iter->objs == NULL) {
+    if (iter->dict != NULL) {
+        // Copy the index, do we don't advance iter->cur_idx
+        size_t idx = iter->cur_idx;
+        if (idx == -1) { idx = 0; }
+
+        mp_map_elem_t* elem = dict_iter_next(iter->dict, &idx);
+        return (elem != NULL);
+    }
+    else if (iter->objs != NULL) {
+        return (iter->cur_idx < iter->objs_size);
+    }
+    else {
         return false;
+    }
+}
+
+// helper
+static void varinfo_set_type_and_address(varinfo_t* varinfo, mp_obj_t obj) {
+    // type: always set
+    const mp_obj_type_t* obj_type = mp_obj_get_type(obj);
+    varinfo->type = obj_type->name;
+
+    // address: set for certain types, so debugger can drill down to examine the object
+    if (obj_type == &mp_type_object) {
+        varinfo->address = (uint32_t)obj;
+    }
+}
+// helper
+static void obj_repr_to_vstr(mp_obj_t obj, vstr_t* out_vstr) {
+    mp_print_t print_to_vstr;
+    vstr_init_print(out_vstr, OBJ_RER_MAX_SIZE, &print_to_vstr);
+    mp_obj_print_helper(&print_to_vstr, obj, PRINT_REPR);
+}
+
+static varinfo_t* iter_next_dict(vars_iter_t* iter) {
+    if (iter->dict == NULL) {
+        return NULL;
     }
 
-    // skip nulls
-    int next_idx = iter->cur_idx + 1;
-    while(true) {
-        if (next_idx > iter->size) {
-            return false;
-        }
-        if (iter->objs[next_idx] != NULL) {
-            return true;
-        }
-        next_idx++;
+    if (iter->cur_idx == -1) {
+        iter->cur_idx = 0;
     }
-    // not found
-    return false;
+
+    // Advances to the next item
+    mp_map_elem_t* elem = dict_iter_next(iter->dict, (size_t*)&(iter->cur_idx));
+    if (elem == NULL) {
+        return NULL;
+    }
+
+    varinfo_t* vi = &(iter->vi); 
+
+    // clear previous info
+    varinfo_clear(vi);
+
+    // name is key
+    // TODO: this is already a string most likely, can we just pull out out?
+    obj_repr_to_vstr(elem->key, &(vi->name));
+
+    // value
+    obj_repr_to_vstr(elem->value, &(vi->value));
+
+    // type, address
+    varinfo_set_type_and_address(vi, elem->value);
+
+    return vi;
 }
-static bool iter_next(vars_iter_t* iter) {
+static varinfo_t* iter_next_list(vars_iter_t* iter) {
     if (iter->objs == NULL) {
-        return false;
+        return NULL;
     }
 
     // advance to the next
     iter->cur_idx++;
-    //DBG_SEND("iter_next() idx:%d size:%d", iter->cur_idx, iter->size);
-
-    // skip  nulls    
-    while(true) {
-        if (iter->cur_idx >= iter->size) {
-            return false;
-        }
-        if (iter->objs[iter->cur_idx] != NULL) {
-            break;
-        }
-        iter->cur_idx++;
+    if (iter->cur_idx >= iter->objs_size) {
+        return NULL;
     }
+
+    //DBG_SEND("iter_next() idx:%d size:%d", iter->cur_idx, iter->objs_size);
 
     // clear previous info
-    var_info_clear(&iter->vi);
+    varinfo_t* vi = &(iter->vi);
+    varinfo_clear(vi);
 
+    // might be null
     mp_obj_t obj = iter->objs[iter->cur_idx];
+    //dbg_print_obj(iter->cur_idx, obj);
 
-    dbg_print_obj(iter->cur_idx, obj);
+    if (obj != NULL) {
+        // name
+        // for local vars (VSCOPE_FRAME/VKIND_VARIABLES) names are not available
 
-    // name
-    // for local vars (VSCOPE_FRAME/VKIND_VARIABLES) names are not available
-    // TODO: for others
+        // value
+        obj_repr_to_vstr(obj, &(vi->value));
 
-    // value
-    mp_print_t print_to_vstr;
-    vstr_init_print(&(iter->vi.value), 16, &print_to_vstr);
-    mp_obj_print_helper(&print_to_vstr, obj, PRINT_REPR);
-
-    // type
-    const mp_obj_type_t* obj_type = mp_obj_get_type(obj);
-    iter->vi.type = obj_type->name;
-
-    // address: set so that the debugger can examine the object
-    if (obj_type == &mp_type_object) {
-        iter->vi.address = (uint32_t)obj;
+        // type, address
+        varinfo_set_type_and_address(vi, obj);
     }
 
-    return true;
+    //DBG_SEND("iter_next_list() done");
+
+    return vi;
 }
-static int iter_get_size(vars_iter_t* iter) {
+
+// NULL if no more items
+static varinfo_t* iter_next(vars_iter_t* iter) {
+    if (iter->dict != NULL) {
+        return iter_next_dict(iter);
+    }
+    else if (iter->objs != NULL) {
+        return iter_next_list(iter);
+    }
+    return NULL;
+}
+
+static int varinfo_get_size(varinfo_t* vi) {
     // name, value, type, address
-    //DBG_SEND("length of name:%d value:%d type:%d", iter->vi.name.len, iter->vi.value.len, strlen(qstr_str(iter->vi.type)));
-    return (iter->vi.name.len + 1 + 
-            iter->vi.value.len + 1 +
-            strlen(qstr_str(iter->vi.type)) + 1 + 
+    //DBG_SEND("length of name:%d value:%d type:%d", vi->name.len, vi->value.len, strlen(qstr_str(vi->type)));
+    return (vi->name.len + 1 + 
+            vi->value.len + 1 +
+            strlen(qstr_str(vi->type)) + 1 + 
             4);
 }
-static void iter_append(vars_iter_t* iter, JCOMP_MSG resp) {
+static void varinfo_append(varinfo_t* vi, JCOMP_MSG resp) {
     // Ignoring rv for now
-    const char* name = vstr_str(&(iter->vi.name));
-    const char* value = vstr_str(&(iter->vi.value));
-    const char* type = qstr_str(iter->vi.type); 
+    const char* name = vstr_str(&(vi->name));
+    const char* value = vstr_str(&(vi->value));
+    const char* type = qstr_str(vi->type); 
 
     if (name == NULL) { name = ""; }
     if (value == NULL) { value = ""; }
@@ -185,7 +240,7 @@ static void iter_append(vars_iter_t* iter, JCOMP_MSG resp) {
     jcomp_msg_append_str0(resp, name);
     jcomp_msg_append_str0(resp, value);
     jcomp_msg_append_str0(resp, type);
-    jcomp_msg_append_uint32(resp, iter->vi.address);
+    jcomp_msg_append_uint32(resp, vi->address);
 }
 
 
@@ -209,17 +264,22 @@ void send_vars_response(uint8_t req_id, const vars_request_t* args, mp_obj_frame
     iter_init(&iter, args, top_frame);
 
     int var_idx = 0;
-    while(iter_next(&iter)) {
+    while(true) {
+        varinfo_t* vi = iter_next(&iter);
+        if (vi == NULL) {
+            break;
+        }
+
         //DBG_SEND("loop: iter->cur_idx:%d var_idx:%d var_start_idx:%d", iter.cur_idx, var_idx, args->var_start_idx);
         if (var_idx >= args->var_start_idx) {
-            int var_size = iter_get_size(&iter);
+            int var_size = varinfo_get_size(vi);
             //DBG_SEND("pos: %d var_size:%d", pos, var_size);
             if (pos + var_size > VARS_PAYLOAD_SIZE) {
                 break;
             }
             pos += var_size;
 
-            iter_append(&iter, resp);
+            varinfo_append(vi, resp);
             // TODO-P3: rv
         }
         var_idx++;
