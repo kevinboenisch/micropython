@@ -119,10 +119,10 @@ static void varinfo_set_type_and_address(varinfo_t* varinfo, mp_obj_t obj) {
     }
 }
 // helper
-static void obj_repr_to_vstr(mp_obj_t obj, vstr_t* out_vstr) {
+static void obj_to_vstr(mp_obj_t obj, vstr_t* out_vstr, mp_print_kind_t print_kind) {
     mp_print_t print_to_vstr;
     vstr_init_print(out_vstr, OBJ_RER_MAX_SIZE, &print_to_vstr);
-    mp_obj_print_helper(&print_to_vstr, obj, PRINT_REPR);
+    mp_obj_print_helper(&print_to_vstr, obj, print_kind);
 }
 
 static varinfo_t* iter_next_dict(vars_iter_t* iter) {
@@ -146,11 +146,10 @@ static varinfo_t* iter_next_dict(vars_iter_t* iter) {
     varinfo_clear(vi);
 
     // name is key
-    // TODO: this is already a string most likely, can we just pull out out?
-    obj_repr_to_vstr(elem->key, &(vi->name));
+    obj_to_vstr(elem->key, &(vi->name), PRINT_STR);
 
     // value
-    obj_repr_to_vstr(elem->value, &(vi->value));
+    obj_to_vstr(elem->value, &(vi->value), PRINT_REPR);
 
     // type, address
     varinfo_set_type_and_address(vi, elem->value);
@@ -183,7 +182,7 @@ static varinfo_t* iter_next_list(vars_iter_t* iter) {
         // for local vars (VSCOPE_FRAME/VKIND_VARIABLES) names are not available
 
         // value
-        obj_repr_to_vstr(obj, &(vi->value));
+        obj_to_vstr(obj, &(vi->value), PRINT_REPR);
 
         // type, address
         varinfo_set_type_and_address(vi, obj);
@@ -230,9 +229,9 @@ static void varinfo_append(varinfo_t* vi, JCOMP_MSG resp) {
 }
 
 varinfo_kind_t varinfo_get_kind(varinfo_t* vi) {
-    DBG_SEND("var %s:%s len:%d [0]:%d [1]:%d", 
-        vstr_str(&vi->name), vstr_str(&vi->value), 
-        vstr_len(&vi->name), vstr_str(&vi->name)[0], vstr_str(&vi->name)[1]);
+    // DBG_SEND("var %s:%s len:%d [0]:%d [1]:%d", 
+    //     vstr_str(&vi->name), vstr_str(&vi->value), 
+    //     vstr_len(&vi->name), vstr_str(&vi->name)[0], vstr_str(&vi->name)[1]);
 
     // starts with "__"
     if (vstr_len(&vi->name) >= 2 && vstr_str(&vi->name)[0] == '_' && vstr_str(&vi->name)[1] == '_') {
