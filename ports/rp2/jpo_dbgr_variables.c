@@ -31,8 +31,8 @@ void dbg_print_obj(int i, mp_obj_t obj) {
 
 typedef struct {
     enum _var_scope_type_t scope_type;
-    enum _var_list_kind_t list_kind;
-    int scope_id;
+    enum _varinfo_kind_t include_kind;
+    int depth_or_addr;
     int var_start_idx;
 } vars_request_t;
 
@@ -84,14 +84,16 @@ static void iter_init(vars_iter_t* iter, const vars_request_t* args, mp_obj_fram
     iter->args = args;
 
     if (args->scope_type == VSCOPE_FRAME) {
-        mp_obj_frame_t* frame = dbgr_find_frame(args->scope_id, top_frame);
+        mp_obj_frame_t* frame = dbgr_find_frame(args->depth_or_addr, top_frame);
         if (frame == NULL) {
             return;
         }
         const mp_code_state_t* cur_bc = frame->code_state;
-
         iter->objs_size = cur_bc->n_state;
         iter->objs = cur_bc->state;
+
+        // Micropython issue: this returns the same items as globals
+        // iter->dict = MP_STATE_THREAD(dict_locals);
     }
     else if (args->scope_type == VSCOPE_GLOBAL) {
         iter->dict = MP_STATE_THREAD(dict_globals);
@@ -102,22 +104,6 @@ static void iter_init(vars_iter_t* iter, const vars_request_t* args, mp_obj_fram
     else {
         DBG_SEND("Error: iter_start(): unknown scope_type:%d", args->scope_type);
         return;
-    }
-}
-static bool iter_has_next(vars_iter_t* iter) {
-    if (iter->dict != NULL) {
-        // Copy the index, do we don't advance iter->cur_idx
-        size_t idx = iter->cur_idx;
-        if (idx == -1) { idx = 0; }
-
-        mp_map_elem_t* elem = dict_iter_next(iter->dict, &idx);
-        return (elem != NULL);
-    }
-    else if (iter->objs != NULL) {
-        return (iter->cur_idx < iter->objs_size);
-    }
-    else {
-        return false;
     }
 }
 
@@ -243,20 +229,37 @@ static void varinfo_append(varinfo_t* vi, JCOMP_MSG resp) {
     jcomp_msg_append_uint32(resp, vi->address);
 }
 
+varinfo_kind_t varinfo_get_kind(varinfo_t* vi) {
+    DBG_SEND("var %s:%s len:%d [0]:%d [1]:%d", 
+        vstr_str(&vi->name), vstr_str(&vi->value), 
+        vstr_len(&vi->name), vstr_str(&vi->name)[0], vstr_str(&vi->name)[1]);
 
+    // starts with "__"
+    if (vstr_len(&vi->name) >= 2 && vstr_str(&vi->name)[0] == '_' && vstr_str(&vi->name)[1] == '_') {
+        return VKIND_SPECIAL;
+    }
+    else if (vi->type == mp_type_fun_bc.name) {
+        return VKIND_FUNCTION;
+    }
+    else if (vi->type == mp_type_type.name) {
+        return VKIND_CLASS;
+    }
+    else {
+        return VKIND_NORMAL;
+    }
+}
 void send_vars_response(uint8_t req_id, const vars_request_t* args, mp_obj_frame_t* top_frame) {
-    DBG_SEND("send_vars_response: req: scope_type:%d list_kind:%d scope_id:%d var_start_idx:%d",
-        args->scope_type, args->list_kind, args->scope_id, args->var_start_idx);
+    DBG_SEND("send_vars_response: req: scope_type:%d include_kind:%d depth_or_addr:%d var_start_idx:%d",
+        args->scope_type, args->include_kind, args->depth_or_addr, args->var_start_idx);
 
     JCOMP_CREATE_RESPONSE(resp, req_id, VARS_PAYLOAD_SIZE);
     if (resp == NULL) {
         DBG_SEND("Error in send_vars_response(): JCOMP_CREATE_RESPONSE failed");
     }
 
-    // subsection_flags
     int pos = 0;
-    uint8_t subsection_flags = 0;
-    jcomp_msg_append_byte(resp, subsection_flags);
+    varinfo_kind_t contains_flags = 0;
+    jcomp_msg_append_byte(resp, 0); // write again when we know the flags
     pos += 1;
 
     // Fill the items
@@ -264,30 +267,39 @@ void send_vars_response(uint8_t req_id, const vars_request_t* args, mp_obj_frame
     iter_init(&iter, args, top_frame);
 
     int var_idx = 0;
+    bool packet_full = false;
     while(true) {
         varinfo_t* vi = iter_next(&iter);
         if (vi == NULL) {
             break;
         }
 
-        //DBG_SEND("loop: iter->cur_idx:%d var_idx:%d var_start_idx:%d", iter.cur_idx, var_idx, args->var_start_idx);
-        if (var_idx >= args->var_start_idx) {
-            int var_size = varinfo_get_size(vi);
-            //DBG_SEND("pos: %d var_size:%d", pos, var_size);
-            if (pos + var_size > VARS_PAYLOAD_SIZE) {
-                break;
+        // See if we want to include it
+        varinfo_kind_t kind = varinfo_get_kind(vi);
+        //DBG_SEND("var %s:%s (%s) kind: %d", vstr_str(&vi->name), vstr_str(&vi->value), qstr_str(vi->type),  kind);
+        contains_flags |= kind;
+        
+        if (kind & args->include_kind) {
+            //DBG_SEND("loop: iter->cur_idx:%d var_idx:%d var_start_idx:%d", iter.cur_idx, var_idx, args->var_start_idx);
+            if (var_idx >= args->var_start_idx 
+                && !packet_full) 
+            {
+                int append_size = varinfo_get_size(vi);
+                if (pos + append_size >= VARS_PAYLOAD_SIZE) {
+                    // no room for this item, send what we have
+                    packet_full = true;
+                }
+                else {
+                    varinfo_append(vi, resp);
+                    pos += append_size;
+                }
             }
-            pos += var_size;
-
-            varinfo_append(vi, resp);
-            // TODO-P3: rv
+            var_idx++;
         }
-        var_idx++;
     }
 
-    bool is_end = !iter_has_next(&iter);
-    if (is_end) {        
-        if (pos + END_TOKEN_SIZE > VARS_PAYLOAD_SIZE) {
+    if (!packet_full) {        
+        if (pos + END_TOKEN_SIZE >= VARS_PAYLOAD_SIZE) {
             // no room for the end token, send what we have
         } else {
             // Apend the end token
@@ -297,6 +309,9 @@ void send_vars_response(uint8_t req_id, const vars_request_t* args, mp_obj_frame
     }
 
     iter_clear(&iter);
+
+    // Set the subsection flags
+    jcomp_msg_set_byte(resp, 0, contains_flags);
 
     jcomp_msg_set_payload_size(resp, pos);
 
@@ -316,16 +331,16 @@ void dbgr_send_variables_response(const JCOMP_MSG request, mp_obj_frame_t* top_f
 
     int pos = CMD_LENGTH;
     var_scope_type_t scope_type = (var_scope_type_t)jcomp_msg_get_byte(request, pos++);
-    var_list_kind_t list_kind = (var_list_kind_t)jcomp_msg_get_byte(request, pos++);
-    int scope_id = jcomp_msg_get_uint32(request, pos);
+    varinfo_kind_t include_kind = (varinfo_kind_t)jcomp_msg_get_byte(request, pos++);
+    int depth_or_addr = jcomp_msg_get_uint32(request, pos);
     pos += 4;
     int var_start_idx = jcomp_msg_get_uint32(request, pos);
     pos += 4;
 
     vars_request_t args = {
         .scope_type = scope_type,
-        .list_kind = list_kind,
-        .scope_id = scope_id,
+        .include_kind = include_kind,
+        .depth_or_addr = depth_or_addr,
         .var_start_idx = var_start_idx,
     };
     send_vars_response(jcomp_msg_id(request), &args, top_frame);

@@ -95,12 +95,13 @@ typedef enum _var_scope_type_t {
     VSCOPE_OBJECT,
 } var_scope_type_t;
 
-typedef enum _var_list_kind_t {
-    VKIND_VARIABLES = 1,
-    VKIND_INTERNALS,
-    VKIND_FUNCTIONS,
-    VKIND_CLASSES,
-} var_list_kind_t;
+typedef enum _varinfo_kind_t {
+    VKIND_NORMAL   = 0x1,
+    VKIND_SPECIAL  = 0x2,
+    VKIND_FUNCTION = 0x4,
+    VKIND_CLASS    = 0x8,
+    VKIND_ALL      = 0xF,
+} varinfo_kind_t;
 
 // 5 chars + \0
 #define END_TOKEN_SIZE 6    
