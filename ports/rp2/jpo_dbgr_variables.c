@@ -69,19 +69,66 @@ typedef struct {
 } vars_iter_t;
 
 static void iter_clear(vars_iter_t* iter) {
-    iter->args = NULL;
-
     iter->dict = NULL;
+
     iter->objs_size = 0;
     iter->objs = NULL;
 
     iter->cur_idx = -1;
     varinfo_clear(&iter->vi);
 }
-static void iter_init(vars_iter_t* iter, const vars_request_t* args, mp_obj_frame_t* top_frame) {
+
+static void varinfo_set_type(varinfo_t* varinfo, mp_obj_t obj) {
+    // type: always set
+    const mp_obj_type_t* obj_type = mp_obj_get_type(obj);
+    varinfo->type = obj_type->name;
+}
+static void varinfo_set_address(varinfo_t* varinfo, mp_obj_t obj) {
+    // address: set for certain types, so debugger can drill down to examine the object
+    if (mp_obj_is_type(obj, &mp_type_object)
+        || mp_obj_is_type(obj, &mp_type_tuple)
+        || mp_obj_is_type(obj, &mp_type_list)
+        || mp_obj_is_type(obj, &mp_type_dict)) 
+    {
+        varinfo->address = (uint32_t)obj;
+    }
+}
+static void iter_init_from_obj(vars_iter_t* iter, mp_obj_t obj) {
     iter_clear(iter);
 
-    iter->args = args;
+    if (mp_obj_is_type(obj, &mp_type_object)) {
+        // Returns a list of attributes
+        mp_obj_t attr_list = mp_builtin_dir(1, &obj);
+        // TODO: set a flag on iter to get attribute values
+        size_t len = 0;
+        mp_obj_t* items = NULL;
+        mp_obj_get_array(attr_list, &len, &items);
+
+        iter->objs_size = len;
+        iter->objs = items;
+    }
+    else if (mp_obj_is_type(obj, &mp_type_tuple)
+            || mp_obj_is_type(obj, &mp_type_list)) 
+    {
+        // TODO: add length
+        size_t len = 0;
+        mp_obj_t* items = NULL;
+        mp_obj_get_array(obj, &len, &items);
+
+        iter->objs_size = len;
+        iter->objs = items;
+    }
+    else if (mp_obj_is_type(obj, &mp_type_dict)) {
+        // TODO: add length, maybe
+        iter->dict = MP_OBJ_TO_PTR(obj);
+    }
+    else {
+        DBG_SEND("Error: iter_init_from_obj(): unknown type:%s", mp_obj_get_type_str(obj));
+    }
+}
+
+static void iter_init(vars_iter_t* iter, const vars_request_t* args, mp_obj_frame_t* top_frame) {
+    iter_clear(iter);
 
     if (args->scope_type == VSCOPE_FRAME) {
         mp_obj_frame_t* frame = dbgr_find_frame(args->depth_or_addr, top_frame);
@@ -99,7 +146,13 @@ static void iter_init(vars_iter_t* iter, const vars_request_t* args, mp_obj_fram
         iter->dict = MP_STATE_THREAD(dict_globals);
     }
     else if (args->scope_type == VSCOPE_OBJECT) {
-        // TODO
+        // Get the object. Hope the address is ok
+        if (args->depth_or_addr == 0) {
+            DBG_SEND("Error: iter_start(): object address is 0");
+            return;
+        }
+        mp_obj_t obj = (mp_obj_t)args->depth_or_addr;
+        iter_init_from_obj(iter, obj);
     }
     else {
         DBG_SEND("Error: iter_start(): unknown scope_type:%d", args->scope_type);
@@ -107,17 +160,6 @@ static void iter_init(vars_iter_t* iter, const vars_request_t* args, mp_obj_fram
     }
 }
 
-// helper
-static void varinfo_set_type_and_address(varinfo_t* varinfo, mp_obj_t obj) {
-    // type: always set
-    const mp_obj_type_t* obj_type = mp_obj_get_type(obj);
-    varinfo->type = obj_type->name;
-
-    // address: set for certain types, so debugger can drill down to examine the object
-    if (obj_type == &mp_type_object) {
-        varinfo->address = (uint32_t)obj;
-    }
-}
 // helper
 static void obj_to_vstr(mp_obj_t obj, vstr_t* out_vstr, mp_print_kind_t print_kind) {
     mp_print_t print_to_vstr;
@@ -151,8 +193,8 @@ static varinfo_t* iter_next_dict(vars_iter_t* iter) {
     // value
     obj_to_vstr(elem->value, &(vi->value), PRINT_REPR);
 
-    // type, address
-    varinfo_set_type_and_address(vi, elem->value);
+    varinfo_set_type(vi, elem->value);
+    varinfo_set_address(vi, elem->value);
 
     return vi;
 }
@@ -184,8 +226,8 @@ static varinfo_t* iter_next_list(vars_iter_t* iter) {
         // value
         obj_to_vstr(obj, &(vi->value), PRINT_REPR);
 
-        // type, address
-        varinfo_set_type_and_address(vi, obj);
+        varinfo_set_type(vi, obj);
+        varinfo_set_address(vi, obj);
     }
 
     //DBG_SEND("iter_next_list() done");

@@ -173,7 +173,8 @@ STATIC mp_obj_t mp_builtin_chr(mp_obj_t o_in) {
 }
 MP_DEFINE_CONST_FUN_OBJ_1(mp_builtin_chr_obj, mp_builtin_chr);
 
-STATIC mp_obj_t mp_builtin_dir(size_t n_args, const mp_obj_t *args) {
+// Used by the JPO debugger, removed STATIC
+mp_obj_t mp_builtin_dir(size_t n_args, const mp_obj_t *args) {
     mp_obj_t dir = mp_obj_new_list(0, NULL);
     if (n_args == 0) {
         // Make a list of names in the local namespace
