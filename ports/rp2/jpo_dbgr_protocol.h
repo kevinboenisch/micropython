@@ -100,7 +100,8 @@ typedef enum _varinfo_kind_t {
     VKIND_SPECIAL  = 0x2,
     VKIND_FUNCTION = 0x4,
     VKIND_CLASS    = 0x8,
-    VKIND_ALL      = 0xF,
+    VKIND_MODULE   = 0x10,
+    VKIND_ALL      = 0xFF,
 } varinfo_kind_t;
 
 // 5 chars + \0

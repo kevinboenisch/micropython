@@ -285,6 +285,9 @@ varinfo_kind_t varinfo_get_kind(varinfo_t* vi) {
     else if (vi->type == mp_type_type.name) {
         return VKIND_CLASS;
     }
+    else if (vi->type == mp_type_module.name) {
+        return VKIND_MODULE;
+    }
     else {
         return VKIND_NORMAL;
     }
