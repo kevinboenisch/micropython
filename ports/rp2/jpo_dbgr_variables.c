@@ -57,12 +57,15 @@ static void varinfo_clear(varinfo_t* vi) {
 typedef struct {
     const vars_request_t* args;
 
-    // Usually iterating a dict
+    // Option 1: iterate a dict
     mp_obj_dict_t* dict;
+    // If true, print key as REPR, otherwise as STR
+    bool dict_key_use_repr;
 
-    // Sometimes it's a list
+    // Option 2: iterate a list
     int objs_size;
     const mp_obj_t* objs;
+    bool obj_names_are_indexes;
 
     int cur_idx;
     varinfo_t vi;
@@ -70,9 +73,11 @@ typedef struct {
 
 static void iter_clear(vars_iter_t* iter) {
     iter->dict = NULL;
+    iter->dict_key_use_repr = false;
 
     iter->objs_size = 0;
     iter->objs = NULL;
+    iter->obj_names_are_indexes = false;
 
     iter->cur_idx = -1;
     varinfo_clear(&iter->vi);
@@ -117,10 +122,12 @@ static void iter_init_from_obj(vars_iter_t* iter, mp_obj_t obj) {
 
         iter->objs_size = len;
         iter->objs = items;
+        iter->obj_names_are_indexes = true;
     }
     else if (mp_obj_is_type(obj, &mp_type_dict)) {
         // TODO: add length, maybe
         iter->dict = MP_OBJ_TO_PTR(obj);
+        iter->dict_key_use_repr = true;
     }
     else {
         DBG_SEND("Error: iter_init_from_obj(): unknown type:%s", mp_obj_get_type_str(obj));
@@ -188,7 +195,7 @@ static varinfo_t* iter_next_dict(vars_iter_t* iter) {
     varinfo_clear(vi);
 
     // name is key
-    obj_to_vstr(elem->key, &(vi->name), PRINT_STR);
+    obj_to_vstr(elem->key, &(vi->name), iter->dict_key_use_repr ? PRINT_REPR : PRINT_STR);
 
     // value
     obj_to_vstr(elem->value, &(vi->value), PRINT_REPR);
@@ -222,6 +229,10 @@ static varinfo_t* iter_next_list(vars_iter_t* iter) {
     if (obj != NULL) {
         // name
         // for local vars (VSCOPE_FRAME/VKIND_VARIABLES) names are not available
+        if (iter->obj_names_are_indexes) {
+            vstr_init(&vi->name, 6);
+            vstr_printf(&vi->name, "%d", iter->cur_idx);
+        }
 
         // value
         obj_to_vstr(obj, &(vi->value), PRINT_REPR);
