@@ -55,6 +55,9 @@ static void varinfo_clear(varinfo_t* vi) {
     vi->address = 0;
 }
 
+
+#define IDX_PREPEND_LENGTH -2
+
 typedef struct {
     // If drilling down into an object, the source object/list/tuple
     mp_obj_t src_obj;
@@ -72,9 +75,6 @@ typedef struct {
     // If true, use the obj (string) as the name and look up the value in src_obj
     bool obj_is_attr_name;
 
-    // Prepend the result of the len() call to the object
-    bool prepend_length;
-
     int cur_idx;
     varinfo_t vi;
 } vars_iter_t;
@@ -89,8 +89,6 @@ static void iter_clear(vars_iter_t* iter) {
     iter->objs = NULL;
     iter->obj_names_are_indexes = false;
     iter->obj_is_attr_name = false;
-
-    iter->prepend_length = false;
 
     iter->cur_idx = -1;
     varinfo_clear(&iter->vi);
@@ -139,13 +137,16 @@ static void iter_init_from_obj(vars_iter_t* iter, mp_obj_t obj) {
         iter->objs = items;
         // Show indexes
         iter->obj_names_are_indexes = true;
+        // Return len() as the first varinfo_t item
+        iter->cur_idx = IDX_PREPEND_LENGTH;
     }
     else if (mp_obj_is_type(obj, &mp_type_dict)) {
         // TODO: add length, maybe
         iter->dict = MP_OBJ_TO_PTR(obj);
         // Set a flag to output names as REPR, since keys are not always strings
-        iter->prepend_length = true;
         iter->dict_key_use_repr = true;
+        // Return len() as the first varinfo_t item
+        iter->cur_idx = IDX_PREPEND_LENGTH;
     }
     else if (mp_obj_is_type(obj, &mp_type_object)
             || mp_obj_is_instance_type(mp_obj_get_type(obj))
@@ -236,13 +237,14 @@ static varinfo_t* iter_next_dict(vars_iter_t* iter) {
         return NULL;
     }
 
-    if (iter->cur_idx == -1) {
+    if (iter->cur_idx == IDX_PREPEND_LENGTH) {
         // Special case: len() is the first item
-        if (iter->prepend_length) {
-            varinfo_fill_length(&(iter->vi), (mp_obj_t)iter->src_obj);
-            iter->cur_idx = 0; // advance
-            return &(iter->vi);
-        }
+        varinfo_fill_length(&(iter->vi), (mp_obj_t)iter->src_obj);
+        iter->cur_idx = -1; // advance
+        return &(iter->vi);
+    }
+
+    if (iter->cur_idx == -1) {
         iter->cur_idx = 0;
     }
 
@@ -271,6 +273,13 @@ static varinfo_t* iter_next_dict(vars_iter_t* iter) {
 static varinfo_t* iter_next_list(vars_iter_t* iter) {
     if (iter->objs == NULL) {
         return NULL;
+    }
+
+    if (iter->cur_idx == IDX_PREPEND_LENGTH) {
+        // Special case: len() is the first item
+        varinfo_fill_length(&(iter->vi), (mp_obj_t)iter->src_obj);
+        iter->cur_idx = -1; // advance
+        return &(iter->vi);
     }
 
     // advance to the next
