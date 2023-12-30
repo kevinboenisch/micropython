@@ -575,7 +575,8 @@ static inline mp_obj_t mp_load_attr_default(mp_obj_t base, qstr attr, mp_obj_t d
     }
 }
 
-STATIC mp_obj_t mp_builtin_getattr(size_t n_args, const mp_obj_t *args) {
+// Used by JPO debugger, removed static
+mp_obj_t mp_builtin_getattr(size_t n_args, const mp_obj_t *args) {
     mp_obj_t defval = MP_OBJ_NULL;
     if (n_args > 2) {
         defval = args[2];

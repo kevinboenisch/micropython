@@ -55,7 +55,8 @@ static void varinfo_clear(varinfo_t* vi) {
 }
 
 typedef struct {
-    const vars_request_t* args;
+    // If drilling down into an object, the source object/list/tuple
+    mp_obj_t src_obj;
 
     // Option 1: iterate a dict
     mp_obj_dict_t* dict;
@@ -65,19 +66,25 @@ typedef struct {
     // Option 2: iterate a list
     int objs_size;
     const mp_obj_t* objs;
+    // If true, use the index as the name
     bool obj_names_are_indexes;
+    // If true, use the obj (string) as the name and look up the value in src_obj
+    bool obj_is_attr_name;
 
     int cur_idx;
     varinfo_t vi;
 } vars_iter_t;
 
 static void iter_clear(vars_iter_t* iter) {
+    iter->src_obj = NULL;
+
     iter->dict = NULL;
     iter->dict_key_use_repr = false;
 
     iter->objs_size = 0;
     iter->objs = NULL;
     iter->obj_names_are_indexes = false;
+    iter->obj_is_attr_name = false;
 
     iter->cur_idx = -1;
     varinfo_clear(&iter->vi);
@@ -101,6 +108,8 @@ static void varinfo_set_address(varinfo_t* varinfo, mp_obj_t obj) {
 static void iter_init_from_obj(vars_iter_t* iter, mp_obj_t obj) {
     iter_clear(iter);
 
+    iter->src_obj = obj;
+
     if (mp_obj_is_type(obj, &mp_type_object)) {
         // Returns a list of attributes
         mp_obj_t attr_list = mp_builtin_dir(1, &obj);
@@ -111,6 +120,7 @@ static void iter_init_from_obj(vars_iter_t* iter, mp_obj_t obj) {
 
         iter->objs_size = len;
         iter->objs = items;
+        iter->obj_is_attr_name = true;
     }
     else if (mp_obj_is_type(obj, &mp_type_tuple)
             || mp_obj_is_type(obj, &mp_type_list)) 
@@ -227,15 +237,26 @@ static varinfo_t* iter_next_list(vars_iter_t* iter) {
     //dbg_print_obj(iter->cur_idx, obj);
 
     if (obj != NULL) {
-        // name
-        // for local vars (VSCOPE_FRAME/VKIND_VARIABLES) names are not available
-        if (iter->obj_names_are_indexes) {
-            vstr_init(&vi->name, 6);
-            vstr_printf(&vi->name, "%d", iter->cur_idx);
-        }
+        if (iter->obj_is_attr_name) {
+            // name
+            obj_to_vstr(obj, &(vi->name), PRINT_STR);
 
-        // value
-        obj_to_vstr(obj, &(vi->value), PRINT_REPR);
+            // value, getattr(src_obj, obj)
+            mp_obj_t args[2] = {iter->src_obj, obj};
+            mp_obj_t val = mp_builtin_getattr(2, args);
+            obj_to_vstr(val, &(vi->value), PRINT_REPR);
+        }
+        else {
+            // name
+            // for local vars (VSCOPE_FRAME) names are not available
+            if (iter->obj_names_are_indexes) {
+                vstr_init(&vi->name, 6);
+                vstr_printf(&vi->name, "%d", iter->cur_idx);
+            }
+
+            // value
+            obj_to_vstr(obj, &(vi->value), PRINT_REPR);
+        }
 
         varinfo_set_type(vi, obj);
         varinfo_set_address(vi, obj);
