@@ -128,7 +128,6 @@ static void iter_init_from_obj(vars_iter_t* iter, mp_obj_t obj) {
     if (mp_obj_is_type(obj, &mp_type_tuple)
        || mp_obj_is_type(obj, &mp_type_list)) 
     {
-        // TODO: add length
         size_t len = 0;
         mp_obj_t* items = NULL;
         mp_obj_get_array(obj, &len, &items);
@@ -140,8 +139,17 @@ static void iter_init_from_obj(vars_iter_t* iter, mp_obj_t obj) {
         // Return len() as the first varinfo_t item
         iter->cur_idx = IDX_PREPEND_LENGTH;
     }
+    else if (mp_obj_is_type(obj, &mp_type_closure)) {
+        // Show closed-over vars
+        size_t len = 0;
+        mp_obj_t* items = NULL;
+        closure_get_closed(obj, &len, &items);
+
+        iter->objs_size = (int)len;
+        iter->objs = items;
+        iter->obj_names_are_indexes = true;
+    }
     else if (mp_obj_is_type(obj, &mp_type_dict)) {
-        // TODO: add length, maybe
         iter->dict = MP_OBJ_TO_PTR(obj);
         // Set a flag to output names as REPR, since keys are not always strings
         iter->dict_key_use_repr = true;
@@ -153,7 +161,6 @@ static void iter_init_from_obj(vars_iter_t* iter, mp_obj_t obj) {
             || mp_obj_is_type(obj, &mp_type_type) // class
             || mp_obj_is_type(obj, &mp_type_module)
             || mp_obj_is_type(obj, &mp_type_fun_bc)
-            || mp_obj_is_type(obj, &mp_type_closure)
             || mp_obj_is_type(obj, &mp_type_cell)
           ) {
     

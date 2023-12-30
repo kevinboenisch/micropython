@@ -57,6 +57,8 @@ mp_map_elem_t *dict_iter_next(mp_obj_dict_t *dict, size_t *cur);
 // in modbuiltins.c 
 mp_obj_t mp_builtin_dir(size_t n_args, const mp_obj_t *args);
 mp_obj_t mp_builtin_getattr(size_t n_args, const mp_obj_t *args);
+// in objclosure.c
+void closure_get_closed(mp_obj_t closure_in, size_t *n_closed, mp_obj_t **closed);
 
 
 /** @brief Diagonstics. Check if there is a stack overflow, DBG_SEND info. */

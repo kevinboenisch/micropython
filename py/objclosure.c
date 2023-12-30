@@ -36,6 +36,13 @@ typedef struct _mp_obj_closure_t {
     mp_obj_t closed[];
 } mp_obj_closure_t;
 
+// for the JPO debugger
+void closure_get_closed(mp_obj_t closure_in, size_t *n_closed, mp_obj_t **closed) {
+    mp_obj_closure_t *closure = MP_OBJ_TO_PTR(closure_in);
+    *n_closed = closure->n_closed;
+    *closed = closure->closed;
+}
+
 STATIC mp_obj_t closure_call(mp_obj_t self_in, size_t n_args, size_t n_kw, const mp_obj_t *args) {
     mp_obj_closure_t *self = MP_OBJ_TO_PTR(self_in);
 
@@ -66,7 +73,7 @@ STATIC void closure_print(const mp_print_t *print, mp_obj_t o_in, mp_print_kind_
     mp_print_str(print, "<closure ");
     mp_obj_print_helper(print, o->fun, PRINT_REPR);
 #if JPO_DBGR_BUILD
-    mp_printf(print, " n_closed=%u", (int)o->n_closed);
+    // objects will be shown when the closure is expanded in the debugger
 #else
     mp_printf(print, " at %p, n_closed=%u ", o, (int)o->n_closed);
     for (size_t i = 0; i < o->n_closed; i++) {
