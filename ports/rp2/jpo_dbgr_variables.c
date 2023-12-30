@@ -112,10 +112,14 @@ static void varinfo_set_address(varinfo_t* varinfo, mp_obj_t obj) {
         || mp_obj_is_type(obj, &mp_type_module)
         || mp_obj_is_type(obj, &mp_type_fun_bc)
         || mp_obj_is_type(obj, &mp_type_closure)
-        || mp_obj_is_type(obj, &mp_type_cell)
         )
     {
         varinfo->address = (uint32_t)obj;
+    }
+    else if (mp_obj_is_type(obj, &mp_type_cell)) {
+        // Special case, drill down to the cell value immediately, if it's drillable
+        mp_obj_cell_t* cell = MP_OBJ_TO_PTR(obj);
+        varinfo_set_address(varinfo, cell->obj);
     }
 }
 static void iter_init_from_obj(vars_iter_t* iter, mp_obj_t obj) {
