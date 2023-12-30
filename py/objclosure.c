@@ -59,12 +59,15 @@ STATIC mp_obj_t closure_call(mp_obj_t self_in, size_t n_args, size_t n_kw, const
     }
 }
 
-#if MICROPY_ERROR_REPORTING == MICROPY_ERROR_REPORTING_DETAILED
+#if JPO_DBGR_BUILD || MICROPY_ERROR_REPORTING == MICROPY_ERROR_REPORTING_DETAILED
 STATIC void closure_print(const mp_print_t *print, mp_obj_t o_in, mp_print_kind_t kind) {
     (void)kind;
     mp_obj_closure_t *o = MP_OBJ_TO_PTR(o_in);
     mp_print_str(print, "<closure ");
     mp_obj_print_helper(print, o->fun, PRINT_REPR);
+#if JPO_DBGR_BUILD
+    mp_printf(print, " n_closed=%u", (int)o->n_closed);
+#else
     mp_printf(print, " at %p, n_closed=%u ", o, (int)o->n_closed);
     for (size_t i = 0; i < o->n_closed; i++) {
         if (o->closed[i] == MP_OBJ_NULL) {
@@ -74,6 +77,7 @@ STATIC void closure_print(const mp_print_t *print, mp_obj_t o_in, mp_print_kind_
         }
         mp_print_str(print, " ");
     }
+#endif
     mp_print_str(print, ">");
 }
 #endif
@@ -89,7 +93,7 @@ STATIC void mp_obj_closure_attr(mp_obj_t self_in, qstr attr, mp_obj_t *dest) {
 #define CLOSURE_TYPE_ATTR
 #endif
 
-#if MICROPY_ERROR_REPORTING == MICROPY_ERROR_REPORTING_DETAILED
+#if JPO_DBGR_BUILD || MICROPY_ERROR_REPORTING == MICROPY_ERROR_REPORTING_DETAILED
 #define CLOSURE_TYPE_PRINT print, closure_print,
 #else
 #define CLOSURE_TYPE_PRINT

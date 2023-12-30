@@ -72,6 +72,9 @@ typedef struct {
     // If true, use the obj (string) as the name and look up the value in src_obj
     bool obj_is_attr_name;
 
+    // Prepend the result of the len() call to the object
+    bool prepend_length;
+
     int cur_idx;
     varinfo_t vi;
 } vars_iter_t;
@@ -87,6 +90,8 @@ static void iter_clear(vars_iter_t* iter) {
     iter->obj_names_are_indexes = false;
     iter->obj_is_attr_name = false;
 
+    iter->prepend_length = false;
+
     iter->cur_idx = -1;
     varinfo_clear(&iter->vi);
 }
@@ -101,8 +106,14 @@ static void varinfo_set_address(varinfo_t* varinfo, mp_obj_t obj) {
     if (   mp_obj_is_type(obj, &mp_type_tuple)
         || mp_obj_is_type(obj, &mp_type_list)
         || mp_obj_is_type(obj, &mp_type_dict)
-        || mp_obj_is_type(obj, &mp_type_object)
-        || mp_obj_is_instance_type(mp_obj_get_type(obj)))
+        || mp_obj_is_type(obj, &mp_type_object) // plain x=object()
+        || mp_obj_is_instance_type(mp_obj_get_type(obj)) // instance
+        || mp_obj_is_type(obj, &mp_type_type) // class
+        || mp_obj_is_type(obj, &mp_type_module)
+        || mp_obj_is_type(obj, &mp_type_fun_bc)
+        || mp_obj_is_type(obj, &mp_type_closure)
+        || mp_obj_is_type(obj, &mp_type_cell)
+        )
     {
         varinfo->address = (uint32_t)obj;
     }
@@ -129,10 +140,17 @@ static void iter_init_from_obj(vars_iter_t* iter, mp_obj_t obj) {
         // TODO: add length, maybe
         iter->dict = MP_OBJ_TO_PTR(obj);
         // Set a flag to output names as REPR, since keys are not always strings
+        iter->prepend_length = true;
         iter->dict_key_use_repr = true;
     }
     else if (mp_obj_is_type(obj, &mp_type_object)
-          || mp_obj_is_instance_type(mp_obj_get_type(obj))) {
+            || mp_obj_is_instance_type(mp_obj_get_type(obj))
+            || mp_obj_is_type(obj, &mp_type_type) // class
+            || mp_obj_is_type(obj, &mp_type_module)
+            || mp_obj_is_type(obj, &mp_type_fun_bc)
+            || mp_obj_is_type(obj, &mp_type_closure)
+            || mp_obj_is_type(obj, &mp_type_cell)
+          ) {
     
         // Returns a list of attributes
         mp_obj_t attr_list = mp_builtin_dir(1, &obj);
@@ -193,12 +211,34 @@ static void obj_to_vstr(mp_obj_t obj, vstr_t* out_vstr, mp_print_kind_t print_ki
     mp_obj_print_helper(&print_to_vstr, obj, print_kind);
 }
 
+static void varinfo_fill_length(varinfo_t* vi, mp_obj_t obj) {
+    if (obj == NULL) {
+        DBG_SEND("Error: varinfo_fill_length(): obj is NULL");
+        return;
+    }
+
+    // length
+    vstr_init(&vi->name, 6);
+    vstr_add_str(&vi->name, "len()");
+
+    mp_obj_t len_in = mp_obj_len(obj);
+    size_t len = mp_obj_get_int(len_in);
+    vstr_init(&vi->value, 12);
+    vstr_printf(&vi->value, "%d", len);
+}
+
 static varinfo_t* iter_next_dict(vars_iter_t* iter) {
     if (iter->dict == NULL) {
         return NULL;
     }
 
     if (iter->cur_idx == -1) {
+        // Special case: len() is the first item
+        if (iter->prepend_length) {
+            varinfo_fill_length(&(iter->vi), (mp_obj_t)iter->src_obj);
+            iter->cur_idx = 0; // advance
+            return &(iter->vi);
+        }
         iter->cur_idx = 0;
     }
 
@@ -320,7 +360,8 @@ varinfo_kind_t varinfo_get_kind(varinfo_t* vi) {
     if (vstr_len(&vi->name) >= 2 && vstr_str(&vi->name)[0] == '_' && vstr_str(&vi->name)[1] == '_') {
         return VKIND_SPECIAL;
     }
-    else if (vi->type == mp_type_fun_bc.name) {
+    else if (vi->type == mp_type_fun_bc.name
+        || vi->type == mp_type_closure.name) {
         return VKIND_FUNCTION;
     }
     else if (vi->type == mp_type_type.name) {

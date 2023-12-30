@@ -30,7 +30,8 @@
         "array": "c",
         "tuple": "c",
         "type_traits": "c",
-        "utility": "c"
+        "utility": "c",
+        "typeinfo": "c"
     },
     "workbench.colorCustomizations": {
         "titleBar.activeBackground": "#292e33",

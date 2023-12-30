@@ -26,14 +26,16 @@
 
 #include "py/obj.h"
 
-// Enable cell printing for JPO debugger
-#define CELL_PRINT_ENABLED (1)
 
-#if CELL_PRINT_ENABLED || MICROPY_ERROR_REPORTING == MICROPY_ERROR_REPORTING_DETAILED
+#if JPO_DBGR_BUILD || MICROPY_ERROR_REPORTING == MICROPY_ERROR_REPORTING_DETAILED
 STATIC void cell_print(const mp_print_t *print, mp_obj_t o_in, mp_print_kind_t kind) {
     (void)kind;
     mp_obj_cell_t *o = MP_OBJ_TO_PTR(o_in);
+#if JPO_DBGR_BUILD
+    mp_print_str(print, "<cell ");
+#else
     mp_printf(print, "<cell %p ", o->obj);
+#endif
     if (o->obj == MP_OBJ_NULL) {
         mp_print_str(print, "(nil)");
     } else {
@@ -43,13 +45,14 @@ STATIC void cell_print(const mp_print_t *print, mp_obj_t o_in, mp_print_kind_t k
 }
 #endif
 
-#if CELL_PRINT_ENABLED || MICROPY_ERROR_REPORTING == MICROPY_ERROR_REPORTING_DETAILED
+#if JPO_DBGR_BUILD || MICROPY_ERROR_REPORTING == MICROPY_ERROR_REPORTING_DETAILED
 #define CELL_TYPE_PRINT , print, cell_print
 #else
 #define CELL_TYPE_PRINT
 #endif
 
-STATIC MP_DEFINE_CONST_OBJ_TYPE(
+// Removed static for JPO debugger
+MP_DEFINE_CONST_OBJ_TYPE(
     // cell representation is just value in < >
     mp_type_cell, MP_QSTR_CELL, MP_TYPE_FLAG_NONE
     CELL_TYPE_PRINT

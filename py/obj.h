@@ -833,6 +833,11 @@ extern const mp_obj_type_t mp_type_stringio;
 extern const mp_obj_type_t mp_type_bytesio;
 extern const mp_obj_type_t mp_type_reversed;
 extern const mp_obj_type_t mp_type_polymorph_iter;
+
+// Used by JPO debugger
+extern const mp_obj_type_t mp_type_closure;
+extern const mp_obj_type_t mp_type_cell;
+
 #if MICROPY_ENABLE_FINALISER
 extern const mp_obj_type_t mp_type_polymorph_iter_with_finaliser;
 #endif
