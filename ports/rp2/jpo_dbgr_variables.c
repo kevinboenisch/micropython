@@ -298,6 +298,9 @@ static varinfo_t* iter_next_list(vars_iter_t* iter) {
             mp_obj_t args[2] = {iter->src_obj, obj};
             mp_obj_t val = mp_builtin_getattr(2, args);
             obj_to_vstr(val, &(vi->value), PRINT_REPR);
+
+            // set address if applicable to drill down into the value
+            varinfo_set_address(vi, val);
         }
         else {
             // name
