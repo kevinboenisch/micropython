@@ -162,6 +162,9 @@ static void iter_init(vars_iter_t* iter, const vars_request_t* args, mp_obj_fram
         iter->objs_size = cur_bc->n_state;
         iter->objs = cur_bc->state;
 
+        // No names are available for local vars. Show indexes instead.
+        iter->obj_names_are_indexes = true;
+
         // Micropython issue: this returns the same items as globals
         // iter->dict = MP_STATE_THREAD(dict_locals);
     }
