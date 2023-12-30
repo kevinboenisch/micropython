@@ -7,6 +7,7 @@
 #include "py/bc.h" // for mp_code_state_t
 #include "py/objfun.h"
 #include "py/obj.h"
+#include "py/objtype.h"
 
 #include "jpo/jcomp_protocol.h"
 #include "jpo/debug.h"
@@ -97,10 +98,11 @@ static void varinfo_set_type(varinfo_t* varinfo, mp_obj_t obj) {
 }
 static void varinfo_set_address(varinfo_t* varinfo, mp_obj_t obj) {
     // address: set for certain types, so debugger can drill down to examine the object
-    if (mp_obj_is_type(obj, &mp_type_object)
-        || mp_obj_is_type(obj, &mp_type_tuple)
+    if (   mp_obj_is_type(obj, &mp_type_tuple)
         || mp_obj_is_type(obj, &mp_type_list)
-        || mp_obj_is_type(obj, &mp_type_dict)) 
+        || mp_obj_is_type(obj, &mp_type_dict)
+        || mp_obj_is_type(obj, &mp_type_object)
+        || mp_obj_is_instance_type(mp_obj_get_type(obj)))
     {
         varinfo->address = (uint32_t)obj;
     }
@@ -110,20 +112,8 @@ static void iter_init_from_obj(vars_iter_t* iter, mp_obj_t obj) {
 
     iter->src_obj = obj;
 
-    if (mp_obj_is_type(obj, &mp_type_object)) {
-        // Returns a list of attributes
-        mp_obj_t attr_list = mp_builtin_dir(1, &obj);
-        // TODO: set a flag on iter to get attribute values
-        size_t len = 0;
-        mp_obj_t* items = NULL;
-        mp_obj_get_array(attr_list, &len, &items);
-
-        iter->objs_size = len;
-        iter->objs = items;
-        iter->obj_is_attr_name = true;
-    }
-    else if (mp_obj_is_type(obj, &mp_type_tuple)
-            || mp_obj_is_type(obj, &mp_type_list)) 
+    if (mp_obj_is_type(obj, &mp_type_tuple)
+       || mp_obj_is_type(obj, &mp_type_list)) 
     {
         // TODO: add length
         size_t len = 0;
@@ -132,12 +122,28 @@ static void iter_init_from_obj(vars_iter_t* iter, mp_obj_t obj) {
 
         iter->objs_size = len;
         iter->objs = items;
+        // Show indexes
         iter->obj_names_are_indexes = true;
     }
     else if (mp_obj_is_type(obj, &mp_type_dict)) {
         // TODO: add length, maybe
         iter->dict = MP_OBJ_TO_PTR(obj);
+        // Set a flag to output names as REPR, since keys are not always strings
         iter->dict_key_use_repr = true;
+    }
+    else if (mp_obj_is_type(obj, &mp_type_object)
+          || mp_obj_is_instance_type(mp_obj_get_type(obj))) {
+    
+        // Returns a list of attributes
+        mp_obj_t attr_list = mp_builtin_dir(1, &obj);
+        size_t len = 0;
+        mp_obj_t* items = NULL;
+        mp_obj_get_array(attr_list, &len, &items);
+
+        iter->objs_size = len;
+        iter->objs = items;
+        // Set a flag to look up the value in the object using getattr
+        iter->obj_is_attr_name = true;
     }
     else {
         DBG_SEND("Error: iter_init_from_obj(): unknown type:%s", mp_obj_get_type_str(obj));
