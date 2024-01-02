@@ -8,6 +8,7 @@
 #include "py/objfun.h"
 #include "py/obj.h"
 #include "py/objtype.h"
+#include "py/objmodule.h"
 
 #include "jpo/jcomp_protocol.h"
 #include "jpo/debug.h"
@@ -190,6 +191,26 @@ static void iter_init_from_obj(vars_iter_t* iter, mp_obj_t obj) {
     }
 }
 
+static void iter_init_modules(vars_iter_t* iter) {
+    // Is there a better way to copy a map into a dict?
+    mp_obj_dict_t* temp_dict = MP_OBJ_TO_PTR(mp_obj_new_dict(0));
+    mp_map_t old_map = temp_dict->map;
+    temp_dict->map = mp_builtin_module_map;
+    mp_obj_t dict_copy = mp_obj_dict_copy(temp_dict);
+    temp_dict->map = old_map;
+
+    iter->dict = MP_OBJ_TO_PTR(dict_copy);
+
+    // mp_help_add_from_map(list, &mp_builtin_module_map);
+    // mp_help_add_from_map(list, &mp_builtin_extensible_module_map);
+
+    // #if MICROPY_MODULE_FROZEN
+    // extern const char mp_frozen_names[];
+    // mp_help_add_from_names(list, mp_frozen_names);
+    // #endif
+
+}
+
 static void iter_init(vars_iter_t* iter, const vars_request_t* args, mp_obj_frame_t* top_frame) {
     iter_clear(iter);
 
@@ -219,6 +240,9 @@ static void iter_init(vars_iter_t* iter, const vars_request_t* args, mp_obj_fram
         }
         mp_obj_t obj = (mp_obj_t)args->depth_or_addr;
         iter_init_from_obj(iter, obj);
+    }
+    else if (args->scope_type == VSCOPE_MODULES) {
+        iter_init_modules(iter);
     }
     else {
         DBG_SEND("Error: iter_start(): unknown scope_type:%d", args->scope_type);
