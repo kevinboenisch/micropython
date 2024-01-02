@@ -17,7 +17,8 @@
 // #define DBG_SEND(...)
 
 #define VARS_PAYLOAD_SIZE JCOMP_MAX_PAYLOAD_SIZE
-#define OBJ_RER_MAX_SIZE 50
+#define MAX_NAME_LENGTH   32
+#define MAX_VALUE_LENGTH 200
 
 void dbg_print_obj(int i, mp_obj_t obj) {
     if (obj) {
@@ -110,6 +111,9 @@ static void varinfo_set_address(varinfo_t* varinfo, mp_obj_t obj) {
         || mp_obj_is_type(obj, &mp_type_module)
         || mp_obj_is_type(obj, &mp_type_fun_bc)
         || mp_obj_is_type(obj, &mp_type_closure)
+        // String has length as the only drillable attribute
+        // mp_obj_is_type(obj, &mp_type_str) -- compiler error
+        || mp_obj_is_str(obj)
         )
     {
         varinfo->address = (uint32_t)obj;
@@ -128,6 +132,7 @@ static void iter_init_from_obj(vars_iter_t* iter, mp_obj_t obj) {
     if (mp_obj_is_type(obj, &mp_type_tuple)
        || mp_obj_is_type(obj, &mp_type_list)) 
     {
+        // Show a list of values with indexes as names
         size_t len = 0;
         mp_obj_t* items = NULL;
         mp_obj_get_array(obj, &len, &items);
@@ -139,21 +144,17 @@ static void iter_init_from_obj(vars_iter_t* iter, mp_obj_t obj) {
         // Return len() as the first varinfo_t item
         iter->cur_idx = IDX_PREPEND_LENGTH;
     }
-    else if (mp_obj_is_type(obj, &mp_type_closure)) {
-        // Show closed-over vars
-        size_t len = 0;
-        mp_obj_t* items = NULL;
-        closure_get_closed(obj, &len, &items);
-
-        iter->objs_size = (int)len;
-        iter->objs = items;
-        iter->obj_names_are_indexes = true;
-    }
     else if (mp_obj_is_type(obj, &mp_type_dict)) {
+        // Show keys/values
         iter->dict = MP_OBJ_TO_PTR(obj);
+
         // Set a flag to output names as REPR, since keys are not always strings
         iter->dict_key_use_repr = true;
         // Return len() as the first varinfo_t item
+        iter->cur_idx = IDX_PREPEND_LENGTH;
+    }
+    else if (mp_obj_is_str(obj)) {
+        // Length as the only expanded item
         iter->cur_idx = IDX_PREPEND_LENGTH;
     }
     else if (mp_obj_is_type(obj, &mp_type_object)
@@ -162,9 +163,8 @@ static void iter_init_from_obj(vars_iter_t* iter, mp_obj_t obj) {
             || mp_obj_is_type(obj, &mp_type_module)
             || mp_obj_is_type(obj, &mp_type_fun_bc)
             || mp_obj_is_type(obj, &mp_type_cell)
-          ) {
-    
-        // Returns a list of attributes
+    ) {    
+        // Show a list of attributes returned by dir(obj)
         mp_obj_t attr_list = mp_builtin_dir(1, &obj);
         size_t len = 0;
         mp_obj_t* items = NULL;
@@ -174,6 +174,16 @@ static void iter_init_from_obj(vars_iter_t* iter, mp_obj_t obj) {
         iter->objs = items;
         // Set a flag to look up the value in the object using getattr
         iter->obj_is_attr_name = true;
+    }
+    else if (mp_obj_is_type(obj, &mp_type_closure)) {
+        // Show closed-over vars as items
+        size_t len = 0;
+        mp_obj_t* items = NULL;
+        closure_get_closed(obj, &len, &items);
+
+        iter->objs_size = (int)len;
+        iter->objs = items;
+        iter->obj_names_are_indexes = true;
     }
     else {
         DBG_SEND("Error: iter_init_from_obj(): unknown type:%s", mp_obj_get_type_str(obj));
@@ -216,11 +226,42 @@ static void iter_init(vars_iter_t* iter, const vars_request_t* args, mp_obj_fram
     }
 }
 
-// helper
-static void obj_to_vstr(mp_obj_t obj, vstr_t* out_vstr, mp_print_kind_t print_kind) {
+// Improvement on vstr.c::vstr_add_strn
+// Add a string if there's enough space; truncate if needed. Does NOT add \0.
+static void vstr_add_strn_if_space(vstr_t *vstr, const char *str, size_t len) {
+    if (vstr->len >= vstr->alloc) {
+        //DBG_SEND("vstr_add_strn_if_space(): full, skipping '%s'", str);
+        return;
+    }
+    if (vstr->len + len >= vstr->alloc) {
+        // Truncate added string
+        //DBG_SEND("vstr_add_strn_if_space() partial vs->len:%d vs->alloc:%d len:%d '%s'", vstr->len, vstr->alloc, len, str);
+        len = vstr->alloc - vstr->len;
+    }
+
+    memmove(vstr->buf + vstr->len, str, len);
+    vstr->len += len;
+}
+// Improvement on vstr.c::vstr_init_print, respect max_length
+static void vstr_init_print_if_space(vstr_t *vstr, size_t max_length, mp_print_t *print) {
+    vstr_init(vstr, max_length);
+    print->data = vstr;
+    print->print_strn = (mp_print_strn_t)vstr_add_strn_if_space;
+}
+static void obj_to_vstr(mp_obj_t obj, vstr_t* out_vstr, mp_print_kind_t print_kind, size_t max_length) {
     mp_print_t print_to_vstr;
-    vstr_init_print(out_vstr, OBJ_RER_MAX_SIZE, &print_to_vstr);
+    // Leave space for \0
+    vstr_init_print_if_space(out_vstr, max_length - 1, &print_to_vstr);
     mp_obj_print_helper(&print_to_vstr, obj, print_kind);
+
+    // Add ... if truncated
+    if (vstr_len(out_vstr) >= max_length - 1) {
+        vstr_cut_tail_bytes(out_vstr, 3);
+        vstr_add_str(out_vstr, "...");
+        //DBG_SEND("after ... vstr_len:%d strlen:%d <%s>", vstr_len(out_vstr), strlen(vstr_str(out_vstr)), vstr_str(out_vstr));
+    }
+
+    vstr_null_terminated_str(out_vstr);
 }
 
 static void varinfo_fill_length(varinfo_t* vi, mp_obj_t obj) {
@@ -244,13 +285,6 @@ static varinfo_t* iter_next_dict(vars_iter_t* iter) {
         return NULL;
     }
 
-    if (iter->cur_idx == IDX_PREPEND_LENGTH) {
-        // Special case: len() is the first item
-        varinfo_fill_length(&(iter->vi), (mp_obj_t)iter->src_obj);
-        iter->cur_idx = -1; // advance
-        return &(iter->vi);
-    }
-
     if (iter->cur_idx == -1) {
         iter->cur_idx = 0;
     }
@@ -267,10 +301,10 @@ static varinfo_t* iter_next_dict(vars_iter_t* iter) {
     varinfo_clear(vi);
 
     // name is key
-    obj_to_vstr(elem->key, &(vi->name), iter->dict_key_use_repr ? PRINT_REPR : PRINT_STR);
+    obj_to_vstr(elem->key, &(vi->name), iter->dict_key_use_repr ? PRINT_REPR : PRINT_STR, MAX_NAME_LENGTH);
 
     // value
-    obj_to_vstr(elem->value, &(vi->value), PRINT_REPR);
+    obj_to_vstr(elem->value, &(vi->value), PRINT_REPR, MAX_VALUE_LENGTH);
 
     varinfo_set_type(vi, elem->value);
     varinfo_set_address(vi, elem->value);
@@ -280,13 +314,6 @@ static varinfo_t* iter_next_dict(vars_iter_t* iter) {
 static varinfo_t* iter_next_list(vars_iter_t* iter) {
     if (iter->objs == NULL) {
         return NULL;
-    }
-
-    if (iter->cur_idx == IDX_PREPEND_LENGTH) {
-        // Special case: len() is the first item
-        varinfo_fill_length(&(iter->vi), (mp_obj_t)iter->src_obj);
-        iter->cur_idx = -1; // advance
-        return &(iter->vi);
     }
 
     // advance to the next
@@ -308,12 +335,12 @@ static varinfo_t* iter_next_list(vars_iter_t* iter) {
     if (obj != NULL) {
         if (iter->obj_is_attr_name) {
             // name
-            obj_to_vstr(obj, &(vi->name), PRINT_STR);
+            obj_to_vstr(obj, &(vi->name), PRINT_STR, MAX_NAME_LENGTH);
 
             // value, getattr(src_obj, obj)
             mp_obj_t args[2] = {iter->src_obj, obj};
             mp_obj_t val = mp_builtin_getattr(2, args);
-            obj_to_vstr(val, &(vi->value), PRINT_REPR);
+            obj_to_vstr(val, &(vi->value), PRINT_REPR, MAX_VALUE_LENGTH);
 
             // set address if applicable to drill down into the value
             varinfo_set_address(vi, val);
@@ -327,7 +354,7 @@ static varinfo_t* iter_next_list(vars_iter_t* iter) {
             }
 
             // value
-            obj_to_vstr(obj, &(vi->value), PRINT_REPR);
+            obj_to_vstr(obj, &(vi->value), PRINT_REPR, MAX_VALUE_LENGTH);
         }
 
         varinfo_set_type(vi, obj);
@@ -341,6 +368,13 @@ static varinfo_t* iter_next_list(vars_iter_t* iter) {
 
 // NULL if no more items
 static varinfo_t* iter_next(vars_iter_t* iter) {
+    // Special case: len() is the first item
+    if (iter->cur_idx == IDX_PREPEND_LENGTH) {
+        varinfo_fill_length(&(iter->vi), (mp_obj_t)iter->src_obj);
+        iter->cur_idx = -1; // advance
+        return &(iter->vi);
+    }
+
     if (iter->dict != NULL) {
         return iter_next_dict(iter);
     }
