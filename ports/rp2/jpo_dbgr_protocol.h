@@ -48,6 +48,7 @@
 #define R_STOPPED_STEP_INTO  ":SINT___"
 #define R_STOPPED_STEP_OVER  ":SOVR___"
 #define R_STOPPED_STEP_OUT   ":SOUT___"
+#define R_STOPPED_EXCEPTION  ":EXCEPTI"
 
 // Brain signals a module was loaded
 // Format: DBG_MODL<u8 qstr_code><source_file>

@@ -368,7 +368,24 @@ void dbgr_after_compile_module(qstr module_name) {
 
     // Restore the old status (e.g. step into/over/out)
     dbgr_status = old_status;
+}
 
+void on_exception(mp_obj_frame_t* frame) {
+    qstr block_name = dbgr_get_block_name(frame->code_state);
+    DBG_SEND("on_exception in %s", qstr_str(block_name));
+
+    dbgr_status = DS_STOPPED;
+    send_stopped(R_STOPPED_EXCEPTION);
+
+    while (true) {
+        if (try_process_command(frame)) {
+            if (dbgr_status == DS_RUNNING) {
+                break;
+            }
+        }
+        // Spin-wait
+        MICROPY_EVENT_POLL_HOOK_FAST;
+    }
 }
 
 void dbgr_trace_callback(mp_prof_trace_type_t type, mp_obj_frame_t* frame) {
@@ -388,9 +405,9 @@ void dbgr_trace_callback(mp_prof_trace_type_t type, mp_obj_frame_t* frame) {
         // case MP_PROF_TRACE_RETURN:
         //     DBG_SEND("trace: return new-depth:%d", get_call_depth(frame));
         //     break;
-        // case MP_PROF_TRACE_EXCEPTION:
-        //     DBG_SEND("trace: exception new-depth:%d", get_call_depth(frame));
-        //     break;
+        case MP_PROF_TRACE_EXCEPTION:
+            on_exception(frame);
+            break;
         default:
             // DBG_SEND("Unkown trace type: %s", qstr_str(type));
             break;
