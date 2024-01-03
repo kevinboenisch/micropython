@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include "mpconfigport.h" // for JPO_DBGR_BUILD
 
+#include "py/mpconfig.h" // for MICROPY_MODULE_FROZEN
 #include "py/mpstate.h" // for dbgr_bytecode_pos_t
 #include "py/profile.h" // for frame
 
@@ -52,13 +53,17 @@ mp_obj_frame_t* dbgr_find_frame(int frame_idx, mp_obj_frame_t* top_frame);
 void dbgr_send_variables_response(const JCOMP_MSG request, mp_obj_frame_t* top_frame);
 
 // in objdict.c
-mp_map_elem_t *dict_iter_next(mp_obj_dict_t *dict, size_t *cur);
+mp_map_elem_t *mp_map_iter_next(const mp_map_t *map, size_t *cur);
 
 // in modbuiltins.c 
 mp_obj_t mp_builtin_dir(size_t n_args, const mp_obj_t *args);
 mp_obj_t mp_builtin_getattr(size_t n_args, const mp_obj_t *args);
 // in objclosure.c
 void closure_get_closed(mp_obj_t closure_in, size_t *n_closed, mp_obj_t **closed);
+
+#if MICROPY_MODULE_FROZEN
+extern const char mp_frozen_names[];
+#endif
 
 
 /** @brief Diagonstics. Check if there is a stack overflow, DBG_SEND info. */

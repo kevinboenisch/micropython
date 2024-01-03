@@ -13,6 +13,7 @@
 #include "jpo/jcomp_protocol.h"
 #include "jpo/debug.h"
 
+
 // Disable debugging
 // #undef DBG_SEND
 // #define DBG_SEND(...)
@@ -64,8 +65,10 @@ typedef struct {
     // If drilling down into an object, the source object/list/tuple
     mp_obj_t src_obj;
 
-    // Option 1: iterate a dict
+    // Option 1: iterate a dict or a map
     mp_obj_dict_t* dict;
+    const mp_map_t* map;
+
     // If true, print key as REPR, otherwise as STR
     bool dict_key_use_repr;
 
@@ -77,6 +80,9 @@ typedef struct {
     // If true, use the obj (string) as the name and look up the value in src_obj
     bool obj_is_attr_name;
 
+    // Option 3: iterate frozen modules
+    const char* next_frozen_module_name;
+
     int cur_idx;
     varinfo_t vi;
 } vars_iter_t;
@@ -85,12 +91,15 @@ static void iter_clear(vars_iter_t* iter) {
     iter->src_obj = NULL;
 
     iter->dict = NULL;
+    iter->map = NULL;
     iter->dict_key_use_repr = false;
 
     iter->objs_size = 0;
     iter->objs = NULL;
     iter->obj_names_are_indexes = false;
     iter->obj_is_attr_name = false;
+
+    iter->next_frozen_module_name = NULL;
 
     iter->cur_idx = -1;
     varinfo_clear(&iter->vi);
@@ -191,24 +200,27 @@ static void iter_init_from_obj(vars_iter_t* iter, mp_obj_t obj) {
     }
 }
 
-static void iter_init_modules(vars_iter_t* iter) {
-    // Is there a better way to copy a map into a dict?
-    mp_obj_dict_t* temp_dict = MP_OBJ_TO_PTR(mp_obj_new_dict(0));
-    mp_map_t old_map = temp_dict->map;
-    temp_dict->map = mp_builtin_module_map;
-    mp_obj_t dict_copy = mp_obj_dict_copy(temp_dict);
-    temp_dict->map = old_map;
 
-    iter->dict = MP_OBJ_TO_PTR(dict_copy);
+static void iter_init_modules(vars_iter_t* iter, var_scope_type_t scope_type) {
+    switch(scope_type) {
+        case VSCOPE_MODULES:
+            iter->map = &mp_builtin_module_map;
+            break;
+        case VSCOPE_MODULES_EXT:
+            DBG_SEND("setting mp_builtin_extensible_module_map alloc:%d", mp_builtin_extensible_module_map.alloc);
+            iter->map = &mp_builtin_extensible_module_map;
+            break;
+        case VSCOPE_MODULES_FROZEN:
+        #if MICROPY_MODULE_FROZEN
+            DBG_SEND("setting iter->next_frozen_module_name %s", &mp_frozen_names);
+            iter->next_frozen_module_name = mp_frozen_names;
+        #endif
+            break;
+        default:
+            //DBG_SEND("Error: iter_init_modules(): unknown scope_type:%d", scope_type);
+            break;
 
-    // mp_help_add_from_map(list, &mp_builtin_module_map);
-    // mp_help_add_from_map(list, &mp_builtin_extensible_module_map);
-
-    // #if MICROPY_MODULE_FROZEN
-    // extern const char mp_frozen_names[];
-    // mp_help_add_from_names(list, mp_frozen_names);
-    // #endif
-
+    }
 }
 
 static void iter_init(vars_iter_t* iter, const vars_request_t* args, mp_obj_frame_t* top_frame) {
@@ -241,8 +253,10 @@ static void iter_init(vars_iter_t* iter, const vars_request_t* args, mp_obj_fram
         mp_obj_t obj = (mp_obj_t)args->depth_or_addr;
         iter_init_from_obj(iter, obj);
     }
-    else if (args->scope_type == VSCOPE_MODULES) {
-        iter_init_modules(iter);
+    else if (args->scope_type == VSCOPE_MODULES
+            || args->scope_type == VSCOPE_MODULES_EXT
+            || args->scope_type == VSCOPE_MODULES_FROZEN) {
+        iter_init_modules(iter, args->scope_type);
     }
     else {
         DBG_SEND("Error: iter_start(): unknown scope_type:%d", args->scope_type);
@@ -305,7 +319,7 @@ static void varinfo_fill_length(varinfo_t* vi, mp_obj_t obj) {
 }
 
 static varinfo_t* iter_next_dict(vars_iter_t* iter) {
-    if (iter->dict == NULL) {
+    if (iter->dict == NULL && iter->map == NULL) {
         return NULL;
     }
 
@@ -314,7 +328,8 @@ static varinfo_t* iter_next_dict(vars_iter_t* iter) {
     }
 
     // Advances to the next item
-    mp_map_elem_t* elem = dict_iter_next(iter->dict, (size_t*)&(iter->cur_idx));
+    const mp_map_t* map = (iter->dict != NULL) ? &(iter->dict->map) : iter->map;
+    mp_map_elem_t* elem = mp_map_iter_next(map, (size_t*)&(iter->cur_idx));
     if (elem == NULL) {
         return NULL;
     }
@@ -390,6 +405,38 @@ static varinfo_t* iter_next_list(vars_iter_t* iter) {
     return vi;
 }
 
+static varinfo_t* iter_next_frozen_module(vars_iter_t* iter) {
+    if (iter->next_frozen_module_name == NULL) {
+        return NULL;
+    }
+
+    const char* name = iter->next_frozen_module_name;
+    // DBG_SEND("iter_next_frozen_module() name:'%s'", name);
+    size_t name_len = strlen(name);
+    
+    if (name_len == 0) {
+        // done iterating
+        iter->next_frozen_module_name = NULL;
+        return NULL;
+    }
+
+    // advance to the next
+    iter->next_frozen_module_name += strlen(name) + 1;
+    iter->cur_idx++;
+
+    varinfo_t* vi = &(iter->vi); 
+    varinfo_clear(vi);
+
+    // fill contents
+    vstr_init(&vi->name, name_len + 1);
+    vstr_add_strn(&(vi->name), name, name_len);
+
+    vstr_init(&vi->value, 20);
+    vstr_add_str(&(vi->value), "<frozen module>");
+
+    return vi;
+}
+
 // NULL if no more items
 static varinfo_t* iter_next(vars_iter_t* iter) {
     // Special case: len() is the first item
@@ -399,11 +446,14 @@ static varinfo_t* iter_next(vars_iter_t* iter) {
         return &(iter->vi);
     }
 
-    if (iter->dict != NULL) {
+    if (iter->dict != NULL || iter->map != NULL) {
         return iter_next_dict(iter);
     }
     else if (iter->objs != NULL) {
         return iter_next_list(iter);
+    }
+    else if (iter->next_frozen_module_name) {
+        return iter_next_frozen_module(iter);
     }
     return NULL;
 }

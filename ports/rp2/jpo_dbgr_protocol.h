@@ -94,6 +94,8 @@ typedef enum _var_scope_type_t {
     VSCOPE_GLOBAL,
     VSCOPE_OBJECT,
     VSCOPE_MODULES,
+    VSCOPE_MODULES_EXT,
+    VSCOPE_MODULES_FROZEN,
 } var_scope_type_t;
 
 typedef enum _varinfo_kind_t {
