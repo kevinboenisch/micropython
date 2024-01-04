@@ -55,6 +55,9 @@ static dbgr_status_t dbgr_status = DS_NOT_ENABLED;
 // position at the start of the step over/into/out
 static int step_depth = -1;
 
+// Make it an enum later
+bool break_on_exceptions = true;
+
 // type: mp_prof_callback_t
 void dbgr_trace_callback(mp_prof_trace_type_t type, mp_obj_frame_t* frame, mp_obj_t arg);
 
@@ -62,6 +65,7 @@ void dbgr_trace_callback(mp_prof_trace_type_t type, mp_obj_frame_t* frame, mp_ob
 void reset_vars() {
     dbgr_status = DS_NOT_ENABLED;
     step_depth = -1;
+    break_on_exceptions = true;
 
     mp_prof_callback_c = NULL;
     bkpt_clear_all();
@@ -94,6 +98,11 @@ static bool jcomp_handler_inlock(JCOMP_MSG msg) {
         if (jcomp_msg_has_str(msg, 0, CMD_DBG_SET_BREAKPOINTS)) {
             DBG_SEND("CMD_DBG_SET_BREAKPOINTS");
             bkpt_set_from_msg(msg);
+            return true;
+        }
+        if (jcomp_msg_has_str(msg, 0, CMD_DBG_SET_EXCEPTION_BREAKPOINTS)) {
+            break_on_exceptions = jcomp_msg_get_byte(msg, CMD_LENGTH);
+            DBG_SEND("%s %d", CMD_DBG_SET_EXCEPTION_BREAKPOINTS, break_on_exceptions);
             return true;
         }
         // Other messages are handled on core0, in process_jcomp_message_while_stopped
@@ -389,10 +398,10 @@ void dbgr_after_compile_module(qstr module_name) {
 }
 
 void on_exception(mp_obj_frame_t* frame, mp_obj_t exception) {
-    // Debug
-    DBG_SEND("on_exception in %s", qstr_str(dbgr_get_block_name(frame->code_state)));
-    dbgr_print_obj(0, exception);
-
+    if (!break_on_exceptions) {
+        return;
+    }
+    
     dbgr_status = DS_STOPPED;
     send_stopped(R_STOPPED_EXCEPTION);
 

@@ -39,6 +39,10 @@
 // Only one packet is sent
 #define CMD_DBG_SET_BREAKPOINTS "DBG_BRKP"
 
+// Set all exception breakpoints
+// Format: DBG_EXCB<u8 flags>
+#define CMD_DBG_SET_EXCEPTION_BREAKPOINTS "DBG_EXCB"
+
 // Brain signals program execution was stopped
 // Format: DBG_STOP<8-byte reason str>
 #define EVT_DBG_STOPPED      "DBG_STOP"
