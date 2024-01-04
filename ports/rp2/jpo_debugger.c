@@ -50,7 +50,10 @@ typedef enum {
     // Program terminated: DS_NOT_ENABLED
 } dbgr_status_t;
 
-dbgr_status_t dbgr_status = DS_NOT_ENABLED;
+static dbgr_status_t dbgr_status = DS_NOT_ENABLED;
+
+// position at the start of the step over/into/out
+static int step_depth = -1;
 
 // type: mp_prof_callback_t
 void dbgr_trace_callback(mp_prof_trace_type_t type, mp_obj_frame_t* frame, mp_obj_t arg);
@@ -58,6 +61,8 @@ void dbgr_trace_callback(mp_prof_trace_type_t type, mp_obj_frame_t* frame, mp_ob
 // Reset vars to initial state
 void reset_vars() {
     dbgr_status = DS_NOT_ENABLED;
+    step_depth = -1;
+
     mp_prof_callback_c = NULL;
     bkpt_clear_all();
 }
@@ -254,12 +259,32 @@ static bool try_process_command(mp_obj_frame_t* frame, mp_obj_t exception) {
     return false;
 }
 
-static void on_trace_line(mp_obj_frame_t* top_frame) {
-    // static/global
-    // position at the start of the step over/into/out
-    static int step_depth = -1;
+static void loop_while_stopped(mp_obj_frame_t* top_frame, mp_obj_t exception) {
+    while (true) {
+        if (try_process_command(top_frame, exception)) {
+            switch(dbgr_status) {
+                case DS_RUNNING:
+                    return;
+                case DS_STEP_INTO:
+                case DS_STEP_OUT:
+                case DS_STEP_OVER:
+                    step_depth = dbgr_get_call_depth(top_frame);
+                    DBG_SEND("STEP set step_depth=%d", step_depth);
+                    return;
+                case DS_STOPPED:
+                    // do nothing, continue polling while paused
+                    break;
+                default:
+                    // shouldn't happen, but continue polling
+                    break;
+            }
+        }
+        // Spin-wait
+        MICROPY_EVENT_POLL_HOOK_FAST;
+    }
+}
 
-    // locals
+static void on_trace_line(mp_obj_frame_t* top_frame) {
     char* stopped_reason = "";
     qstr file = dbgr_get_source_file(top_frame->code_state);
     int line = (int)top_frame->lineno;
@@ -335,28 +360,7 @@ static void on_trace_line(mp_obj_frame_t* top_frame) {
     // Stopped
     send_stopped(stopped_reason);
 
-    while (true) {
-        if (try_process_command(top_frame, NULL)) {
-            switch(dbgr_status) {
-                case DS_RUNNING:
-                    return;
-                case DS_STEP_INTO:
-                case DS_STEP_OUT:
-                case DS_STEP_OVER:
-                    step_depth = dbgr_get_call_depth(top_frame);
-                    DBG_SEND("STEP set step_depth=%d", step_depth);
-                    return;
-                case DS_STOPPED:
-                    // do nothing, continue polling while paused
-                    break;
-                default:
-                    // shouldn't happen, but continue polling
-                    break;
-            }
-        }
-        // Spin-wait
-        MICROPY_EVENT_POLL_HOOK_FAST;
-    }
+    loop_while_stopped(top_frame, NULL);
 }
 
 
@@ -378,17 +382,7 @@ void dbgr_after_compile_module(qstr module_name) {
     // followed by a continue;
 
     // Wait for a continue command
-    // TODO: shouldn't continue if we were trying to step in/over/out before the break, 
-    // but do that action instead
-    while (true) {
-        if (try_process_command(NULL, NULL)) {
-            if (dbgr_status == DS_RUNNING) {
-                break;
-            }
-        }
-        // Spin-wait
-        MICROPY_EVENT_POLL_HOOK_FAST;
-    }
+    loop_while_stopped(NULL, NULL);
 
     // Restore the old status (e.g. step into/over/out)
     dbgr_status = old_status;
@@ -396,22 +390,13 @@ void dbgr_after_compile_module(qstr module_name) {
 
 void on_exception(mp_obj_frame_t* frame, mp_obj_t exception) {
     // Debug
-    qstr block_name = dbgr_get_block_name(frame->code_state);
-    DBG_SEND("on_exception in %s", qstr_str(block_name));
+    DBG_SEND("on_exception in %s", qstr_str(dbgr_get_block_name(frame->code_state)));
     dbgr_print_obj(0, exception);
 
     dbgr_status = DS_STOPPED;
     send_stopped(R_STOPPED_EXCEPTION);
 
-    while (true) {
-        if (try_process_command(frame, exception)) {
-            if (dbgr_status == DS_RUNNING) {
-                break;
-            }
-        }
-        // Spin-wait
-        MICROPY_EVENT_POLL_HOOK_FAST;
-    }
+    loop_while_stopped(frame, exception);
 }
 
 void dbgr_trace_callback(mp_prof_trace_type_t type, mp_obj_frame_t* frame, mp_obj_t arg) {

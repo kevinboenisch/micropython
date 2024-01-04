@@ -35,7 +35,7 @@ void dbgr_obj_to_vstr(mp_obj_t obj, vstr_t* out_vstr, mp_print_kind_t print_kind
     // Leave space for \0
     vstr_init_print_if_space(out_vstr, max_length - 1, &print_to_vstr);
 
-    if (print_kind == PRINT_EXC) {
+    if (obj != NULL && print_kind == PRINT_EXC) {
         // Prints a traceback, not the same as mp_obj_exception_print (used by mp_obj_print_helper)
         mp_obj_print_exception(&print_to_vstr, obj);
     }
