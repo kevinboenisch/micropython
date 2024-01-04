@@ -58,6 +58,12 @@ static int step_depth = -1;
 // Make it an enum later
 bool break_on_exceptions = true;
 
+// Break only on top frame for an exception
+// PC debugger breaks on every frame. Since we're stopping on all exceptions, that's needlessly annoying. 
+// Maybe expose as a setting later.
+bool on_exception_break_on_top_frame_only = true;
+mp_obj_t last_exception = NULL;
+
 // type: mp_prof_callback_t
 void dbgr_trace_callback(mp_prof_trace_type_t type, mp_obj_frame_t* frame, mp_obj_t arg);
 
@@ -66,6 +72,8 @@ void reset_vars() {
     dbgr_status = DS_NOT_ENABLED;
     step_depth = -1;
     break_on_exceptions = true;
+    on_exception_break_on_top_frame_only = true;
+    last_exception = NULL;
 
     mp_prof_callback_c = NULL;
     bkpt_clear_all();
@@ -303,6 +311,8 @@ static void on_trace_line(mp_obj_frame_t* top_frame) {
     qstr file = dbgr_get_source_file(top_frame->code_state);
     int line = (int)top_frame->lineno;
 
+    last_exception = NULL;
+
     if (breakpoint_hit(file, line)) {
          DBG_SEND("breakpoint_hit %s:%d", qstr_str(file), line);
          stopped_reason = R_STOPPED_BREAKPOINT;
@@ -406,7 +416,12 @@ void on_exception(mp_obj_frame_t* frame, mp_obj_t exception) {
     if (!break_on_exceptions) {
         return;
     }
-    
+    if (on_exception_break_on_top_frame_only && exception == last_exception) {
+        return;
+    }
+
+    last_exception = exception;
+
     dbgr_status = DS_STOPPED;
     vstr_t ex_str = {0};
     dbgr_obj_to_vstr(exception, &ex_str, PRINT_REPR, 60);
