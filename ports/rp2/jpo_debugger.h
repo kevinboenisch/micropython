@@ -65,12 +65,15 @@ void closure_get_closed(mp_obj_t closure_in, size_t *n_closed, mp_obj_t **closed
 extern const char mp_frozen_names[];
 #endif
 
-// Helper, outputs to stdout
+// in jpo_dbgr_util.c
+/// @brief Print object info (index, type, rerp) to stdout
 void dbgr_print_obj(int i, mp_obj_t obj);
+/// @brief Convert an object to a string, respecting max_length
+void dbgr_obj_to_vstr(mp_obj_t obj, vstr_t* out_vstr, mp_print_kind_t print_kind, size_t max_length);
 
-/** @brief Diagonstics. Check if there is a stack overflow, DBG_SEND info. */
+/// @brief Diagonstics. Check if there is a stack overflow, DBG_SEND info.
 bool dbgr_check_stack_overflow(bool show_if_ok);
-/** @brief Diagonstics. DBG_SEND stack info. */
+/// @brief Diagonstics. DBG_SEND stack info.
 void dbgr_print_stack_info(void);
 
 #endif //JPO_DBGR_BUILD

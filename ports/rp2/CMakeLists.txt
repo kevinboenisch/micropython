@@ -155,6 +155,7 @@ set(MICROPY_SOURCE_PORT
     jpo_dbgr_breakpoints.c
     jpo_dbgr_stackframes.c
     jpo_dbgr_variables.c
+    jpo_dbgr_util.c
     machine_adc.c
     machine_bitstream.c
     machine_i2c.c
@@ -189,6 +190,8 @@ set(MICROPY_SOURCE_QSTR
     ${MICROPY_PORT_DIR}/jpo_debugger.c
     ${MICROPY_PORT_DIR}/jpo_dbgr_breakpoints.c
     ${MICROPY_PORT_DIR}/jpo_dbgr_stackframes.c
+    ${MICROPY_PORT_DIR}/jpo_dbgr_variables.c
+    ${MICROPY_PORT_DIR}/jpo_dbgr_util.c
     ${MICROPY_PORT_DIR}/machine_adc.c
     ${MICROPY_PORT_DIR}/machine_i2c.c
     ${MICROPY_PORT_DIR}/machine_i2s.c

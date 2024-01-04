@@ -11,6 +11,7 @@
 #include "mphalport.h" // for JPO_DBGR_BUILD
 #include "py/qstr.h"
 #include "py/profile.h"
+#include "py/obj.h"
 
 #include "pico/multicore.h"
 
@@ -172,13 +173,32 @@ static void send_module_loaded(qstr module_name) {
     jcomp_send_msg(evt);
 }
 
+static void dbgr_send_exception_response(const JCOMP_MSG request, mp_obj_frame_t* top_frame, mp_obj_t exception) {
+    DBG_SEND("Request: %s", REQ_DBG_EXCEPTION);
+    if (exception == NULL) {
+        DBG_SEND("Error: exception is NULL");
+        return;
+    }
+
+    vstr_t ex_str = {0};    
+    vstr_init(&ex_str, 0);
+
+    dbgr_obj_to_vstr(exception, &ex_str, PRINT_EXC, JCOMP_MAX_PAYLOAD_SIZE - 5);
+    
+    JCOMP_CREATE_RESPONSE(resp, jcomp_msg_id(request), vstr_len(&ex_str));
+    jcomp_msg_set_str(resp, 0, vstr_str(&ex_str));
+    vstr_clear(&ex_str);
+
+    jcomp_send_msg(resp);
+}
+
 /**
  * @brief Process a command while the program is stopped
  * Sets dbgr_status depending on the command notably to DS_RUNNING on continue. 
  * @param bc_stack_top the top of the stack, or NULL if not available
  * @return true if a command was processed.
  */
-static bool try_process_command(mp_obj_frame_t* frame) {
+static bool try_process_command(mp_obj_frame_t* frame, mp_obj_t exception) {
     JCOMP_RECEIVE_MSG(msg, rv, 0);
 
     // // Print stack info for debugging
@@ -223,6 +243,10 @@ static bool try_process_command(mp_obj_frame_t* frame) {
     }
     else if (jcomp_msg_has_str(msg, 0, REQ_DBG_VARIABLES)) {
         dbgr_send_variables_response(msg, frame);
+        return true;
+    }
+    else if (jcomp_msg_has_str(msg, 0, REQ_DBG_EXCEPTION)) {
+        dbgr_send_exception_response(msg, frame, exception);
         return true;
     }
 
@@ -312,7 +336,7 @@ static void on_trace_line(mp_obj_frame_t* top_frame) {
     send_stopped(stopped_reason);
 
     while (true) {
-        if (try_process_command(top_frame)) {
+        if (try_process_command(top_frame, NULL)) {
             switch(dbgr_status) {
                 case DS_RUNNING:
                     return;
@@ -357,7 +381,7 @@ void dbgr_after_compile_module(qstr module_name) {
     // TODO: shouldn't continue if we were trying to step in/over/out before the break, 
     // but do that action instead
     while (true) {
-        if (try_process_command(NULL)) {
+        if (try_process_command(NULL, NULL)) {
             if (dbgr_status == DS_RUNNING) {
                 break;
             }
@@ -380,7 +404,7 @@ void on_exception(mp_obj_frame_t* frame, mp_obj_t exception) {
     send_stopped(R_STOPPED_EXCEPTION);
 
     while (true) {
-        if (try_process_command(frame)) {
+        if (try_process_command(frame, exception)) {
             if (dbgr_status == DS_RUNNING) {
                 break;
             }
@@ -414,51 +438,6 @@ void dbgr_trace_callback(mp_prof_trace_type_t type, mp_obj_frame_t* frame, mp_ob
             // DBG_SEND("Unkown trace type: %s", qstr_str(type));
             break;
     }
-}
-
-//////////
-// Helpers
-//////////
-void dbgr_print_obj(int i, mp_obj_t obj) {
-    if (obj) {
-        mp_printf(&mp_plat_print, "[%d] t:%s ", i, mp_obj_get_type_str(obj));
-        mp_obj_print(obj, PRINT_REPR);
-        mp_printf(&mp_plat_print, "\n");
-    }
-    else {
-        mp_printf(&mp_plat_print, "[%d] NULL\n", i);
-    }
-}
-
-//////////////
-// Diagnostics
-//////////////
-extern uint8_t __StackTop, __StackBottom;
-extern uint8_t __StackOneBottom, __StackOneTop;
-
-void dbgr_print_stack_info(void) {
-    DBG_SEND("__StackTop:%p __StackBottom:%p __StackOneTop:%p __StackOneBottom:%p // s0size:%d", 
-             &__StackTop,  &__StackBottom,  &__StackOneTop,  &__StackOneBottom,
-             &__StackTop - &__StackOneTop);
-}
-
-bool dbgr_check_stack_overflow(bool show_if_ok) {
-    uint32_t stack_size = &__StackTop - &__StackOneTop;
-
-    // using the *address* of stack_size (last var on the stack), not the actual size
-    int remaining = (uint32_t)&stack_size - (uint32_t)&__StackOneTop;
-    
-    if (remaining < 0) {
-        DBG_SEND("ERROR: Stack overflow. this:%p __StackOneTop:%p size:%d remaining:%d", 
-            &stack_size, &__StackOneTop, stack_size, remaining);
-        return true;
-    }
-
-    if (show_if_ok) {
-        DBG_SEND("Stack ok. this:%p __StackOneTop:%p size:%d remaining:%d", 
-            &stack_size, &__StackOneTop, stack_size, remaining);
-    }
-    return false;
 }
 
 #endif //JPO_DBGR_BUILD

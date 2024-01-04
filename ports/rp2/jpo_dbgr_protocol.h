@@ -72,6 +72,14 @@
 #define REQ_DBG_STACK     "DBG_STAC"
 
 /**
+ * Request format: DBG_EXCP
+ * 
+ * Response format:
+ * - string representation of the exception
+ */
+#define REQ_DBG_EXCEPTION "DBG_EXCP"
+
+/**
  * Request format: DBG_VARS
  * - <u8 scope_type> type of scope: frame, global, object
  * - <u8 list_kind> kind of variable list to return: special, function, class, variable
