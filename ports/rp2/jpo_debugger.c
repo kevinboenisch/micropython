@@ -165,12 +165,17 @@ static bool breakpoint_hit(qstr file, int line_num) {
     return is_set;
 }
 
-static void send_stopped(const char* reason8ch) {
+static void send_stopped(const char* reason8ch, const char* detail) {
     DBG_SEND("Event: %s %s", EVT_DBG_STOPPED, reason8ch);
 
-    JCOMP_CREATE_EVENT(evt, CMD_LENGTH + 8);
-    jcomp_msg_set_str(evt, 0, EVT_DBG_STOPPED);
-    jcomp_msg_set_str(evt, CMD_LENGTH, reason8ch);
+    size_t detail_len = detail ? strlen(detail) : 0;
+
+    JCOMP_CREATE_EVENT(evt, CMD_LENGTH + 8 + detail_len);
+    jcomp_msg_append_str(evt, EVT_DBG_STOPPED);
+    jcomp_msg_append_str(evt, reason8ch);
+    if (detail != NULL) {
+        jcomp_msg_append_str(evt, detail);
+    }
     jcomp_send_msg(evt);
 }
 
@@ -367,7 +372,7 @@ static void on_trace_line(mp_obj_frame_t* top_frame) {
     }
     
     // Stopped
-    send_stopped(stopped_reason);
+    send_stopped(stopped_reason, NULL);
 
     loop_while_stopped(top_frame, NULL);
 }
@@ -403,7 +408,13 @@ void on_exception(mp_obj_frame_t* frame, mp_obj_t exception) {
     }
     
     dbgr_status = DS_STOPPED;
-    send_stopped(R_STOPPED_EXCEPTION);
+    vstr_t ex_str = {0};
+    dbgr_obj_to_vstr(exception, &ex_str, PRINT_REPR, 60);
+    //DBG_SEND("Exception: '%s'", vstr_str(&ex_str));
+
+    send_stopped(R_STOPPED_EXCEPTION, vstr_str(&ex_str));
+
+    vstr_clear(&ex_str);
 
     loop_while_stopped(frame, exception);
 }
