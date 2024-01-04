@@ -22,17 +22,6 @@
 #define MAX_NAME_LENGTH   32
 #define MAX_VALUE_LENGTH 200
 
-void dbg_print_obj(int i, mp_obj_t obj) {
-    if (obj) {
-        mp_printf(&mp_plat_print, "[%d] t:%s ", i, mp_obj_get_type_str(obj));
-        mp_obj_print(obj, PRINT_REPR);
-        mp_printf(&mp_plat_print, "\n");
-    }
-    else {
-        mp_printf(&mp_plat_print, "[%d] NULL\n", i);
-    }
-}
-
 typedef struct {
     enum _var_scope_type_t scope_type;
     enum _varinfo_kind_t include_kind;
@@ -369,7 +358,7 @@ static varinfo_t* iter_next_list(vars_iter_t* iter) {
 
     // might be null
     mp_obj_t obj = iter->objs[iter->cur_idx];
-    //dbg_print_obj(iter->cur_idx, obj);
+    //dbgr_print_obj(iter->cur_idx, obj);
 
     if (obj != NULL) {
         if (iter->obj_is_attr_name) {

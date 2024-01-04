@@ -174,14 +174,14 @@
     } \
 } while(0)
 
-#define TRACE_TICK(current_ip, current_sp, is_exception) do { \
+#define TRACE_TICK(current_ip, current_sp, exception) do { \
     assert(code_state != code_state->prev_state); \
     assert(MP_STATE_THREAD(current_code_state) == code_state); \
     if (!mp_prof_is_executing && code_state->frame && MP_STATE_THREAD(prof_trace_callback)) { \
         MP_PROF_INSTR_DEBUG_PRINT(code_state->ip); \
     } \
     if (!mp_prof_is_executing && code_state->frame && (mp_prof_callback_c || code_state->frame->callback)) { \
-        mp_prof_instr_tick(code_state, is_exception); \
+        mp_prof_instr_tick(code_state, exception); \
     } \
 } while(0)
 
@@ -190,7 +190,7 @@
 #define FRAME_ENTER()
 #define FRAME_LEAVE()
 #define FRAME_UPDATE()
-#define TRACE_TICK(current_ip, current_sp, is_exception)
+#define TRACE_TICK(current_ip, current_sp, exception)
 #endif // MICROPY_PY_SYS_SETTRACE
 
 // fastn has items in reverse order (fastn[0] is local[0], fastn[-1] is local[1], etc)
@@ -229,7 +229,7 @@ mp_vm_return_kind_t MICROPY_WRAP_MP_EXECUTE_BYTECODE(mp_execute_bytecode)(mp_cod
     #define DISPATCH() do { \
         TRACE(ip); \
         MARK_EXC_IP_GLOBAL(); \
-        TRACE_TICK(ip, sp, false); \
+        TRACE_TICK(ip, sp, NULL); \
         goto *entry_table[*ip++]; \
     } while (0)
     #define DISPATCH_WITH_PEND_EXC_CHECK() goto pending_exception_check
@@ -310,7 +310,7 @@ dispatch_loop:
                 #else
                 TRACE(ip);
                 MARK_EXC_IP_GLOBAL();
-                TRACE_TICK(ip, sp, false);
+                TRACE_TICK(ip, sp, NULL);
                 switch (*ip++) {
                 #endif
 
@@ -1400,7 +1400,7 @@ exception_handler:
             #if MICROPY_PY_SYS_SETTRACE
             // Exceptions are traced here
             if (mp_obj_is_subclass_fast(MP_OBJ_FROM_PTR(((mp_obj_base_t*)nlr.ret_val)->type), MP_OBJ_FROM_PTR(&mp_type_Exception))) {
-                TRACE_TICK(code_state->ip, code_state->sp, true /* yes, it's an exception */);
+                TRACE_TICK(code_state->ip, code_state->sp, nlr.ret_val /* yes, it's an exception */);
             }
             #endif
 

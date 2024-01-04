@@ -52,7 +52,7 @@ typedef enum {
 dbgr_status_t dbgr_status = DS_NOT_ENABLED;
 
 // type: mp_prof_callback_t
-void dbgr_trace_callback(mp_prof_trace_type_t type, mp_obj_frame_t* frame);
+void dbgr_trace_callback(mp_prof_trace_type_t type, mp_obj_frame_t* frame, mp_obj_t arg);
 
 // Reset vars to initial state
 void reset_vars() {
@@ -370,9 +370,11 @@ void dbgr_after_compile_module(qstr module_name) {
     dbgr_status = old_status;
 }
 
-void on_exception(mp_obj_frame_t* frame) {
+void on_exception(mp_obj_frame_t* frame, mp_obj_t exception) {
+    // Debug
     qstr block_name = dbgr_get_block_name(frame->code_state);
     DBG_SEND("on_exception in %s", qstr_str(block_name));
+    dbgr_print_obj(0, exception);
 
     dbgr_status = DS_STOPPED;
     send_stopped(R_STOPPED_EXCEPTION);
@@ -388,7 +390,7 @@ void on_exception(mp_obj_frame_t* frame) {
     }
 }
 
-void dbgr_trace_callback(mp_prof_trace_type_t type, mp_obj_frame_t* frame) {
+void dbgr_trace_callback(mp_prof_trace_type_t type, mp_obj_frame_t* frame, mp_obj_t arg) {
     if (dbgr_status == DS_NOT_ENABLED) {
         return;
     }
@@ -406,7 +408,7 @@ void dbgr_trace_callback(mp_prof_trace_type_t type, mp_obj_frame_t* frame) {
         //     DBG_SEND("trace: return new-depth:%d", get_call_depth(frame));
         //     break;
         case MP_PROF_TRACE_EXCEPTION:
-            on_exception(frame);
+            on_exception(frame, arg);
             break;
         default:
             // DBG_SEND("Unkown trace type: %s", qstr_str(type));
@@ -414,6 +416,19 @@ void dbgr_trace_callback(mp_prof_trace_type_t type, mp_obj_frame_t* frame) {
     }
 }
 
+//////////
+// Helpers
+//////////
+void dbgr_print_obj(int i, mp_obj_t obj) {
+    if (obj) {
+        mp_printf(&mp_plat_print, "[%d] t:%s ", i, mp_obj_get_type_str(obj));
+        mp_obj_print(obj, PRINT_REPR);
+        mp_printf(&mp_plat_print, "\n");
+    }
+    else {
+        mp_printf(&mp_plat_print, "[%d] NULL\n", i);
+    }
+}
 
 //////////////
 // Diagnostics

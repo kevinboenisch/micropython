@@ -64,7 +64,8 @@ mp_obj_t mp_prof_settrace(mp_obj_t callback);
 /**
  * Set the C callback for the settrace feature.
  * Function is:
- * void callback(mp_prof_trace_type_t type, mp_obj_frame_t* frame);
+ * void callback(mp_prof_trace_type_t type, mp_obj_frame_t* frame, mp_obj_t arg);
+ * - arge might be NULL. if type is MP_PROF_TRACE_EXCEPTION, it's an exception object
  */
 typedef enum {
     MP_PROF_TRACE_CALL,
@@ -72,14 +73,14 @@ typedef enum {
     MP_PROF_TRACE_RETURN,
     MP_PROF_TRACE_EXCEPTION,
 } mp_prof_trace_type_t;
-typedef void (*mp_prof_callback_t)(mp_prof_trace_type_t, mp_obj_frame_t*);
+typedef void (*mp_prof_callback_t)(mp_prof_trace_type_t, mp_obj_frame_t*, mp_obj_t);
 extern mp_prof_callback_t mp_prof_callback_c; 
 
 mp_obj_t mp_prof_frame_enter(mp_code_state_t *code_state);
 mp_obj_t mp_prof_frame_update(const mp_code_state_t *code_state);
 
 // For every VM instruction tick this function deduces events from the state
-mp_obj_t mp_prof_instr_tick(mp_code_state_t *code_state, bool is_exception);
+mp_obj_t mp_prof_instr_tick(mp_code_state_t *code_state, mp_obj_t exception);
 
 // This section is for debugging the settrace feature itself, and is not intended
 // to be included in production/release builds.

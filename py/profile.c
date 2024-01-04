@@ -352,7 +352,7 @@ mp_obj_t mp_prof_frame_enter(mp_code_state_t *code_state) {
     args->arg = mp_const_none;
 
     if (mp_prof_callback_c) {
-        mp_prof_callback_c(MP_PROF_TRACE_CALL, args->frame);
+        mp_prof_callback_c(MP_PROF_TRACE_CALL, args->frame, NULL);
     }
 
     if (prof_trace_cb) {
@@ -390,7 +390,7 @@ mp_obj_t mp_prof_frame_update(const mp_code_state_t *code_state) {
     return MP_OBJ_FROM_PTR(o);
 }
 
-mp_obj_t mp_prof_instr_tick(mp_code_state_t *code_state, bool is_exception) {
+mp_obj_t mp_prof_instr_tick(mp_code_state_t *code_state, mp_obj_t exception) {
     // Detect execution recursion
     assert(!mp_prof_is_executing);
     assert(code_state->frame);
@@ -410,11 +410,11 @@ mp_obj_t mp_prof_instr_tick(mp_code_state_t *code_state, bool is_exception) {
     // Call event's are handled inside mp_prof_frame_enter
 
     // SETTRACE event EXCEPTION
-    if (is_exception) {
+    if (exception != MP_OBJ_NULL) {
         args->event = MP_OBJ_NEW_QSTR(MP_QSTR_exception);
 
         if (mp_prof_callback_c) {
-            mp_prof_callback_c(MP_PROF_TRACE_EXCEPTION, args->frame);
+            mp_prof_callback_c(MP_PROF_TRACE_EXCEPTION, args->frame, exception);
         }
 
         if (callback) {
@@ -436,7 +436,7 @@ mp_obj_t mp_prof_instr_tick(mp_code_state_t *code_state, bool is_exception) {
         args->event = MP_OBJ_NEW_QSTR(MP_QSTR_line);
 
         if (mp_prof_callback_c) {
-            mp_prof_callback_c(MP_PROF_TRACE_LINE, args->frame);
+            mp_prof_callback_c(MP_PROF_TRACE_LINE, args->frame, NULL);
         }
 
         if (callback) {
@@ -453,7 +453,7 @@ mp_obj_t mp_prof_instr_tick(mp_code_state_t *code_state, bool is_exception) {
         args->event = MP_OBJ_NEW_QSTR(MP_QSTR_return);
 
         if (mp_prof_callback_c) {
-            mp_prof_callback_c(MP_PROF_TRACE_RETURN, args->frame);
+            mp_prof_callback_c(MP_PROF_TRACE_RETURN, args->frame, NULL);
         }
 
         if (callback) {
