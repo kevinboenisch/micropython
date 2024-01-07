@@ -146,6 +146,15 @@ int mp_hal_stdin_rx_chr(void) {
     #ifdef JPO_JCOMP
     for (;;) {
         int ch = jcomp_stdin_getchar();
+
+        #if MICROPY_KBD_EXCEPTION
+        if (ch != -1 && ch == mp_interrupt_char) {
+            // Signal keyboard interrupt to be raised as soon as the VM resumes
+            mp_sched_keyboard_interrupt();
+            return -2;
+        }
+        #endif
+
         if (ch != -1) {
             return ch;
         }
