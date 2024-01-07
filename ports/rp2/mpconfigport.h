@@ -281,6 +281,8 @@ extern void mp_thread_end_atomic_section(uint32_t);
 #define MICROPY_EVENT_POLL_HOOK_FAST \
     do { \
         if (get_core_num() == 0) { MICROPY_HW_USBDEV_TASK_HOOK } \
+        extern void mp_check_stdin_for_interrupt_char(); \
+        mp_check_stdin_for_interrupt_char(); \
         extern void mp_handle_pending(bool); \
         mp_handle_pending(true); \
     } while (0)
