@@ -477,6 +477,48 @@ mp_obj_t mp_prof_instr_tick(mp_code_state_t *code_state, mp_obj_t exception) {
     return top;
 }
 
+// Optimized version
+void mp_prof_instr_tick_c_only(mp_code_state_t *code_state, mp_obj_t exception) {
+    // Detect execution recursion
+    assert(!mp_prof_is_executing);
+    assert(code_state->frame);
+    assert(mp_obj_get_type(code_state->frame) == &mp_type_frame);
+    assert(mp_prof_callback_c);
+
+    // Detect data recursion
+    assert(code_state != code_state->prev_state);
+
+    // Call event's are handled inside mp_prof_frame_enter
+
+    // SETTRACE event EXCEPTION
+    if (exception != MP_OBJ_NULL) {
+        mp_prof_callback_c(MP_PROF_TRACE_EXCEPTION, code_state->frame, exception);
+        return;
+    }
+
+    // SETTRACE event LINE
+    const mp_raw_code_t *rc = code_state->fun_bc->rc;
+    const mp_bytecode_prelude_t *prelude = &rc->prelude;
+    size_t prev_line_no = code_state->frame->lineno;
+    size_t current_line_no = mp_prof_bytecode_lineno(rc, code_state->ip - prelude->opcodes);
+    if (prev_line_no != current_line_no) {        
+        code_state->frame->lineno = current_line_no;
+        mp_prof_callback_c(MP_PROF_TRACE_LINE, code_state->frame, NULL);
+        return;
+    }
+
+    // SETTRACE event RETURN
+    const byte *ip = code_state->ip;
+    if (*ip == MP_BC_RETURN_VALUE || *ip == MP_BC_YIELD_VALUE) {
+        mp_prof_callback_c(MP_PROF_TRACE_RETURN, code_state->frame, NULL);
+
+        // if (code_state->prev_state && *ip == MP_BC_RETURN_VALUE) {
+        //     code_state->frame->callback = MP_OBJ_NULL;
+        // }
+        return;
+    }
+}
+
 /******************************************************************************/
 // DEBUG
 

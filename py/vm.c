@@ -34,6 +34,8 @@
 #include "py/bc0.h"
 #include "py/profile.h"
 
+#include "mpconfigport.h" // for JPO_DBGR_BUILD
+
 // *FORMAT-OFF*
 
 #if 0
@@ -174,6 +176,14 @@
     } \
 } while(0)
 
+#if JPO_DBGR_BUILD
+// Tracing for JPO debugger only, ignoring the py callback
+#define TRACE_TICK(current_ip, current_sp, exception) do { \
+    if (mp_prof_callback_c && !mp_prof_is_executing && code_state->frame) { \
+        mp_prof_instr_tick_c_only(code_state, exception); \
+    } \
+} while(0)
+#else
 #define TRACE_TICK(current_ip, current_sp, exception) do { \
     assert(code_state != code_state->prev_state); \
     assert(MP_STATE_THREAD(current_code_state) == code_state); \
@@ -184,6 +194,7 @@
         mp_prof_instr_tick(code_state, exception); \
     } \
 } while(0)
+#endif // JPO_DBGR_BUILD
 
 #else // MICROPY_PY_SYS_SETTRACE
 #define FRAME_SETUP()

@@ -58,7 +58,7 @@
 #define JPO_DBGR_BUILD (1)
 #endif
 
-#ifdef JPO_DBGR_BUILD
+#if JPO_DBGR_BUILD
 #define MICROPY_PY_SYS_SETTRACE         (1)
 // requirement for MICROPY_PY_SYS_SETTRACE
 #define MICROPY_COMP_CONST              (0)

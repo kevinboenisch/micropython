@@ -81,6 +81,8 @@ mp_obj_t mp_prof_frame_update(const mp_code_state_t *code_state);
 
 // For every VM instruction tick this function deduces events from the state
 mp_obj_t mp_prof_instr_tick(mp_code_state_t *code_state, mp_obj_t exception);
+// Optimized version only calling the C callback
+void mp_prof_instr_tick_c_only(mp_code_state_t *code_state, mp_obj_t exception);
 
 // This section is for debugging the settrace feature itself, and is not intended
 // to be included in production/release builds.
