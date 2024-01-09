@@ -306,7 +306,46 @@ static void loop_while_stopped(mp_obj_frame_t* top_frame, mp_obj_t exception) {
     }
 }
 
-static void on_trace_line(mp_obj_frame_t* top_frame) {
+void on_exception(mp_obj_frame_t* frame, mp_obj_t exception) {
+    if (!break_on_exceptions) {
+        return;
+    }
+    if (on_exception_break_on_top_frame_only && exception == last_exception) {
+        return;
+    }
+
+    last_exception = exception;
+
+    dbgr_status = DS_STOPPED;
+    vstr_t ex_str = {0};
+    dbgr_obj_to_vstr(exception, &ex_str, PRINT_REPR, 60);
+    //DBG_SEND("Exception: '%s'", vstr_str(&ex_str));
+
+    send_stopped(R_STOPPED_EXCEPTION, vstr_str(&ex_str));
+
+    vstr_clear(&ex_str);
+
+    loop_while_stopped(frame, exception);
+}
+
+void dbgr_trace_callback(mp_prof_trace_type_t type, mp_obj_frame_t* top_frame, mp_obj_t arg) {
+    if (dbgr_status == DS_NOT_ENABLED) {
+        return;
+    }
+
+    // The most common scenario is TRACE_LINE, and it continues here 
+    // instead of a separate on_trace_line() fn for performance
+    switch(type) {
+        case MP_PROF_TRACE_LINE:
+            break;
+        case MP_PROF_TRACE_EXCEPTION:
+            on_exception(top_frame, arg);
+            return;
+        default:
+            return;
+    }
+
+    // on_trace_line
     char* stopped_reason = "";
     qstr file = dbgr_get_source_file(top_frame->code_state);
     int line = (int)top_frame->lineno;
@@ -387,7 +426,6 @@ static void on_trace_line(mp_obj_frame_t* top_frame) {
     loop_while_stopped(top_frame, NULL);
 }
 
-
 void dbgr_after_compile_module(qstr module_name) {
     if (dbgr_status == DS_NOT_ENABLED) {
         return;
@@ -410,54 +448,6 @@ void dbgr_after_compile_module(qstr module_name) {
 
     // Restore the old status (e.g. step into/over/out)
     dbgr_status = old_status;
-}
-
-void on_exception(mp_obj_frame_t* frame, mp_obj_t exception) {
-    if (!break_on_exceptions) {
-        return;
-    }
-    if (on_exception_break_on_top_frame_only && exception == last_exception) {
-        return;
-    }
-
-    last_exception = exception;
-
-    dbgr_status = DS_STOPPED;
-    vstr_t ex_str = {0};
-    dbgr_obj_to_vstr(exception, &ex_str, PRINT_REPR, 60);
-    //DBG_SEND("Exception: '%s'", vstr_str(&ex_str));
-
-    send_stopped(R_STOPPED_EXCEPTION, vstr_str(&ex_str));
-
-    vstr_clear(&ex_str);
-
-    loop_while_stopped(frame, exception);
-}
-
-void dbgr_trace_callback(mp_prof_trace_type_t type, mp_obj_frame_t* frame, mp_obj_t arg) {
-    if (dbgr_status == DS_NOT_ENABLED) {
-        return;
-    }
-
-    switch(type) {
-        case MP_PROF_TRACE_LINE:
-            //DBG_SEND("trace: line %d depth:%d", frame->lineno, get_call_depth(frame));
-            on_trace_line(frame);
-            break;
-
-        // case MP_PROF_TRACE_CALL:
-        //     DBG_SEND("trace: call depth:%d", get_call_depth(frame));
-        //     break;
-        // case MP_PROF_TRACE_RETURN:
-        //     DBG_SEND("trace: return new-depth:%d", get_call_depth(frame));
-        //     break;
-        case MP_PROF_TRACE_EXCEPTION:
-            on_exception(frame, arg);
-            break;
-        default:
-            // DBG_SEND("Unkown trace type: %s", qstr_str(type));
-            break;
-    }
 }
 
 #endif //JPO_DBGR_BUILD
