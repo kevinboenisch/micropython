@@ -1608,7 +1608,7 @@ mp_obj_t mp_parse_compile_execute(mp_lexer_t *lex, mp_parse_input_kind_t parse_i
     qstr source_name = lex->source_name;
     mp_parse_tree_t parse_tree = mp_parse(lex, parse_input_kind);
     mp_obj_t module_fun = mp_compile(&parse_tree, source_name, parse_input_kind == MP_PARSE_SINGLE_INPUT);
-    #ifdef JPO_DBGR_BUILD
+    #if JPO_DBGR_BUILD
     dbgr_after_compile_module(source_name);
     #endif
 

@@ -39,12 +39,6 @@ typedef struct _mp_obj_fun_bc_t {
     const struct _mp_raw_code_t *rc;
     #endif
 
-    #if JPO_DBGR_BUILD
-    // This can be determined from bytecode (see bc.h), but adding here for convenience
-    uint16_t n_pos_args; // number of positional args
-    uint8_t has_kw_args; // 0 or 1
-    #endif
-
     // the following extra_args array is allocated space to take (in order):
     //  - values of positional default args (if any)
     //  - a single slot for default kw args dict (if it has them)

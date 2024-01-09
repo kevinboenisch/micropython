@@ -29,12 +29,6 @@
 
 #include "py/runtime.h"
 
-#include "mpconfigport.h" // for JPO_DBGR_TEST
-#ifdef JPO_DBGR_TEST
-    #include "pico/stdlib.h" // for sleep_ms
-    #include "jpo/debug.h" // for DBG_SEND
-#endif
-
 #if MICROPY_PY_RANDOM
 
 // Work out if the seed will be set on import or not.
@@ -172,11 +166,6 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(mod_random_randrange_obj, 1, 3, mod_r
 STATIC mp_obj_t mod_random_randint(mp_obj_t a_in, mp_obj_t b_in) {
     mp_int_t a = mp_obj_get_int(a_in);
     mp_int_t b = mp_obj_get_int(b_in);
-
-    #ifdef JPO_DBGR_TEST
-        DBG_SEND("randint(%d,%d)", (int)a, (int)b);
-        sleep_ms(100); // give the debugger a chance to send a message
-    #endif
 
     if (a <= b) {
         return mp_obj_new_int(a + yasmarang_randbelow(b - a + 1));

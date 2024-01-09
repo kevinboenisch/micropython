@@ -7,6 +7,8 @@
 #include "jpo/jcomp_protocol.h"
 #include "jpo/debug.h"
 
+#if JPO_DBGR_BUILD
+
 // Disable debugging
 #undef DBG_SEND
 #define DBG_SEND(...)
@@ -180,3 +182,5 @@ void dbgr_send_stack_response(const JCOMP_MSG request, mp_obj_frame_t* top_frame
     DBG_SEND("done sending stack response");
 
 }
+
+#endif //JPO_DBGR_BUILD

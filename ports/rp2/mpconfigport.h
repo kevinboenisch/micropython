@@ -51,9 +51,12 @@
 #define JPO_DBGR_TEST
 
 // Debug build is enabled
-// There will be two separate Micropython builds: fast (non-debug) and debug.
-// TODO: move into build settings, (0) for fast execution, (1) for debug
+// There are two separate Micropython builds: fast (non-debug) and debug.
+// Flag is normally set in CMakeLists.txt
+// If the flag is omitted, set it here. Note the #ifndef, NOT #if
+#ifndef JPO_DBGR_BUILD
 #define JPO_DBGR_BUILD (1)
+#endif
 
 #ifdef JPO_DBGR_BUILD
 #define MICROPY_PY_SYS_SETTRACE         (1)

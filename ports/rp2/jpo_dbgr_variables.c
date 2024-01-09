@@ -13,6 +13,7 @@
 #include "jpo/jcomp_protocol.h"
 #include "jpo/debug.h"
 
+#if JPO_DBGR_BUILD
 
 // Disable debugging
 // #undef DBG_SEND
@@ -553,3 +554,5 @@ void dbgr_send_variables_response(const JCOMP_MSG request, mp_obj_frame_t* top_f
     };
     send_vars_response(jcomp_msg_id(request), &args, top_frame);
 }
+
+#endif //JPO_DBGR_BUILD

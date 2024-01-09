@@ -4,6 +4,8 @@
 #include "jpo/jcomp_protocol.h"
 #include "jpo/debug.h"
 
+#if JPO_DBGR_BUILD
+
 // Disable debugging
 #undef DBG_SEND
 #define DBG_SEND(...)
@@ -167,3 +169,4 @@ void bkpt_set_from_msg(JCOMP_MSG msg) {
     }
 }
 
+#endif //JPO_DBGR_BUILD

@@ -45,7 +45,6 @@
 
 #include "jpo_debugger.h"
 
-// TODO: move into a central place
 // Echo entire lines, instead of char-by-char
 #define JPO_ECHO_LINE
 
@@ -123,7 +122,7 @@ STATIC int parse_compile_execute(const void *source, mp_parse_input_kind_t input
             qstr source_name = lex->source_name;
             mp_parse_tree_t parse_tree = mp_parse(lex, input_kind);
             module_fun = mp_compile(&parse_tree, source_name, exec_flags & EXEC_FLAG_IS_REPL);
-            #ifdef JPO_DBGR_BUILD
+            #if JPO_DBGR_BUILD
             dbgr_after_compile_module(source_name);
             #endif
 
