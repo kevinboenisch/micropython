@@ -148,33 +148,39 @@
 
 #if MICROPY_PY_SYS_SETTRACE
 
-#define FRAME_SETUP() do { \
+#if JPO_DBGR_BUILD
+#define JPO_CHECK if (mp_prof_callback_c)
+#else
+#define JPO_CHECK
+#endif
+
+#define FRAME_SETUP() JPO_CHECK { do { \
     assert(code_state != code_state->prev_state); \
     MP_STATE_THREAD(current_code_state) = code_state; \
     assert(code_state != code_state->prev_state); \
-} while(0)
+} while(0); }
 
-#define FRAME_ENTER() do { \
+#define FRAME_ENTER() JPO_CHECK { do { \
     assert(code_state != code_state->prev_state); \
     code_state->prev_state = MP_STATE_THREAD(current_code_state); \
     assert(code_state != code_state->prev_state); \
     if (!mp_prof_is_executing) { \
         mp_prof_frame_enter(code_state); \
     } \
-} while(0)
+} while(0); }
 
-#define FRAME_LEAVE() do { \
+#define FRAME_LEAVE() JPO_CHECK { do { \
     assert(code_state != code_state->prev_state); \
     MP_STATE_THREAD(current_code_state) = code_state->prev_state; \
     assert(code_state != code_state->prev_state); \
-} while(0)
+} while(0); }
 
-#define FRAME_UPDATE() do { \
+#define FRAME_UPDATE() JPO_CHECK { do { \
     assert(MP_STATE_THREAD(current_code_state) == code_state); \
     if (!mp_prof_is_executing) { \
         code_state->frame = MP_OBJ_TO_PTR(mp_prof_frame_update(code_state)); \
     } \
-} while(0)
+} while(0); }
 
 #if JPO_DBGR_BUILD
 // Tracing for JPO debugger only, ignoring the py callback

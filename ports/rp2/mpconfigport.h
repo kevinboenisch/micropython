@@ -63,7 +63,14 @@
 // requirement for MICROPY_PY_SYS_SETTRACE
 #define MICROPY_COMP_CONST              (0)
 #define MICROPY_PERSISTENT_CODE_SAVE    (1)
-#endif
+
+#else
+// Disabling MICROPY_CONST_COMP makes the fast build faster on our simplistic perf test.
+// However, maybe it improves peformance in an average case, as it's enabled by default.
+// #define MICROPY_COMP_CONST              (0)
+#endif //JPO_DBGR_BUILD
+
+
 
 #ifdef JPO_JCOMP
     // Disable mpy's USB-CDC serial port, 
