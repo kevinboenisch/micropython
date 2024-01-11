@@ -70,7 +70,8 @@
 // #define MICROPY_COMP_CONST              (0)
 #endif //JPO_DBGR_BUILD
 
-
+// Experimental. Store local variable names in the bytecode.
+#define JPO_LOCAL_VAR_NAMES             (1)
 
 #ifdef JPO_JCOMP
     // Disable mpy's USB-CDC serial port, 

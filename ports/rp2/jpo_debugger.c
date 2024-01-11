@@ -16,8 +16,8 @@
 #include "pico/multicore.h"
 
 // Disable output
-// #undef DBG_SEND
-// #define DBG_SEND(...)
+#undef DBG_SEND
+#define DBG_SEND(...)
 
 
 #define MUTEX_TIMEOUT_MS 100

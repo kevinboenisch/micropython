@@ -69,11 +69,39 @@
 
 #define MP_ENCODE_UINT_MAX_BYTES ((MP_BYTES_PER_OBJ_WORD * 8 + 6) / 7)
 
+#if JPO_LOCAL_VAR_NAMES
+
+/*
+#define JPO_PRELUDE_SIG_ENCODE(scope, out_byte, out_env) \
+    out_byte(out_env, 0x42); // 66 decimal, arbitrary value
+
+#define JPO_PRELUDE_SIG_DECODE_INTO(ip, LV) \
+    LV = *(ip)++;
+*/
+
+#define JPO_ENCODE_N_LOCAL_VARS(scope, A) \
+    uint8_t n_local_vars = (uint8_t)42 /*TODO: scope->id_info_len*/; \
+    A = (A & 0x00FFFFFF) | (n_local_vars << 24);
+
+#define JPO_DECODE_N_LOCAL_VARS(A, LV) \
+    LV = (A >> 24); \
+    A &= 0x00FFFFFF;
+
+#else
+// #define JPO_PRELUDE_SIG_ENCODE(scope, out_byte, out_env)
+// #define JPO_PRELUDE_SIG_DECODE_INTO(ip, LV) LV = 0;
+
+#define JPO_ENCODE_N_LOCAL_VARS(scope, A)
+#define JPO_DECODE_N_LOCAL_VARS(A, LV) LV = 0;
+
+#endif
+
 #define MP_BC_PRELUDE_SIG_ENCODE(S, E, scope, out_byte, out_env) \
     do {                                                            \
         /*// Get values to store in prelude */                      \
         size_t F = scope->scope_flags & MP_SCOPE_FLAG_ALL_SIG;      \
         size_t A = scope->num_pos_args;                             \
+        JPO_ENCODE_N_LOCAL_VARS(scope, A);                          \
         size_t K = scope->num_kwonly_args;                          \
         size_t D = scope->num_def_pos_args;                         \
                                                                 \
@@ -101,7 +129,9 @@
         out_byte(out_env, z);                                       \
     } while (0)
 
-#define MP_BC_PRELUDE_SIG_DECODE_INTO(ip, S, E, F, A, K, D)     \
+// JPO: LV: number of local variable names
+// if JPO_LOCAL_VAR_NAMES is not defined, then LV is 0
+#define MP_BC_PRELUDE_SIG_DECODE_INTO(ip, S, E, F, A, K, D, LV)   \
     do {                                                            \
         uint8_t z = *(ip)++;                                        \
         /* xSSSSEAA */                                              \
@@ -122,13 +152,15 @@
             D |= (z & 0x1) << n;                                    \
         }                                                           \
         S += 1;                                                     \
+        JPO_DECODE_N_LOCAL_VARS(A, LV);                             \
     } while (0)
 
+
 #define MP_BC_PRELUDE_SIG_DECODE(ip) \
-    size_t n_state, n_exc_stack, scope_flags, n_pos_args, n_kwonly_args, n_def_pos_args; \
-    MP_BC_PRELUDE_SIG_DECODE_INTO(ip, n_state, n_exc_stack, scope_flags, n_pos_args, n_kwonly_args, n_def_pos_args); \
+    size_t n_state, n_exc_stack, scope_flags, n_pos_args, n_kwonly_args, n_def_pos_args, n_local_vars; \
+    MP_BC_PRELUDE_SIG_DECODE_INTO(ip, n_state, n_exc_stack, scope_flags, n_pos_args, n_kwonly_args, n_def_pos_args, n_local_vars); \
     (void)n_state; (void)n_exc_stack; (void)scope_flags; \
-    (void)n_pos_args; (void)n_kwonly_args; (void)n_def_pos_args
+    (void)n_pos_args; (void)n_kwonly_args; (void)n_def_pos_args; (void)n_local_vars
 
 #define MP_BC_PRELUDE_SIZE_ENCODE(I, C, out_byte, out_env)      \
     do {                                                            \

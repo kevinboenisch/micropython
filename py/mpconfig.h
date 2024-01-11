@@ -336,6 +336,11 @@
 #define MICROPY_EMIT_BYTECODE_USES_QSTR_TABLE (MICROPY_PERSISTENT_CODE)
 #endif
 
+// #if MICROPY_EMIT_BYTECODE_USES_QSTR_TABLE
+// #pragma message "MICROPY_EMIT_BYTECODE_USES_QSTR_TABLE enabled"
+// #endif
+
+
 // Whether to emit x64 native code
 #ifndef MICROPY_EMIT_X64
 #define MICROPY_EMIT_X64 (0)
@@ -487,7 +492,7 @@
 //   mp_bytecode_print
 //   mp_parse_node_print
 #ifndef MICROPY_DEBUG_PRINTERS
-#define MICROPY_DEBUG_PRINTERS (0)
+#define MICROPY_DEBUG_PRINTERS (1)
 #endif
 
 // Whether to enable all debugging outputs (it will be extremely verbose)
@@ -502,7 +507,7 @@
 
 // Whether to print parse rule names (rather than integers) in mp_parse_node_print
 #ifndef MICROPY_DEBUG_PARSE_RULE_NAME
-#define MICROPY_DEBUG_PARSE_RULE_NAME (0)
+#define MICROPY_DEBUG_PARSE_RULE_NAME (1)
 #endif
 
 // Whether to enable a simple VM stack overflow check

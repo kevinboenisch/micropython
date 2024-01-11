@@ -46,6 +46,7 @@
 #include "py/gc.h"
 
 #include "jpo_debugger.h"
+#include "jpo/debug.h" // for DBG_SEND
 
 #if MICROPY_DEBUG_VERBOSE // print debugging info
 #define DEBUG_PRINT (1)
@@ -1592,6 +1593,9 @@ void mp_import_all(mp_obj_t module) {
 
 #if MICROPY_ENABLE_COMPILER
 
+// testing
+//void dbgr_print_obj(int i, mp_obj_t obj);
+
 mp_obj_t mp_parse_compile_execute(mp_lexer_t *lex, mp_parse_input_kind_t parse_input_kind, mp_obj_dict_t *globals, mp_obj_dict_t *locals) {
     // save context
     nlr_jump_callback_node_globals_locals_t ctx;
@@ -1601,6 +1605,9 @@ mp_obj_t mp_parse_compile_execute(mp_lexer_t *lex, mp_parse_input_kind_t parse_i
     // set new context
     mp_globals_set(globals);
     mp_locals_set(locals);
+
+    DBG_SEND("mp_parse_compile_execute locals:");
+    dbgr_print_obj(0, locals);
 
     // set exception handler to restore context if an exception is raised
     nlr_push_jump_callback(&ctx.callback, mp_globals_locals_set_from_nlr_jump_callback);

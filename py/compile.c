@@ -39,6 +39,9 @@
 #include "py/persistentcode.h"
 #include "py/smallint.h"
 
+#include "jpo/debug.h" // for DBG_SEND
+extern bool g_dbg_is_relevant;
+
 #if MICROPY_ENABLE_COMPILER
 
 // TODO need to mangle __attr names
@@ -3383,6 +3386,7 @@ STATIC void scope_compute_things(scope_t *scope) {
         // params always count for 1 local, even if they are a cell
         if (id->kind == ID_INFO_KIND_LOCAL || (id->flags & ID_FLAG_IS_PARAM)) {
             id->local_num = scope->num_locals++;
+            DBG_SEND("id KIND_LOCAL: '%s' local_num:%d", qstr_str(id->qst), id->local_num);
         }
     }
 
@@ -3595,7 +3599,9 @@ void mp_compile_to_raw_code(mp_parse_tree_t *parse_tree, qstr source_file, bool 
 
         #if MICROPY_DEBUG_PRINTERS
         // now that the module context is valid, the raw codes can be printed
-        if (mp_verbose_flag >= 2) {
+        bool dbg_always_execute = true;
+        if ((g_dbg_is_relevant && dbg_always_execute) ||
+            mp_verbose_flag >= 2) {
             for (scope_t *s = comp->scope_head; s != NULL; s = s->next) {
                 mp_raw_code_t *rc = s->raw_code;
                 if (rc->kind == MP_CODE_BYTECODE) {
@@ -3640,6 +3646,10 @@ mp_obj_t mp_compile(mp_parse_tree_t *parse_tree, qstr source_file, bool is_repl)
     cm.context = m_new_obj(mp_module_context_t);
     cm.context->module.globals = mp_globals_get();
     mp_compile_to_raw_code(parse_tree, source_file, is_repl, &cm);
+
+    // DEBUG
+    //mp_bytecode_print(&mp_plat_print, cm.rc, &cm.context->constants);
+
     // return function that executes the outer module
     return mp_make_function_from_raw_code(cm.rc, cm.context, NULL);
 }

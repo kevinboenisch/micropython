@@ -44,6 +44,8 @@
 #include "genhdr/mpversion.h"
 
 #include "jpo_debugger.h"
+#include "jpo/debug.h" // for DBG_SEND
+#include "py/parse.h"
 
 // Echo entire lines, instead of char-by-char
 #define JPO_ECHO_LINE
@@ -72,6 +74,7 @@ void echo_line(vstr_t* line, int* line_end_idx) {
 }
 #endif
 
+bool g_dbg_is_relevant = false;
 
 // parses, compiles and executes the code in the lexer
 // frees the lexer before returning
@@ -88,6 +91,8 @@ STATIC int parse_compile_execute(const void *source, mp_parse_input_kind_t input
     MICROPY_BOARD_BEFORE_PYTHON_EXEC(input_kind, exec_flags);
     #endif
 
+    DBG_SEND("pyexec.c::parse_compile_execute");
+
     // by default a SystemExit exception returns 0
     pyexec_system_exit = 0;
 
@@ -97,6 +102,9 @@ STATIC int parse_compile_execute(const void *source, mp_parse_input_kind_t input
         mp_obj_t module_fun;
         #if MICROPY_MODULE_FROZEN_MPY
         if (exec_flags & EXEC_FLAG_SOURCE_IS_RAW_CODE) {
+
+            DBG_SEND("pce: frozen module: source is raw code");
+
             // source is a raw_code object, create the function
             const mp_frozen_module_t *frozen = source;
             mp_module_context_t *ctx = m_new_obj(mp_module_context_t);
@@ -106,10 +114,16 @@ STATIC int parse_compile_execute(const void *source, mp_parse_input_kind_t input
         } else
         #endif
         {
+
             #if MICROPY_ENABLE_COMPILER
             mp_lexer_t *lex;
             if (exec_flags & EXEC_FLAG_SOURCE_IS_VSTR) {
                 const vstr_t *vstr = source;
+
+                if (vstr->len > 0 && vstr->buf[0] == '#') {
+                    g_dbg_is_relevant = true;
+                }
+
                 lex = mp_lexer_new_from_str_len(MP_QSTR__lt_stdin_gt_, vstr->buf, vstr->len, 0);
             } else if (exec_flags & EXEC_FLAG_SOURCE_IS_READER) {
                 lex = mp_lexer_new(MP_QSTR__lt_stdin_gt_, *(mp_reader_t *)source);
@@ -121,15 +135,29 @@ STATIC int parse_compile_execute(const void *source, mp_parse_input_kind_t input
             // source is a lexer, parse and compile the script
             qstr source_name = lex->source_name;
             mp_parse_tree_t parse_tree = mp_parse(lex, input_kind);
+
+            // debug
+            if (g_dbg_is_relevant) {
+                DBG_SEND("=== parse_compile_execute g_dbg_is_relevant ===");
+                // mp_parse_node_print(&mp_plat_print, parse_tree.root, 0);
+            }
+
+            DBG_SEND("pce: before mp_compile");
+
             module_fun = mp_compile(&parse_tree, source_name, exec_flags & EXEC_FLAG_IS_REPL);
             #if JPO_DBGR_BUILD
             dbgr_after_compile_module(source_name);
             #endif
 
+            DBG_SEND("pce: after mp_compile");
+
             #else
             mp_raise_msg(&mp_type_RuntimeError, MP_ERROR_TEXT("script compilation not supported"));
             #endif
         }
+
+        mp_compiled_module_t* mod = MP_OBJ_TO_PTR(module_fun);
+        DBG_SEND("pce: compiled fun_data_len:%d prelude_offset:%d", mod->rc->fun_data_len, mod->rc->prelude_offset);
 
         // execute code
         if (!(exec_flags & EXEC_FLAG_NO_INTERRUPT)) {
@@ -146,6 +174,9 @@ STATIC int parse_compile_execute(const void *source, mp_parse_input_kind_t input
         if (exec_flags & EXEC_FLAG_PRINT_EOF) {
             mp_hal_stdout_tx_strn("\x04", 1);
         }
+
+        DBG_SEND("pce: done executing");
+
     } else {
         // uncaught exception
         mp_hal_set_interrupt_char(-1); // disable interrupt

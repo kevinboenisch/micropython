@@ -36,6 +36,8 @@
 #include "py/emit.h"
 #include "py/bc0.h"
 
+#include "jpo/debug.h" // for DBG_SEND
+
 #if MICROPY_ENABLE_COMPILER
 
 #define DUMMY_DATA_SIZE (MP_ENCODE_UINT_MAX_BYTES)
@@ -342,6 +344,7 @@ void mp_emit_bc_start_pass(emit_t *emit, pass_kind_t pass, scope_t *scope) {
                     break;
                 }
             }
+            DBG_SEND("mp_empt_bc_start_pass arg %d qstr '%s'",i,qstr_str(qst));
             emit_write_code_info_qstr(emit, qst);
         }
     }
@@ -374,6 +377,7 @@ bool mp_emit_bc_end_pass(emit_t *emit) {
         emit->code_info_size = emit->code_info_offset;
         emit->bytecode_size = emit->bytecode_offset;
         emit->code_base = m_new0(byte, emit->code_info_size + emit->bytecode_size);
+        DBG_SEND("emit: code_info_size: %d bytecode_size: %d", emit->code_info_size, emit->bytecode_size);
 
     } else if (emit->pass == MP_PASS_EMIT) {
         // Code info and/or bytecode can shrink during this pass.
@@ -394,6 +398,9 @@ bool mp_emit_bc_end_pass(emit_t *emit) {
         }
 
         // Bytecode is finalised, assign it to the raw code object.
+        DBG_SEND("mp_emit_glue_assign_bytecode(...code_info_size:%d + bytecode_size:%d...)", 
+            emit->code_info_size, emit->bytecode_size);
+        
         mp_emit_glue_assign_bytecode(emit->scope->raw_code, emit->code_base,
             #if MICROPY_PERSISTENT_CODE_SAVE || MICROPY_DEBUG_PRINTERS
             emit->code_info_size + emit->bytecode_size,
@@ -555,6 +562,8 @@ void mp_emit_bc_attr(emit_t *emit, qstr qst, int kind) {
 }
 
 void mp_emit_bc_store_local(emit_t *emit, qstr qst, mp_uint_t local_num, int kind) {
+    DBG_SEND("bc_store_local '%s' local_num=%d",qstr_str(qst),local_num);
+
     MP_STATIC_ASSERT(MP_BC_STORE_FAST_N + MP_EMIT_IDOP_LOCAL_FAST == MP_BC_STORE_FAST_N);
     MP_STATIC_ASSERT(MP_BC_STORE_FAST_N + MP_EMIT_IDOP_LOCAL_DEREF == MP_BC_STORE_DEREF);
     (void)qst;

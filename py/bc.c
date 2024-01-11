@@ -135,11 +135,12 @@ STATIC void mp_setup_code_state_helper(mp_code_state_t *code_state, size_t n_arg
     size_t n_state = code_state->n_state;
 
     // Decode prelude
-    size_t n_state_unused, n_exc_stack_unused, scope_flags, n_pos_args, n_kwonly_args, n_def_pos_args;
-    MP_BC_PRELUDE_SIG_DECODE_INTO(code_state->ip, n_state_unused, n_exc_stack_unused, scope_flags, n_pos_args, n_kwonly_args, n_def_pos_args);
+    size_t n_state_unused, n_exc_stack_unused, scope_flags, n_pos_args, n_kwonly_args, n_def_pos_args, n_local_vars;
+    MP_BC_PRELUDE_SIG_DECODE_INTO(code_state->ip, n_state_unused, n_exc_stack_unused, scope_flags, n_pos_args, n_kwonly_args, n_def_pos_args, n_local_vars);
     MP_BC_PRELUDE_SIZE_DECODE(code_state->ip);
     (void)n_state_unused;
     (void)n_exc_stack_unused;
+    (void)n_local_vars; // TODO: use it later
 
     mp_obj_t *code_state_state = code_state->sp + 1;
     code_state->exc_sp_idx = 0;

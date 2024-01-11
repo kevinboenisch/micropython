@@ -33,7 +33,8 @@
         "utility": "c",
         "typeinfo": "c",
         "objmodule.h": "c",
-        "mpconfig.h": "c"
+        "mpconfig.h": "c",
+        "grammar.h": "c"
     },
     "workbench.colorCustomizations": {
         "titleBar.activeBackground": "#292e33",
