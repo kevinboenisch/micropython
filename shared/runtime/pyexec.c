@@ -102,9 +102,6 @@ STATIC int parse_compile_execute(const void *source, mp_parse_input_kind_t input
         mp_obj_t module_fun;
         #if MICROPY_MODULE_FROZEN_MPY
         if (exec_flags & EXEC_FLAG_SOURCE_IS_RAW_CODE) {
-
-            DBG_SEND("pce: frozen module: source is raw code");
-
             // source is a raw_code object, create the function
             const mp_frozen_module_t *frozen = source;
             mp_module_context_t *ctx = m_new_obj(mp_module_context_t);
@@ -142,14 +139,10 @@ STATIC int parse_compile_execute(const void *source, mp_parse_input_kind_t input
                 // mp_parse_node_print(&mp_plat_print, parse_tree.root, 0);
             }
 
-            DBG_SEND("pce: before mp_compile");
-
             module_fun = mp_compile(&parse_tree, source_name, exec_flags & EXEC_FLAG_IS_REPL);
             #if JPO_DBGR_BUILD
             dbgr_after_compile_module(source_name);
             #endif
-
-            DBG_SEND("pce: after mp_compile");
 
             #else
             mp_raise_msg(&mp_type_RuntimeError, MP_ERROR_TEXT("script compilation not supported"));
@@ -157,7 +150,6 @@ STATIC int parse_compile_execute(const void *source, mp_parse_input_kind_t input
         }
 
         mp_compiled_module_t* mod = MP_OBJ_TO_PTR(module_fun);
-        DBG_SEND("pce: compiled fun_data_len:%d prelude_offset:%d", mod->rc->fun_data_len, mod->rc->prelude_offset);
 
         // execute code
         if (!(exec_flags & EXEC_FLAG_NO_INTERRUPT)) {
@@ -174,9 +166,6 @@ STATIC int parse_compile_execute(const void *source, mp_parse_input_kind_t input
         if (exec_flags & EXEC_FLAG_PRINT_EOF) {
             mp_hal_stdout_tx_strn("\x04", 1);
         }
-
-        DBG_SEND("pce: done executing");
-
     } else {
         // uncaught exception
         mp_hal_set_interrupt_char(-1); // disable interrupt

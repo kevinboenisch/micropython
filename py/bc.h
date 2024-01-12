@@ -76,7 +76,7 @@
 // Horribly inefficient, encoded in max 15 bytes (16 bits = 2 bits + 14 * 1 bit), typical 9 bytes (n_local_vars=3)
 // Decoding is backwards compatible with the old format (so frozen modules can be loaded)
 #define JPO_ENCODE_N_LOCAL_VARS(scope, A) \
-    uint8_t n_local_vars = (uint8_t)TEST_NUM_DUMMY_VAR_NAMES /*TODO: scope->id_info_len*/; \
+    uint8_t n_local_vars = (uint8_t)scope->id_info_len; \
     uint8_t n_pos_args = (uint8_t)scope->num_pos_args; \
     A = (n_pos_args) | (n_local_vars << 8);
 

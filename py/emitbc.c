@@ -352,13 +352,6 @@ void mp_emit_bc_start_pass(emit_t *emit, pass_kind_t pass, scope_t *scope) {
 #if JPO_LOCAL_VAR_NAMES
     // Write local var names
     {
-        // dummy data
-        DBG_SEND("emit %d dummy names: dummy, write, close", TEST_NUM_DUMMY_VAR_NAMES);
-        emit_write_code_info_qstr(emit, MP_QSTR_dummy);
-        emit_write_code_info_qstr(emit, MP_QSTR_write);
-        emit_write_code_info_qstr(emit, MP_QSTR_close);
-
-
         // Potentially we could save space by skipping items saved above,
         // when (id->flags & ID_FLAG_IS_PARAM). 
         // Keeping all id_info names, for simplicity. 
