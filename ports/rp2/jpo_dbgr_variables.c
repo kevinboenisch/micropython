@@ -213,10 +213,45 @@ static void iter_init_modules(vars_iter_t* iter, var_scope_type_t scope_type) {
     }
 }
 
+static void print_local_vars(mp_obj_fun_bc_t* fun_bc) {
+#if JPO_LOCAL_VAR_NAMES
+    DBG_SEND("print_local_vars");
+    if (fun_bc == NULL || fun_bc->rc == NULL) {
+        DBG_SEND("Error: print_local_vars(): fun_bc or rc is NULL");
+        return;
+    }
+
+    uint n_local_vars = fun_bc->rc->prelude.n_local_vars;
+    const byte* bc_var_names = fun_bc->rc->prelude.local_var_names;
+    const mp_module_constants_t* cm = &(fun_bc->context->constants);
+
+    if (bc_var_names == NULL) {
+        DBG_SEND("Error: print_local_vars(): prelude.local_var_names is NULL");
+        return;
+    }
+
+    DBG_SEND("prelude.n_local_vars: %d", n_local_vars);
+
+    for (uint i = 0; i < n_local_vars; i++) {
+        qstr qst = mp_decode_uint(&bc_var_names);
+        #if MICROPY_EMIT_BYTECODE_USES_QSTR_TABLE
+        qst = cm->qstr_table[qst];
+        #endif
+        DBG_SEND("local var [%d] '%s'", i, qstr_str(qst));
+    }
+#endif
+}
+
 static void iter_init(vars_iter_t* iter, const vars_request_t* args, mp_obj_frame_t* top_frame) {
+    DBG_SEND("iter_init");
+
     iter_clear(iter);
 
     if (args->scope_type == VSCOPE_FRAME) {
+
+        // TODO: consider moving into locals()
+        print_local_vars(top_frame->code_state->fun_bc);
+
         mp_obj_frame_t* frame = dbgr_find_frame(args->depth_or_addr, top_frame);
         if (frame == NULL) {
             return;

@@ -149,8 +149,6 @@ STATIC int parse_compile_execute(const void *source, mp_parse_input_kind_t input
             #endif
         }
 
-        mp_compiled_module_t* mod = MP_OBJ_TO_PTR(module_fun);
-
         // execute code
         if (!(exec_flags & EXEC_FLAG_NO_INTERRUPT)) {
             mp_hal_set_interrupt_char(CHAR_CTRL_C);

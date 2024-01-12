@@ -28,7 +28,7 @@
 
 #include "py/bc.h"
 #include "py/obj.h"
-#include "mpconfigport.h" // for JPO_DBGR_BUILD
+#include "mpconfigport.h" 
 
 typedef struct _mp_obj_fun_bc_t {
     mp_obj_base_t base;

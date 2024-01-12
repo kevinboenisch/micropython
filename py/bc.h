@@ -28,6 +28,7 @@
 #define MICROPY_INCLUDED_PY_BC_H
 
 #include "py/runtime.h"
+#include "mpconfigport.h" // for JPO_LOCAL_VAR_NAMES
 
 // bytecode layout:
 //
@@ -54,6 +55,12 @@
 //      argname0    : var qstr
 //      ...         : var qstr
 //      argnameN    : var qstr      N = num_pos_args + num_kwonly_args - 1
+//
+//      ** if JPO_LOCAL_VAR names is enabled:
+//      localname0  : var qstr
+//      ...         : var qstr
+//      localnameN  : var qstr      N = n_local_args
+//
 //      <line number info>
 //
 //  closure section:
@@ -206,6 +213,10 @@ typedef struct _mp_bytecode_prelude_t {
     uint n_pos_args;
     uint n_kwonly_args;
     uint n_def_pos_args;
+#if JPO_LOCAL_VAR_NAMES
+    uint n_local_vars;
+    const byte *local_var_names;
+#endif
     qstr qstr_block_name_idx;
     const byte *line_info;
     const byte *line_info_top;

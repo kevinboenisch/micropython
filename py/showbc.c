@@ -32,6 +32,8 @@
 
 #include "mpconfigport.h"
 
+#include "jpo/debug.h" // for DBG_SEND
+
 #if MICROPY_DEBUG_PRINTERS
 
 #define DECODE_UINT { \
@@ -94,6 +96,8 @@ void mp_bytecode_print(const mp_print_t *print, const mp_raw_code_t *rc, const m
     MP_BC_PRELUDE_SIZE_DECODE(ip);
     const byte *code_info = ip;
 
+    DBG_SEND("after prelude sig/size ip=code_info=%d", ip);
+
     qstr block_name = mp_decode_uint(&code_info);
     #if MICROPY_EMIT_BYTECODE_USES_QSTR_TABLE
     block_name = cm->qstr_table[block_name];
@@ -140,6 +144,8 @@ void mp_bytecode_print(const mp_print_t *print, const mp_raw_code_t *rc, const m
 
     mp_printf(print, "(N_STATE %u)\n", (unsigned)n_state);
     mp_printf(print, "(N_EXC_STACK %u)\n", (unsigned)n_exc_stack);
+
+    DBG_SEND("after args/locals ip:%d n_info=%d ip-code_info=%d", ip, n_info, code_info-ip, code_info-ip_start);
 
     // skip over code_info
     ip += n_info;
