@@ -125,8 +125,19 @@ void mp_bytecode_print(const mp_print_t *print, const mp_raw_code_t *rc, const m
         #endif
         mp_printf(print, " %s", qstr_str(qst));
     }
+    mp_printf(print, "\n");
 #if JPO_LOCAL_VAR_NAMES
     mp_printf(print, "local var names (%d):", n_local_vars);
+    // dummy
+    for (mp_uint_t i = 0; i < TEST_NUM_DUMMY_VAR_NAMES; i++) {
+        qstr qst = mp_decode_uint(&code_info);
+        #if MICROPY_EMIT_BYTECODE_USES_QSTR_TABLE
+        qst = cm->qstr_table[qst];
+        #endif
+        mp_printf(print, " %s", qstr_str(qst));
+    }
+
+
     // not filled yet
     // for (mp_uint_t i = 0; i < n_local_vars; i++) {
     //     qstr qst = mp_decode_uint(&code_info);
@@ -135,8 +146,8 @@ void mp_bytecode_print(const mp_print_t *print, const mp_raw_code_t *rc, const m
     //     #endif
     //     mp_printf(print, " %s", qstr_str(qst));
     // }
-#endif
     mp_printf(print, "\n");
+#endif
 
     mp_printf(print, "(N_STATE %u)\n", (unsigned)n_state);
     mp_printf(print, "(N_EXC_STACK %u)\n", (unsigned)n_exc_stack);

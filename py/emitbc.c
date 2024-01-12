@@ -37,6 +37,7 @@
 #include "py/bc0.h"
 
 #include "jpo/debug.h" // for DBG_SEND
+#include "mpconfigport.h" // for JPO_LOCAL_VAR_NAMES
 
 #if MICROPY_ENABLE_COMPILER
 
@@ -344,10 +345,32 @@ void mp_emit_bc_start_pass(emit_t *emit, pass_kind_t pass, scope_t *scope) {
                     break;
                 }
             }
-            DBG_SEND("mp_empt_bc_start_pass arg %d qstr '%s'",i,qstr_str(qst));
+            DBG_SEND("emit arg %d qstr '%s'",i,qstr_str(qst));
             emit_write_code_info_qstr(emit, qst);
         }
     }
+#if JPO_LOCAL_VAR_NAMES
+    // Write local var names
+    {
+        // dummy data
+        DBG_SEND("emit %d dummy names: dummy, write, close", TEST_NUM_DUMMY_VAR_NAMES);
+        emit_write_code_info_qstr(emit, MP_QSTR_dummy);
+        emit_write_code_info_qstr(emit, MP_QSTR_write);
+        emit_write_code_info_qstr(emit, MP_QSTR_close);
+
+
+        // Potentially we could save space by skipping items saved above,
+        // when (id->flags & ID_FLAG_IS_PARAM). 
+        // Keeping all id_info names, for simplicity. 
+        for (int i = 0; i < scope->id_info_len; i++) {
+            id_info_t *id = &scope->id_info[i];
+            qstr qst = id->qst;
+            DBG_SEND("emit id_info %d qstr '%s'",i,qstr_str(qst));
+            emit_write_code_info_qstr(emit, qst);
+        }
+    }
+
+#endif
 }
 
 bool mp_emit_bc_end_pass(emit_t *emit) {
@@ -398,9 +421,6 @@ bool mp_emit_bc_end_pass(emit_t *emit) {
         }
 
         // Bytecode is finalised, assign it to the raw code object.
-        DBG_SEND("mp_emit_glue_assign_bytecode(...code_info_size:%d + bytecode_size:%d...)", 
-            emit->code_info_size, emit->bytecode_size);
-        
         mp_emit_glue_assign_bytecode(emit->scope->raw_code, emit->code_base,
             #if MICROPY_PERSISTENT_CODE_SAVE || MICROPY_DEBUG_PRINTERS
             emit->code_info_size + emit->bytecode_size,
@@ -562,8 +582,6 @@ void mp_emit_bc_attr(emit_t *emit, qstr qst, int kind) {
 }
 
 void mp_emit_bc_store_local(emit_t *emit, qstr qst, mp_uint_t local_num, int kind) {
-    DBG_SEND("bc_store_local '%s' local_num=%d",qstr_str(qst),local_num);
-
     MP_STATIC_ASSERT(MP_BC_STORE_FAST_N + MP_EMIT_IDOP_LOCAL_FAST == MP_BC_STORE_FAST_N);
     MP_STATIC_ASSERT(MP_BC_STORE_FAST_N + MP_EMIT_IDOP_LOCAL_DEREF == MP_BC_STORE_DEREF);
     (void)qst;

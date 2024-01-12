@@ -73,6 +73,9 @@
 // Experimental. Store local variable names in the bytecode.
 #define JPO_LOCAL_VAR_NAMES             (1)
 
+// TODO: remove, for testing only
+#define TEST_NUM_DUMMY_VAR_NAMES        (3)
+
 #ifdef JPO_JCOMP
     // Disable mpy's USB-CDC serial port, 
     // to allow pico-sdk stdio and JCOMP to use it

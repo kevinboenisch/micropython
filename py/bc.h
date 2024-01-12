@@ -37,10 +37,12 @@
 //          S = n_state - 1         number of entries in Python value stack
 //          E = n_exc_stack         number of entries in exception stack
 //          F = scope_flags         four bits of flags, MP_SCOPE_FLAG_xxx
-//          A = n_pos_args          number of arguments this function takes
+//       ** A = n_pos_args          number of arguments this function takes
 //          K = n_kwonly_args       number of keyword-only arguments this function takes
 //          D = n_def_pos_args      number of default positional arguments
 //
+//  ** if JPO_LOCAL_VAR_NAMES is enabled A = 1 byte for n_pos_args and 1 byte for n_local_vars
+//  
 //  prelude size    : var uint
 //      contains two values interleaved bit-wise as: xIIIIIIC repeated
 //          x = extension           another byte follows
@@ -70,27 +72,19 @@
 #define MP_ENCODE_UINT_MAX_BYTES ((MP_BYTES_PER_OBJ_WORD * 8 + 6) / 7)
 
 #if JPO_LOCAL_VAR_NAMES
-
-/*
-#define JPO_PRELUDE_SIG_ENCODE(scope, out_byte, out_env) \
-    out_byte(out_env, 0x42); // 66 decimal, arbitrary value
-
-#define JPO_PRELUDE_SIG_DECODE_INTO(ip, LV) \
-    LV = *(ip)++;
-*/
-
+// Encoded as uint16_t, with 1 byte for n_pos_args and 1 byte for n_local_vars
+// Horribly inefficient, encoded in max 15 bytes (16 bits = 2 bits + 14 * 1 bit), typical 9 bytes (n_local_vars=3)
+// Decoding is backwards compatible with the old format (so frozen modules can be loaded)
 #define JPO_ENCODE_N_LOCAL_VARS(scope, A) \
-    uint8_t n_local_vars = (uint8_t)42 /*TODO: scope->id_info_len*/; \
-    A = (A & 0x00FFFFFF) | (n_local_vars << 24);
+    uint8_t n_local_vars = (uint8_t)TEST_NUM_DUMMY_VAR_NAMES /*TODO: scope->id_info_len*/; \
+    uint8_t n_pos_args = (uint8_t)scope->num_pos_args; \
+    A = (n_pos_args) | (n_local_vars << 8);
 
 #define JPO_DECODE_N_LOCAL_VARS(A, LV) \
-    LV = (A >> 24); \
-    A &= 0x00FFFFFF;
+    LV = (A >> 8); \
+    A &= 0x000000FF;
 
 #else
-// #define JPO_PRELUDE_SIG_ENCODE(scope, out_byte, out_env)
-// #define JPO_PRELUDE_SIG_DECODE_INTO(ip, LV) LV = 0;
-
 #define JPO_ENCODE_N_LOCAL_VARS(scope, A)
 #define JPO_DECODE_N_LOCAL_VARS(A, LV) LV = 0;
 
