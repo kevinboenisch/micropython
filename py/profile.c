@@ -29,7 +29,7 @@
 #include "py/gc.h"
 #include "py/objfun.h"
 
-// #include "jpo/debug.h" // for DBG_SEND
+#include "jpo/debug.h" // for DBG_SEND
 #include "mpconfigport.h" // for JPO_LOCAL_VAR_NAMES
 
 #if MICROPY_PY_SYS_SETTRACE
@@ -64,16 +64,21 @@ void mp_prof_extract_prelude(const byte *bytecode, mp_bytecode_prelude_t *prelud
     prelude->opcodes = ip + n_info + n_cell;
 
     prelude->qstr_block_name_idx = mp_decode_uint_value(ip);
+    // add 1 for the block name, since mp_decode_uint_value does not increment ip
     for (size_t i = 0; i < 1 + n_pos_args + n_kwonly_args; ++i) {
         ip = mp_decode_uint_skip(ip);
     }
+
 #if JPO_LOCAL_VAR_NAMES
     prelude->local_var_names = ip;
-    for (size_t i = 0; i < 1 + n_local_vars; ++i) {
+    for (size_t i = 0; i < n_local_vars; i++) {
         ip = mp_decode_uint_skip(ip);
     }
 #endif
     prelude->line_info = ip;
+
+    //DBG_SEND("extract_prelude: line_info 0x%x offset: %d", prelude->line_info, prelude->line_info - bytecode);
+
 }
 
 /******************************************************************************/

@@ -16,8 +16,8 @@
 #include "pico/multicore.h"
 
 // Disable output
-// #undef DBG_SEND
-// #define DBG_SEND(...)
+#undef DBG_SEND
+#define DBG_SEND(...)
 
 
 #define MUTEX_TIMEOUT_MS 100
@@ -350,7 +350,7 @@ void dbgr_trace_callback(mp_prof_trace_type_t type, mp_obj_frame_t* top_frame, m
     qstr file = dbgr_get_source_file(top_frame->code_state);
     int line = (int)top_frame->lineno;
 
-    // DBG_SEND("line %s %d", qstr_str(file), line);
+    DBG_SEND("line %s %d", qstr_str(file), line);
 
     last_exception = NULL;
 
