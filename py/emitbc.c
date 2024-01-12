@@ -345,7 +345,7 @@ void mp_emit_bc_start_pass(emit_t *emit, pass_kind_t pass, scope_t *scope) {
                     break;
                 }
             }
-            DBG_SEND("emit arg %d qstr '%s'",i,qstr_str(qst));
+            //DBG_SEND("emit: arg %d qstr '%s'",i,qstr_str(qst));
             emit_write_code_info_qstr(emit, qst);
         }
     }
@@ -358,7 +358,7 @@ void mp_emit_bc_start_pass(emit_t *emit, pass_kind_t pass, scope_t *scope) {
         for (int i = 0; i < scope->id_info_len; i++) {
             id_info_t *id = &scope->id_info[i];
             qstr qst = id->qst;
-            DBG_SEND("emit id_info %d qstr '%s'",i,qstr_str(qst));
+            //DBG_SEND("emit: id_info %d qstr '%s'",i,qstr_str(qst));
             emit_write_code_info_qstr(emit, qst);
         }
     }
@@ -393,7 +393,7 @@ bool mp_emit_bc_end_pass(emit_t *emit) {
         emit->code_info_size = emit->code_info_offset;
         emit->bytecode_size = emit->bytecode_offset;
         emit->code_base = m_new0(byte, emit->code_info_size + emit->bytecode_size);
-        DBG_SEND("emit: code_info_size: %d bytecode_size: %d", emit->code_info_size, emit->bytecode_size);
+        //DBG_SEND("emit: code_info_size: %d bytecode_size: %d", emit->code_info_size, emit->bytecode_size);
 
     } else if (emit->pass == MP_PASS_EMIT) {
         // Code info and/or bytecode can shrink during this pass.

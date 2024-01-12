@@ -70,6 +70,13 @@ typedef struct {
     // If true, use the obj (string) as the name and look up the value in src_obj
     bool obj_is_attr_name;
 
+    // Names from the bytecode
+    int bc_names_size;
+    const byte* bc_names;
+    // Section of the encoded barcode, in reverse order compared to objs
+    const mp_module_constants_t* bc_constants;
+    // = &(fun_bc->context->constants);
+
     // Option 3: iterate frozen modules
     const char* next_frozen_module_name;
 
@@ -88,6 +95,10 @@ static void iter_clear(vars_iter_t* iter) {
     iter->objs = NULL;
     iter->obj_names_are_indexes = false;
     iter->obj_is_attr_name = false;
+
+    iter->bc_names_size = 0;
+    iter->bc_names = NULL;
+    iter->bc_constants = NULL;
 
     iter->next_frozen_module_name = NULL;
 
@@ -213,18 +224,8 @@ static void iter_init_modules(vars_iter_t* iter, var_scope_type_t scope_type) {
     }
 }
 
-static void print_local_vars(mp_obj_fun_bc_t* fun_bc) {
+static void print_local_vars1(int n_local_vars, const byte* bc_var_names, const mp_module_constants_t* cm) {
 #if JPO_LOCAL_VAR_NAMES
-    DBG_SEND("print_local_vars");
-    if (fun_bc == NULL || fun_bc->rc == NULL) {
-        DBG_SEND("Error: print_local_vars(): fun_bc or rc is NULL");
-        return;
-    }
-
-    uint n_local_vars = fun_bc->rc->prelude.n_local_vars;
-    const byte* bc_var_names = fun_bc->rc->prelude.local_var_names;
-    const mp_module_constants_t* cm = &(fun_bc->context->constants);
-
     if (bc_var_names == NULL) {
         DBG_SEND("Error: print_local_vars(): prelude.local_var_names is NULL");
         return;
@@ -242,16 +243,60 @@ static void print_local_vars(mp_obj_fun_bc_t* fun_bc) {
 #endif
 }
 
+void print_local_vars(mp_obj_fun_bc_t* fun_bc) {
+#if JPO_LOCAL_VAR_NAMES
+    DBG_SEND("print_local_vars");
+    if (fun_bc == NULL || fun_bc->rc == NULL) {
+        DBG_SEND("Error: print_local_vars(): fun_bc or rc is NULL");
+        return;
+    }
+
+    print_local_vars1(fun_bc->rc->prelude.n_local_vars, 
+                      fun_bc->rc->prelude.local_var_names,
+                      &(fun_bc->context->constants));
+#endif
+}
+
+
+
+// Only need bc_* fields from the iter
+static qstr decode_bc_name(const vars_iter_t* iter, const int index) {
+    // Not an error
+    if (iter->bc_names_size == 0) {
+        return MP_QSTRnull;
+    }
+    if (index >= iter->bc_names_size) {
+        DBG_SEND("Error: decode_bc_name(): index:%d >= size:%d", index, iter->bc_names_size);
+        return MP_QSTRnull;
+    }
+    if (iter->bc_names == NULL || iter->bc_constants == NULL) {
+        DBG_SEND("Error: decode_bc_name(): bc_names or bc_constants is NULL");
+        return MP_QSTRnull;
+    }
+
+    const byte* ip = iter->bc_names;
+
+    // Items are variable size, must skip the n-1 until we get the right one
+    // Inefficient, but we're not on a perf-critical path.
+    for (uint i = 0; i < index; i++) {
+        ip = mp_decode_uint_skip(ip);
+    }
+    // Decode
+    qstr qst = mp_decode_uint(&ip);
+    #if MICROPY_EMIT_BYTECODE_USES_QSTR_TABLE
+    qst = iter->bc_constants->qstr_table[qst];
+    #endif
+
+    return qst;
+}
+
+
 static void iter_init(vars_iter_t* iter, const vars_request_t* args, mp_obj_frame_t* top_frame) {
     DBG_SEND("iter_init");
 
     iter_clear(iter);
 
     if (args->scope_type == VSCOPE_FRAME) {
-
-        // TODO: consider moving into locals()
-        print_local_vars(top_frame->code_state->fun_bc);
-
         mp_obj_frame_t* frame = dbgr_find_frame(args->depth_or_addr, top_frame);
         if (frame == NULL) {
             return;
@@ -260,7 +305,21 @@ static void iter_init(vars_iter_t* iter, const vars_request_t* args, mp_obj_fram
         iter->objs_size = cur_bc->n_state;
         iter->objs = cur_bc->state;
 
-        // No names are available for local vars. Show indexes instead.
+        //print_local_vars(frame->code_state->fun_bc);
+
+        if (frame->code_state != NULL
+            && frame->code_state->fun_bc != NULL
+            && frame->code_state->fun_bc->rc != NULL) 
+        {
+            iter->bc_names_size = frame->code_state->fun_bc->rc->prelude.n_local_vars;
+            iter->bc_names = frame->code_state->fun_bc->rc->prelude.local_var_names;
+            iter->bc_constants = &(frame->code_state->fun_bc->context->constants);
+        }
+        else {
+            DBG_SEND("Error: iter_init(): frame->code_state or fun_bc or rc is NULL");
+        }
+
+        // Use indexes if no names are available
         iter->obj_names_are_indexes = true;
 
         // Micropython issue: this returns the same items as globals
@@ -372,9 +431,22 @@ static varinfo_t* iter_next_list(vars_iter_t* iter) {
             varinfo_set_address(vi, val);
         }
         else {
-            // name
-            // for local vars (VSCOPE_FRAME) names are not available
-            if (iter->obj_names_are_indexes) {
+            // name, decode from bytecode
+            qstr name = 0;
+            if (iter->bc_names_size > 0) {
+                // reverse order
+                int local_var_index = (iter->objs_size) - 1 - iter->cur_idx;
+                name = decode_bc_name(iter, local_var_index);
+                //DBG_SEND("decode_bc_name [%d] '%s'", local_var_index, qstr_str(name));    
+            }
+
+            if (name != 0) {
+                const char* name_str = qstr_str(name);
+                int name_len = strlen(name_str);
+                vstr_init(&vi->name, name_len + 1);
+                vstr_add_strn(&vi->name, name_str, name_len);
+            }
+            else if (iter->obj_names_are_indexes) {
                 vstr_init(&vi->name, 6);
                 vstr_printf(&vi->name, "%d", iter->cur_idx);
             }
@@ -507,7 +579,7 @@ void send_vars_response(uint8_t req_id, const vars_request_t* args, mp_obj_frame
     pos += 1;
 
     // Fill the items
-    vars_iter_t iter;
+    vars_iter_t iter = {0};
     iter_init(&iter, args, top_frame);
 
     int var_idx = 0;

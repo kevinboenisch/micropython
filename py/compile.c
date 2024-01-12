@@ -3599,9 +3599,9 @@ void mp_compile_to_raw_code(mp_parse_tree_t *parse_tree, qstr source_file, bool 
 
         #if MICROPY_DEBUG_PRINTERS
         // now that the module context is valid, the raw codes can be printed
-        bool dbg_always_execute = true;
-        if ((g_dbg_is_relevant && dbg_always_execute) ||
-            mp_verbose_flag >= 2) {
+
+        //if (g_dbg_is_relevant) {
+        if (mp_verbose_flag >= 2) {
             for (scope_t *s = comp->scope_head; s != NULL; s = s->next) {
                 mp_raw_code_t *rc = s->raw_code;
                 if (rc->kind == MP_CODE_BYTECODE) {
