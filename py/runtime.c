@@ -1606,8 +1606,8 @@ mp_obj_t mp_parse_compile_execute(mp_lexer_t *lex, mp_parse_input_kind_t parse_i
     mp_globals_set(globals);
     mp_locals_set(locals);
 
-    DBG_SEND("mp_parse_compile_execute locals:");
-    dbgr_print_obj(0, locals);
+    //DBG_SEND("mp_parse_compile_execute locals:");
+    //dbgr_print_obj(0, locals);
 
     // set exception handler to restore context if an exception is raised
     nlr_push_jump_callback(&ctx.callback, mp_globals_locals_set_from_nlr_jump_callback);

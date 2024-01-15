@@ -51,6 +51,114 @@ static void varinfo_clear(varinfo_t* vi) {
 
 #define IDX_PREPEND_LENGTH -2
 
+// Local variable names from bytecode
+typedef struct {
+    // Bytecode prelude with n_local_vars/local_var_names/n_cells
+    // necessary to decode local variable names
+    int n_local_vars;
+    const byte *local_var_names;
+    const mp_module_constants_t* constants;
+    
+    int n_objs;
+
+    // not the same as n_closed in the bytecode, that is set in the enclosing (outer) function,
+    // and this is the number of cell type objects in the current one
+    int n_closed_cells;
+} localnames_t;
+
+static void localnames_clear(localnames_t* localnames) {
+    localnames->n_local_vars = 0;
+    localnames->local_var_names = NULL;
+    localnames->constants = NULL;
+    localnames->n_objs = 0;
+    localnames->n_closed_cells = 0;
+}
+
+static void localnames_init(localnames_t* localnames, const mp_code_state_t* code_state, const int n_objs, const mp_obj_t* objs) {
+    localnames_clear(localnames);
+
+    // Empty, no need to continue
+    if (n_objs == 0) {
+        return;
+    }
+
+    if (objs == NULL        
+        || code_state == NULL
+        || code_state->fun_bc == NULL 
+        || code_state->fun_bc->rc == NULL
+        || code_state->fun_bc->context == NULL) {
+        DBG_SEND("Error: localnames_init(): objs, code_state, fun_bc, rc or context is NULL");
+        return;
+    }
+
+    localnames->n_local_vars = code_state->fun_bc->rc->prelude.n_local_vars;
+    localnames->local_var_names = code_state->fun_bc->rc->prelude.local_var_names;
+    localnames->constants = &(code_state->fun_bc->context->constants);
+
+    localnames->n_objs = n_objs;
+
+    // Count the cell objects, from the end
+    localnames->n_closed_cells = 0;
+    for(int i = n_objs - 1; i >= 0; i--) {
+        if (mp_obj_is_type(objs[i], &mp_type_cell)) {
+            localnames->n_closed_cells++;
+        }
+        else {
+            break;
+        }
+    }
+}
+
+static bool localnames_is_empty(const localnames_t* lv) {
+    return lv->n_local_vars == 0;
+}
+
+/// @brief Decode local variable name from bytecode
+/// @param lv 
+/// @param obj_index index of the object in the objs list, reversed
+/// @return 
+static qstr localnames_decode_name(const localnames_t* localnames, const int obj_index) {
+    // Empty lv
+    if (localnames->n_local_vars == 0) {
+        return MP_QSTRnull;
+    }
+
+    // Objs list is in reverse order (last item is first in the local var names list)
+    int index = (localnames->n_objs) - 1 - obj_index;
+
+    DBG_SEND("decode_name index:%d n_cells:%d", index, localnames->n_closed_cells);
+
+    // Adjust the index by the number of closure cells (they come first in the objs list)
+    index -= localnames->n_closed_cells;
+
+    // Closure cell, reurn null
+    if (index < 0) {
+        return MP_QSTRnull;
+    }
+
+    // Check state
+    if (index >= localnames->n_local_vars) {
+        DBG_SEND("Error: decode_bc_name(): index:%d >= n_local_vars:%d", index, localnames->n_local_vars);
+        return MP_QSTRnull;
+    }
+
+    const byte* ip = localnames->local_var_names;
+
+    // Items are variable size, must skip the n-1 until we get the right one
+    // Inefficient, but we're not on a perf-critical path.
+    for (uint i = 0; i < index; i++) {
+        ip = mp_decode_uint_skip(ip);
+    }
+    // Decode
+    qstr qst = mp_decode_uint(&ip);
+    #if MICROPY_EMIT_BYTECODE_USES_QSTR_TABLE
+    qst = localnames->constants->qstr_table[qst];
+    #endif
+
+    return qst;
+}
+
+
 typedef struct {
     // If drilling down into an object, the source object/list/tuple
     mp_obj_t src_obj;
@@ -63,7 +171,7 @@ typedef struct {
     bool dict_key_use_repr;
 
     // Option 2: iterate a list
-    int objs_size;
+    int n_objs;
     const mp_obj_t* objs;
     // If true, use the index as the name
     bool obj_names_are_indexes;
@@ -71,11 +179,7 @@ typedef struct {
     bool obj_is_attr_name;
 
     // Names from the bytecode
-    int bc_names_size;
-    const byte* bc_names;
-    // Section of the encoded barcode, in reverse order compared to objs
-    const mp_module_constants_t* bc_constants;
-    // = &(fun_bc->context->constants);
+    localnames_t local_var_names;
 
     // Option 3: iterate frozen modules
     const char* next_frozen_module_name;
@@ -84,6 +188,7 @@ typedef struct {
     varinfo_t vi;
 } vars_iter_t;
 
+
 static void iter_clear(vars_iter_t* iter) {
     iter->src_obj = NULL;
 
@@ -91,14 +196,12 @@ static void iter_clear(vars_iter_t* iter) {
     iter->map = NULL;
     iter->dict_key_use_repr = false;
 
-    iter->objs_size = 0;
+    iter->n_objs = 0;
     iter->objs = NULL;
     iter->obj_names_are_indexes = false;
     iter->obj_is_attr_name = false;
 
-    iter->bc_names_size = 0;
-    iter->bc_names = NULL;
-    iter->bc_constants = NULL;
+    localnames_clear(&iter->local_var_names);
 
     iter->next_frozen_module_name = NULL;
 
@@ -148,7 +251,7 @@ static void iter_init_from_obj(vars_iter_t* iter, mp_obj_t obj) {
         mp_obj_t* items = NULL;
         mp_obj_get_array(obj, &len, &items);
 
-        iter->objs_size = len;
+        iter->n_objs = len;
         iter->objs = items;
         // Show indexes
         iter->obj_names_are_indexes = true;
@@ -181,7 +284,7 @@ static void iter_init_from_obj(vars_iter_t* iter, mp_obj_t obj) {
         mp_obj_t* items = NULL;
         mp_obj_get_array(attr_list, &len, &items);
 
-        iter->objs_size = len;
+        iter->n_objs = len;
         iter->objs = items;
         // Set a flag to look up the value in the object using getattr
         iter->obj_is_attr_name = true;
@@ -192,7 +295,7 @@ static void iter_init_from_obj(vars_iter_t* iter, mp_obj_t obj) {
         mp_obj_t* items = NULL;
         closure_get_closed(obj, &len, &items);
 
-        iter->objs_size = (int)len;
+        iter->n_objs = (int)len;
         iter->objs = items;
         iter->obj_names_are_indexes = true;
     }
@@ -257,40 +360,6 @@ void print_local_vars(mp_obj_fun_bc_t* fun_bc) {
 #endif
 }
 
-
-
-// Only need bc_* fields from the iter
-static qstr decode_bc_name(const vars_iter_t* iter, const int index) {
-    // Not an error
-    if (iter->bc_names_size == 0) {
-        return MP_QSTRnull;
-    }
-    if (index >= iter->bc_names_size) {
-        DBG_SEND("Error: decode_bc_name(): index:%d >= size:%d", index, iter->bc_names_size);
-        return MP_QSTRnull;
-    }
-    if (iter->bc_names == NULL || iter->bc_constants == NULL) {
-        DBG_SEND("Error: decode_bc_name(): bc_names or bc_constants is NULL");
-        return MP_QSTRnull;
-    }
-
-    const byte* ip = iter->bc_names;
-
-    // Items are variable size, must skip the n-1 until we get the right one
-    // Inefficient, but we're not on a perf-critical path.
-    for (uint i = 0; i < index; i++) {
-        ip = mp_decode_uint_skip(ip);
-    }
-    // Decode
-    qstr qst = mp_decode_uint(&ip);
-    #if MICROPY_EMIT_BYTECODE_USES_QSTR_TABLE
-    qst = iter->bc_constants->qstr_table[qst];
-    #endif
-
-    return qst;
-}
-
-
 static void iter_init(vars_iter_t* iter, const vars_request_t* args, mp_obj_frame_t* top_frame) {
     DBG_SEND("iter_init");
 
@@ -302,22 +371,13 @@ static void iter_init(vars_iter_t* iter, const vars_request_t* args, mp_obj_fram
             return;
         }
         const mp_code_state_t* cur_bc = frame->code_state;
-        iter->objs_size = cur_bc->n_state;
+        iter->n_objs = cur_bc->n_state;
         iter->objs = cur_bc->state;
 
         //print_local_vars(frame->code_state->fun_bc);
 
-        if (frame->code_state != NULL
-            && frame->code_state->fun_bc != NULL
-            && frame->code_state->fun_bc->rc != NULL) 
-        {
-            iter->bc_names_size = frame->code_state->fun_bc->rc->prelude.n_local_vars;
-            iter->bc_names = frame->code_state->fun_bc->rc->prelude.local_var_names;
-            iter->bc_constants = &(frame->code_state->fun_bc->context->constants);
-        }
-        else {
-            DBG_SEND("Error: iter_init(): frame->code_state or fun_bc or rc is NULL");
-        }
+        // Get the local variable names from the bytecode
+        localnames_init(&iter->local_var_names, frame->code_state, iter->n_objs, iter->objs);
 
         // Use indexes if no names are available
         iter->obj_names_are_indexes = true;
@@ -403,11 +463,11 @@ static varinfo_t* iter_next_list(vars_iter_t* iter) {
 
     // advance to the next
     iter->cur_idx++;
-    if (iter->cur_idx >= iter->objs_size) {
+    if (iter->cur_idx >= iter->n_objs) {
         return NULL;
     }
 
-    //DBG_SEND("iter_next() idx:%d size:%d", iter->cur_idx, iter->objs_size);
+    //DBG_SEND("iter_next() idx:%d size:%d", iter->cur_idx, iter->n_objs);
 
     // clear previous info
     varinfo_t* vi = &(iter->vi);
@@ -433,11 +493,11 @@ static varinfo_t* iter_next_list(vars_iter_t* iter) {
         else {
             // name, decode from bytecode
             qstr name = 0;
-            if (iter->bc_names_size > 0) {
-                // reverse order
-                int local_var_index = (iter->objs_size) - 1 - iter->cur_idx;
-                name = decode_bc_name(iter, local_var_index);
-                //DBG_SEND("decode_bc_name [%d] '%s'", local_var_index, qstr_str(name));    
+            if (!localnames_is_empty(&iter->local_var_names)) {
+                // objs list is in reverse reverse order
+                int obj_idx = iter->cur_idx;
+                name = localnames_decode_name(&iter->local_var_names, obj_idx);
+                //DBG_SEND("decode_bc_name [%d] '%s'", local_var_index, qstr_str(name));
             }
 
             if (name != 0) {
