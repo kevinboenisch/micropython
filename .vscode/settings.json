@@ -34,7 +34,11 @@
         "typeinfo": "c",
         "objmodule.h": "c",
         "mpconfig.h": "c",
-        "grammar.h": "c"
+        "grammar.h": "c",
+        "*.tcc": "c",
+        "fstream": "c",
+        "sstream": "c",
+        "streambuf": "c"
     },
     "workbench.colorCustomizations": {
         "titleBar.activeBackground": "#292e33",

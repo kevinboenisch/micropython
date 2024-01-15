@@ -42,7 +42,7 @@
 //          K = n_kwonly_args       number of keyword-only arguments this function takes
 //          D = n_def_pos_args      number of default positional arguments
 //
-//  ** if JPO_LOCAL_VAR_NAMES is enabled A = 1 byte for n_pos_args and 1 byte for n_local_vars
+//  ** if JPO_LOCAL_VAR_NAMES is enabled A = 1 byte for n_pos_args and 1 byte for n_id_infos
 //  
 //  prelude size    : var uint
 //      contains two values interleaved bit-wise as: xIIIIIIC repeated
@@ -79,13 +79,13 @@
 #define MP_ENCODE_UINT_MAX_BYTES ((MP_BYTES_PER_OBJ_WORD * 8 + 6) / 7)
 
 #if JPO_LOCAL_VAR_NAMES
-// Encoded as uint16_t, with 1 byte for n_pos_args and 1 byte for n_local_vars
-// Horribly inefficient, encoded in max 15 bytes (16 bits = 2 bits + 14 * 1 bit), typical 9 bytes (n_local_vars=3)
+// Encoded as uint16_t, with 1 byte for n_pos_args and 1 byte for n_id_infos
+// Horribly inefficient, encoded in max 15 bytes (16 bits = 2 bits + 14 * 1 bit), typical 9 bytes (n_id_infos=3)
 // Decoding is backwards compatible with the old format (so frozen modules can be loaded)
 #define JPO_ENCODE_N_LOCAL_VARS(scope, A) \
-    uint8_t n_local_vars = (uint8_t)scope->id_info_len; \
+    uint8_t n_id_infos = (uint8_t)scope->id_info_len; \
     uint8_t n_pos_args = (uint8_t)scope->num_pos_args; \
-    A = (n_pos_args) | (n_local_vars << 8);
+    A = (n_pos_args) | (n_id_infos << 8);
 
 #define JPO_DECODE_N_LOCAL_VARS(A, LV) \
     LV = (A >> 8); \
@@ -158,10 +158,10 @@
 
 
 #define MP_BC_PRELUDE_SIG_DECODE(ip) \
-    size_t n_state, n_exc_stack, scope_flags, n_pos_args, n_kwonly_args, n_def_pos_args, n_local_vars; \
-    MP_BC_PRELUDE_SIG_DECODE_INTO(ip, n_state, n_exc_stack, scope_flags, n_pos_args, n_kwonly_args, n_def_pos_args, n_local_vars); \
+    size_t n_state, n_exc_stack, scope_flags, n_pos_args, n_kwonly_args, n_def_pos_args, n_id_infos; \
+    MP_BC_PRELUDE_SIG_DECODE_INTO(ip, n_state, n_exc_stack, scope_flags, n_pos_args, n_kwonly_args, n_def_pos_args, n_id_infos); \
     (void)n_state; (void)n_exc_stack; (void)scope_flags; \
-    (void)n_pos_args; (void)n_kwonly_args; (void)n_def_pos_args; (void)n_local_vars
+    (void)n_pos_args; (void)n_kwonly_args; (void)n_def_pos_args; (void)n_id_infos
 
 #define MP_BC_PRELUDE_SIZE_ENCODE(I, C, out_byte, out_env)      \
     do {                                                            \
@@ -214,8 +214,8 @@ typedef struct _mp_bytecode_prelude_t {
     uint n_kwonly_args;
     uint n_def_pos_args;
 #if JPO_LOCAL_VAR_NAMES
-    uint n_local_vars;
-    const byte *local_var_names;
+    uint n_id_infos;
+    const byte *id_infos;
 #endif
     qstr qstr_block_name_idx;
     const byte *line_info;
@@ -309,6 +309,7 @@ void mp_encode_uint(void *env, mp_encode_uint_allocator_t allocator, mp_uint_t v
 mp_uint_t mp_decode_uint(const byte **ptr);
 mp_uint_t mp_decode_uint_value(const byte *ptr);
 const byte *mp_decode_uint_skip(const byte *ptr);
+
 
 mp_vm_return_kind_t mp_execute_bytecode(mp_code_state_t *code_state,
 #ifndef __cplusplus

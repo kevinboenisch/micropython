@@ -149,4 +149,30 @@ void scope_check_to_close_over(scope_t *scope, id_info_t *id) {
     }
 }
 
+
+#if JPO_LOCAL_VAR_NAMES
+STATIC byte mp_decode_byte(const byte** ptr) {
+    return *((*ptr)++);
+}
+
+// Must be in sync with emit_write_code_info_id_info
+void mp_decode_id_info(const byte** bytes, const mp_module_constants_t *cm, id_info_t *out_id) {
+    out_id->kind = mp_decode_byte(bytes);
+    out_id->flags = mp_decode_byte(bytes);
+    out_id->local_num = mp_decode_uint(bytes);
+    qstr qst = mp_decode_uint(bytes);
+
+    #if MICROPY_EMIT_BYTECODE_USES_QSTR_TABLE
+    qst = cm->qstr_table[qst];
+    #endif
+    out_id->qst = qst;
+}
+void mp_decode_id_info_skip(const byte** bytes) {
+    mp_decode_byte(bytes);
+    mp_decode_byte(bytes);
+    mp_decode_uint(bytes);
+    mp_decode_uint(bytes);
+}
+#endif
+
 #endif // MICROPY_ENABLE_COMPILER

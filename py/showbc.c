@@ -29,6 +29,7 @@
 
 #include "py/bc0.h"
 #include "py/emitglue.h"
+#include "py/scope.h"
 
 #include "mpconfigport.h"
 
@@ -129,13 +130,12 @@ void mp_bytecode_print(const mp_print_t *print, const mp_raw_code_t *rc, const m
     }
     mp_printf(print, "\n");
 #if JPO_LOCAL_VAR_NAMES
-    mp_printf(print, "local var names (%d):", n_local_vars);
-    for (mp_uint_t i = 0; i < n_local_vars; i++) {
-        qstr qst = mp_decode_uint(&code_info);
-        #if MICROPY_EMIT_BYTECODE_USES_QSTR_TABLE
-        qst = cm->qstr_table[qst];
-        #endif
-        mp_printf(print, " %s", qstr_str(qst));
+    mp_printf(print, "local id infos (%d):\n", n_id_infos);
+    id_info_t id_info = {0};
+    for (mp_uint_t i = 0; i < n_id_infos; i++) {
+        mp_decode_id_info(&code_info, cm, &id_info);
+        mp_printf(print, "- lnum:%d kind:%d flags:%d %s\n", 
+            id_info.local_num, id_info.kind, id_info.flags, qstr_str(id_info.qst));
     }
     mp_printf(print, "\n");
 #endif

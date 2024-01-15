@@ -116,6 +116,16 @@ STATIC void emit_write_code_info_qstr(emit_t *emit, qstr qst) {
     mp_encode_uint(emit, emit_get_cur_to_write_code_info, mp_emit_common_use_qstr(emit->emit_common, qst));
 }
 
+#if JPO_LOCAL_VAR_NAMES
+// Must be in sync with mp_decode_id_info
+STATIC void emit_write_code_info_id_info(emit_t *emit, id_info_t *id_info) {
+    emit_write_code_info_byte(emit, id_info->kind);
+    emit_write_code_info_byte(emit, id_info->flags);
+    mp_encode_uint(emit, emit_get_cur_to_write_code_info, id_info->local_num);
+    emit_write_code_info_qstr(emit, id_info->qst);
+}
+#endif
+
 #if MICROPY_ENABLE_SOURCE_LINE
 STATIC void emit_write_code_info_bytes_lines(emit_t *emit, mp_uint_t bytes_to_skip, mp_uint_t lines_to_skip) {
     assert(bytes_to_skip > 0 || lines_to_skip > 0);
@@ -324,6 +334,10 @@ void mp_emit_bc_start_pass(emit_t *emit, pass_kind_t pass, scope_t *scope) {
     // Write the name of this function.
     emit_write_code_info_qstr(emit, scope->simple_name);
 
+    //if (pass == MP_PASS_EMIT) {
+    //    DBG_SEND("emit fn: %s", qstr_str(scope->simple_name));
+    //}
+
     // Write argument names, needed to resolve positional args passed as keywords.
     {
         // For a given argument position (indexed by i) we need to find the
@@ -350,16 +364,20 @@ void mp_emit_bc_start_pass(emit_t *emit, pass_kind_t pass, scope_t *scope) {
         }
     }
 #if JPO_LOCAL_VAR_NAMES
-    // Write local var names
+    // Write all id infos (later used to find var names)
     {
-        // Potentially we could save space by skipping items saved above,
-        // when (id->flags & ID_FLAG_IS_PARAM). 
-        // Keeping all id_info names, for simplicity. 
+        // Inefficient use of space.
+        // We could filter out unused kinds, order by local_num and only store name qstrs. 
+        // Storing all info to keep it simple and more flexible for later bug fixes.
         for (int i = 0; i < scope->id_info_len; i++) {
             id_info_t *id = &scope->id_info[i];
-            qstr qst = id->qst;
-            //DBG_SEND("emit: id_info %d qstr '%s'",i,qstr_str(qst));
-            emit_write_code_info_qstr(emit, qst);
+            
+            //if (pass == MP_PASS_EMIT) {
+            //    DBG_SEND("emit id_info: [%d] lnum:%d kind=%d flags:%d qstr='%s')", 
+            //        i, id->local_num, id->kind, id->flags, qstr_str(id->qst));
+            //}
+
+            emit_write_code_info_id_info(emit, id);
         }
     }
 

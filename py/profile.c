@@ -28,6 +28,7 @@
 #include "py/bc0.h"
 #include "py/gc.h"
 #include "py/objfun.h"
+#include "py/scope.h"
 
 #include "jpo/debug.h" // for DBG_SEND
 #include "mpconfigport.h" // for JPO_LOCAL_VAR_NAMES
@@ -56,7 +57,7 @@ void mp_prof_extract_prelude(const byte *bytecode, mp_bytecode_prelude_t *prelud
     prelude->n_kwonly_args = n_kwonly_args;
     prelude->n_def_pos_args = n_def_pos_args;
 #if JPO_LOCAL_VAR_NAMES
-    prelude->n_local_vars = n_local_vars;
+    prelude->n_id_infos = n_id_infos;
 #endif
     MP_BC_PRELUDE_SIZE_DECODE(ip);
 
@@ -70,9 +71,9 @@ void mp_prof_extract_prelude(const byte *bytecode, mp_bytecode_prelude_t *prelud
     }
 
 #if JPO_LOCAL_VAR_NAMES
-    prelude->local_var_names = ip;
-    for (size_t i = 0; i < n_local_vars; i++) {
-        ip = mp_decode_uint_skip(ip);
+    prelude->id_infos = ip;
+    for (size_t i = 0; i < n_id_infos; i++) {
+        mp_decode_id_info_skip(&ip);
     }
 #endif
     prelude->line_info = ip;

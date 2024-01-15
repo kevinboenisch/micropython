@@ -97,4 +97,9 @@ id_info_t *scope_find(scope_t *scope, qstr qstr);
 id_info_t *scope_find_global(scope_t *scope, qstr qstr);
 void scope_check_to_close_over(scope_t *scope, id_info_t *id);
 
+#if JPO_LOCAL_VAR_NAMES
+void mp_decode_id_info(const byte** bytes, const mp_module_constants_t *cm, id_info_t *out_idinfo);
+void mp_decode_id_info_skip(const byte** bytes);
+#endif
+
 #endif // MICROPY_INCLUDED_PY_SCOPE_H
