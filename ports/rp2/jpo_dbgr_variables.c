@@ -306,8 +306,55 @@ static void iter_init_modules(vars_iter_t* iter, var_scope_type_t scope_type) {
 
     }
 }
+static void iter_init_global(vars_iter_t* iter) {
+    iter->dict = MP_STATE_THREAD(dict_globals);
+}
+static void iter_init_frame(vars_iter_t* iter, const vars_request_t* args, const mp_obj_frame_t* top_frame) {
+    // Micropython issue: locals() returns the same items as globals()
+    // We must use localnames to get the local variable names
+    // iter->dict = MP_STATE_THREAD(dict_locals);
 
-static void iter_init(vars_iter_t* iter, const vars_request_t* args, mp_obj_frame_t* top_frame) {
+    mp_obj_frame_t* frame = dbgr_find_frame(args->depth_or_addr, top_frame);
+    if (frame == NULL) {
+        return;
+    }
+
+    const mp_code_state_t* cur_bc = frame->code_state;
+
+    // special case: for top frame, show globals
+    if (cur_bc->prev_state == NULL) {
+        iter_init_global(iter);
+        return;
+    }
+
+    // set objs to the local stack
+    iter->n_objs = cur_bc->n_state;
+    iter->objs = cur_bc->state;
+
+    // stack has args on the bottom, unnamed vars and empty space on top
+    // show it in reverse order
+    iter->objs_reverse = true;
+
+    if (args->scope_type == VSCOPE_FRAME) {
+        // Get the local variable names from the bytecode
+        localnames_init(&iter->localnames, frame->code_state, iter->n_objs);
+        // If there's no name, end iteration
+        iter->localnames_end_on_empty = true;
+    }
+    // for VSCOPE_FRAME_STACK, use indexes
+
+    // Use indexes if no names are available
+    iter->obj_names_are_indexes = true;
+}
+static void iter_init_object(vars_iter_t* iter, mp_obj_t obj) {
+    // Get the object. Hope the address is ok
+    if (obj == NULL) {
+        DBG_SEND("Error: iter_start(): object address is 0");
+        return;
+    }
+    iter_init_from_obj(iter, obj);
+}
+static void iter_init(vars_iter_t* iter, const vars_request_t* args, const mp_obj_frame_t* top_frame) {
     DBG_SEND("iter_init");
 
     iter_clear(iter);
@@ -315,46 +362,18 @@ static void iter_init(vars_iter_t* iter, const vars_request_t* args, mp_obj_fram
     if (args->scope_type == VSCOPE_FRAME
         || args->scope_type == VSCOPE_FRAME_STACK) 
     {
-        mp_obj_frame_t* frame = dbgr_find_frame(args->depth_or_addr, top_frame);
-        if (frame == NULL) {
-            return;
-        }
-        const mp_code_state_t* cur_bc = frame->code_state;
-        iter->n_objs = cur_bc->n_state;
-        iter->objs = cur_bc->state;
-
-        iter->objs_reverse = true;
-
-        //print_local_vars(frame->code_state->fun_bc);
-
-        if (args->scope_type == VSCOPE_FRAME) {
-            // Get the local variable names from the bytecode
-            localnames_init(&iter->localnames, frame->code_state, iter->n_objs);
-            iter->localnames_end_on_empty = true;
-        }
-        // for VSCOPE_FRAME_STACK, use indexes
-
-        // Use indexes if no names are available
-        iter->obj_names_are_indexes = true;
-
-        // Micropython issue: this returns the same items as globals
-        // iter->dict = MP_STATE_THREAD(dict_locals);
+        iter_init_frame(iter, args, top_frame);
     }
     else if (args->scope_type == VSCOPE_GLOBAL) {
-        iter->dict = MP_STATE_THREAD(dict_globals);
+        iter_init_global(iter);
     }
     else if (args->scope_type == VSCOPE_OBJECT) {
-        // Get the object. Hope the address is ok
-        if (args->depth_or_addr == 0) {
-            DBG_SEND("Error: iter_start(): object address is 0");
-            return;
-        }
-        mp_obj_t obj = (mp_obj_t)args->depth_or_addr;
-        iter_init_from_obj(iter, obj);
+        iter_init_object(iter, (mp_obj_t)args->depth_or_addr);
     }
     else if (args->scope_type == VSCOPE_MODULES
             || args->scope_type == VSCOPE_MODULES_EXT
-            || args->scope_type == VSCOPE_MODULES_FROZEN) {
+            || args->scope_type == VSCOPE_MODULES_FROZEN) 
+    {
         iter_init_modules(iter, args->scope_type);
     }
     else {

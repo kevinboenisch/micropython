@@ -88,7 +88,7 @@ int dbgr_get_call_depth(mp_obj_frame_t* frame) {
 }
 
 
-mp_obj_frame_t* dbgr_find_frame(int frame_idx, mp_obj_frame_t* top_frame) {
+mp_obj_frame_t* dbgr_find_frame(int frame_idx, const mp_obj_frame_t* top_frame) {
     if (top_frame == NULL) {
         return NULL;
     }

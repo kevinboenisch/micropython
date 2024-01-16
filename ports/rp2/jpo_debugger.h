@@ -47,7 +47,7 @@ qstr dbgr_get_source_file(const mp_code_state_t *code_state);
 // in jpo_dbgr_stackframes.c
 void dbgr_send_stack_response(const JCOMP_MSG request, mp_obj_frame_t* top_frame);
 int dbgr_get_call_depth(mp_obj_frame_t* frame);
-mp_obj_frame_t* dbgr_find_frame(int frame_idx, mp_obj_frame_t* top_frame);
+mp_obj_frame_t* dbgr_find_frame(int frame_idx, const mp_obj_frame_t* top_frame);
 
 // in jpo_dbgr_variables.c
 void dbgr_send_variables_response(const JCOMP_MSG request, mp_obj_frame_t* top_frame);
