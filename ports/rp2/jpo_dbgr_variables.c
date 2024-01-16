@@ -218,9 +218,13 @@ static void varinfo_set_address(varinfo_t* varinfo, mp_obj_t obj) {
         varinfo_set_address(varinfo, cell->obj);
     }
 }
-static void iter_init_from_obj(vars_iter_t* iter, mp_obj_t obj) {
-    iter_clear(iter);
+static void iter_init_object(vars_iter_t* iter, mp_obj_t obj) {
+    if (obj == NULL) {
+        DBG_SEND("Error: iter_init_object(): object address is NULL");
+        return;
+    }
 
+    iter_clear(iter);
     iter->src_obj = obj;
 
     if (mp_obj_is_type(obj, &mp_type_tuple)
@@ -283,8 +287,6 @@ static void iter_init_from_obj(vars_iter_t* iter, mp_obj_t obj) {
         DBG_SEND("Error: iter_init_from_obj(): unknown type:%s", mp_obj_get_type_str(obj));
     }
 }
-
-
 static void iter_init_modules(vars_iter_t* iter, var_scope_type_t scope_type) {
     switch(scope_type) {
         case VSCOPE_MODULES:
@@ -346,14 +348,6 @@ static void iter_init_frame(vars_iter_t* iter, const vars_request_t* args, const
     // Use indexes if no names are available
     iter->obj_names_are_indexes = true;
 }
-static void iter_init_object(vars_iter_t* iter, mp_obj_t obj) {
-    // Get the object. Hope the address is ok
-    if (obj == NULL) {
-        DBG_SEND("Error: iter_start(): object address is 0");
-        return;
-    }
-    iter_init_from_obj(iter, obj);
-}
 static void iter_init(vars_iter_t* iter, const vars_request_t* args, const mp_obj_frame_t* top_frame) {
     DBG_SEND("iter_init");
 
@@ -368,6 +362,7 @@ static void iter_init(vars_iter_t* iter, const vars_request_t* args, const mp_ob
         iter_init_global(iter);
     }
     else if (args->scope_type == VSCOPE_OBJECT) {
+        // Get the object. Hope the address is ok
         iter_init_object(iter, (mp_obj_t)args->depth_or_addr);
     }
     else if (args->scope_type == VSCOPE_MODULES
@@ -489,10 +484,22 @@ static varinfo_t* iter_next_list(vars_iter_t* iter) {
             }
 
             // value
-            dbgr_obj_to_vstr(obj, &(vi->value), PRINT_REPR, MAX_VALUE_LENGTH);
+            mp_obj_t val_obj = obj;
+            // special case: cell, show inner object value
+            if (mp_obj_is_type(obj, &mp_type_cell)) {
+                mp_obj_cell_t* cell = MP_OBJ_TO_PTR(obj);
+                val_obj = cell->obj;
+            }
 
-            varinfo_set_type(vi, obj);
-            varinfo_set_address(vi, obj);
+            dbgr_obj_to_vstr(val_obj, &(vi->value), PRINT_REPR, MAX_VALUE_LENGTH);
+
+            // mildly useful for debugging, but shown in grey in vscode (instead of type-based highlighting)
+            // if (mp_obj_is_type(obj, &mp_type_cell)) {
+            //     vstr_add_str(&(vi->value), " (cell)");
+            // }
+
+            varinfo_set_type(vi, val_obj);
+            varinfo_set_address(vi, val_obj);
         }
     }
 
