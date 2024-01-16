@@ -322,7 +322,7 @@ static void iter_init_frame(vars_iter_t* iter, const vars_request_t* args, const
     const mp_code_state_t* cur_bc = frame->code_state;
 
     // special case: for top frame, show globals
-    if (cur_bc->prev_state == NULL) {
+    if (args->scope_type == VSCOPE_FRAME && cur_bc->prev_state == NULL) {
         iter_init_global(iter);
         return;
     }
