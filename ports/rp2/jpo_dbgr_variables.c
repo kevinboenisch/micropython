@@ -55,7 +55,7 @@ static void varinfo_clear(varinfo_t* vi) {
 
 // Local variable names from bytecode
 typedef struct {
-    // Bytecode prelude with n_local_vars/local_var_names/n_cells
+    // Bytecode prelude with n_local_vars/localnames/n_cells
     // necessary to decode local variable names
     int n_id_infos;
     const byte *id_infos;
@@ -120,10 +120,10 @@ static qstr localnames_decode_name(const localnames_t* localnames, const int obj
         mp_decode_id_info(&ip, localnames->constants, &id_info);
 
         if (id_info.local_num == local_num) {
-            bool include = id_info.kind == ID_INFO_KIND_LOCAL
-                           || id_info.kind == ID_INFO_KIND_CELL
-                           || id_info.kind == ID_INFO_KIND_FREE;
-            if (include) {
+            if (id_info.kind == ID_INFO_KIND_LOCAL
+                || id_info.kind == ID_INFO_KIND_CELL
+                || id_info.kind == ID_INFO_KIND_FREE) 
+            {
                 return id_info.qst;
             }
         }
@@ -155,7 +155,9 @@ typedef struct {
     bool obj_is_attr_name;
 
     // Names from the bytecode
-    localnames_t local_var_names;
+    localnames_t localnames;
+    // End the iteration when the name is empty
+    bool localnames_end_on_empty;
 
     // Option 3: iterate frozen modules
     const char* next_frozen_module_name;
@@ -178,7 +180,8 @@ static void iter_clear(vars_iter_t* iter) {
     iter->obj_names_are_indexes = false;
     iter->obj_is_attr_name = false;
 
-    localnames_clear(&iter->local_var_names);
+    localnames_clear(&iter->localnames);
+    iter->localnames_end_on_empty = false;
 
     iter->next_frozen_module_name = NULL;
 
@@ -309,7 +312,9 @@ static void iter_init(vars_iter_t* iter, const vars_request_t* args, mp_obj_fram
 
     iter_clear(iter);
 
-    if (args->scope_type == VSCOPE_FRAME) {
+    if (args->scope_type == VSCOPE_FRAME
+        || args->scope_type == VSCOPE_FRAME_STACK) 
+    {
         mp_obj_frame_t* frame = dbgr_find_frame(args->depth_or_addr, top_frame);
         if (frame == NULL) {
             return;
@@ -322,8 +327,12 @@ static void iter_init(vars_iter_t* iter, const vars_request_t* args, mp_obj_fram
 
         //print_local_vars(frame->code_state->fun_bc);
 
-        // Get the local variable names from the bytecode
-        localnames_init(&iter->local_var_names, frame->code_state, iter->n_objs);
+        if (args->scope_type == VSCOPE_FRAME) {
+            // Get the local variable names from the bytecode
+            localnames_init(&iter->localnames, frame->code_state, iter->n_objs);
+            iter->localnames_end_on_empty = true;
+        }
+        // for VSCOPE_FRAME_STACK, use indexes
 
         // Use indexes if no names are available
         iter->obj_names_are_indexes = true;
@@ -443,22 +452,21 @@ static varinfo_t* iter_next_list(vars_iter_t* iter) {
             varinfo_set_address(vi, val);
         }
         else {
-            // name, decode from bytecode
-            qstr name = 0;
-            if (!localnames_is_empty(&iter->local_var_names)) {
-                name = localnames_decode_name(&iter->local_var_names, obj_idx);
-                //DBG_SEND("decode_bc_name [%d] '%s'", obj_idx, qstr_str(name));
-            }
+            if (!localnames_is_empty(&iter->localnames)) {
+                // name, decode from bytecode
+                qstr name = localnames_decode_name(&iter->localnames, obj_idx);
 
-            if (name != 0) {
-                const char* name_str = qstr_str(name);
-                int name_len = strlen(name_str);
-                vstr_init(&vi->name, name_len + 1);
-                vstr_add_strn(&vi->name, name_str, name_len);
-            }
-            else if (iter->obj_names_are_indexes) {
-                vstr_init(&vi->name, 6);
-                vstr_printf(&vi->name, "%d", iter->cur_idx);
+                if (iter->localnames_end_on_empty && name == MP_QSTRnull) {
+                    DBG_SEND("iter_next_list() end on empty");
+                    return NULL;
+                }
+
+                if (name != MP_QSTRnull) {
+                    const char* name_str = qstr_str(name);
+                    int name_len = strlen(name_str);
+                    vstr_init(&vi->name, name_len + 1);
+                    vstr_add_strn(&vi->name, name_str, name_len);
+                }
             }
 
             // value
@@ -469,6 +477,10 @@ static varinfo_t* iter_next_list(vars_iter_t* iter) {
         }
     }
 
+    if (iter->obj_names_are_indexes && vstr_len(&vi->name) == 0) {
+        vstr_init(&vi->name, 6);
+        vstr_printf(&vi->name, "%d", iter->cur_idx);
+    }
     //DBG_SEND("iter_next_list() done");
 
     return vi;

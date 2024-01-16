@@ -104,6 +104,7 @@
 
 typedef enum _var_scope_type_t {
     VSCOPE_FRAME = 1,
+    VSCOPE_FRAME_STACK,
     VSCOPE_GLOBAL,
     VSCOPE_OBJECT,
     VSCOPE_MODULES,
