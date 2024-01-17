@@ -50,6 +50,8 @@
 // Output to test the debugger
 #define JPO_DBGR_TEST
 
+#define JPO_MOD_JPOHAL 1
+
 // Debug build is enabled
 // There are two separate Micropython builds: fast (non-debug) and debug.
 // Flag is normally set in CMakeLists.txt

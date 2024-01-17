@@ -170,6 +170,7 @@ set(MICROPY_SOURCE_PORT
     machine_wdt.c
     main.c
     modmachine.c
+    modjpohal.c
     modrp2.c
     mphalport.c
     mpnetworkport.c
@@ -204,6 +205,7 @@ set(MICROPY_SOURCE_QSTR
     ${MICROPY_PORT_DIR}/machine_uart.c
     ${MICROPY_PORT_DIR}/machine_wdt.c
     ${MICROPY_PORT_DIR}/modmachine.c
+    ${MICROPY_PORT_DIR}/modjpohal.c
     ${MICROPY_PORT_DIR}/modrp2.c
     ${MICROPY_PORT_DIR}/modos.c
     ${MICROPY_PORT_DIR}/rp2_flash.c

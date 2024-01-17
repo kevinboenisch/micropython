@@ -38,7 +38,8 @@
         "*.tcc": "c",
         "fstream": "c",
         "sstream": "c",
-        "streambuf": "c"
+        "streambuf": "c",
+        "cmath": "c"
     },
     "workbench.colorCustomizations": {
         "titleBar.activeBackground": "#292e33",
