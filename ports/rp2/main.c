@@ -137,7 +137,12 @@ int main(int argc, char **argv) {
     #ifdef JPO_JCOMP
     // Initialize JPO HAL library (including JCOMP)
     // TODO-P2: add the Micropython version (MICROPY_BANNER_*), so PC knows to upgrade it
-    jcomp_set_env_type("MPYT");
+    #if JPO_DBGR_BUILD
+    jcomp_set_env_type("MPYT-DBGR");
+    #else
+    jcomp_set_env_type("MPYT-FAST");
+    #endif
+
     hal_init();
     //DBG_OLED("Micropython");
     #endif //JPO_JCOMP

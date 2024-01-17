@@ -74,8 +74,6 @@ void echo_line(vstr_t* line, int* line_end_idx) {
 }
 #endif
 
-bool g_dbg_is_relevant = false;
-
 // parses, compiles and executes the code in the lexer
 // frees the lexer before returning
 // EXEC_FLAG_PRINT_EOF prints 2 EOF chars: 1 after normal output, 1 after exception output
@@ -90,8 +88,6 @@ STATIC int parse_compile_execute(const void *source, mp_parse_input_kind_t input
     #ifdef MICROPY_BOARD_BEFORE_PYTHON_EXEC
     MICROPY_BOARD_BEFORE_PYTHON_EXEC(input_kind, exec_flags);
     #endif
-
-    DBG_SEND("pyexec.c::parse_compile_execute");
 
     // by default a SystemExit exception returns 0
     pyexec_system_exit = 0;
@@ -116,11 +112,6 @@ STATIC int parse_compile_execute(const void *source, mp_parse_input_kind_t input
             mp_lexer_t *lex;
             if (exec_flags & EXEC_FLAG_SOURCE_IS_VSTR) {
                 const vstr_t *vstr = source;
-
-                if (vstr->len > 0 && vstr->buf[0] == '#') {
-                    g_dbg_is_relevant = true;
-                }
-
                 lex = mp_lexer_new_from_str_len(MP_QSTR__lt_stdin_gt_, vstr->buf, vstr->len, 0);
             } else if (exec_flags & EXEC_FLAG_SOURCE_IS_READER) {
                 lex = mp_lexer_new(MP_QSTR__lt_stdin_gt_, *(mp_reader_t *)source);
@@ -132,12 +123,6 @@ STATIC int parse_compile_execute(const void *source, mp_parse_input_kind_t input
             // source is a lexer, parse and compile the script
             qstr source_name = lex->source_name;
             mp_parse_tree_t parse_tree = mp_parse(lex, input_kind);
-
-            // debug
-            if (g_dbg_is_relevant) {
-                DBG_SEND("=== parse_compile_execute g_dbg_is_relevant ===");
-                // mp_parse_node_print(&mp_plat_print, parse_tree.root, 0);
-            }
 
             module_fun = mp_compile(&parse_tree, source_name, exec_flags & EXEC_FLAG_IS_REPL);
             #if JPO_DBGR_BUILD
