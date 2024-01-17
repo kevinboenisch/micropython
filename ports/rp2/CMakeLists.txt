@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.13)
 
+message(WARNING "CMAKE_BINARY_DIR ${CMAKE_BINARY_DIR}")
+
 # Set build type to reduce firmware size
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE MinSizeRel)
@@ -485,9 +487,21 @@ target_compile_definitions(${MICROPY_TARGET} PRIVATE
     MICROPY_BUILD_TYPE="${CMAKE_C_COMPILER_ID} ${CMAKE_C_COMPILER_VERSION} ${CMAKE_BUILD_TYPE}"
     PICO_NO_BI_STDIO_UART=1 # we call it UART REPL
     PICO_RP2040_USB_DEVICE_ENUMERATION_FIX=1
-    # Debugger build active
-    JPO_DBGR_BUILD=1
 )
+
+# checks the argument in make, not cmake
+get_filename_component(BINARY_DIR_NAME ${CMAKE_CURRENT_BINARY_DIR} NAME)
+if(BINARY_DIR_NAME STREQUAL "build-jpo-dbgr")
+    message(STATUS "=== build: DBGR")
+    target_compile_definitions(${MICROPY_TARGET} PRIVATE JPO_DBGR_BUILD=1)
+    set(JPO_COPY_TO_PATH ${JPO_PATH}/resources/bin/jpo_micropython_dbgr.elf)
+elseif(BINARY_DIR_NAME STREQUAL "build-jpo-fast")
+    message(STATUS "=== build: FAST")
+    target_compile_definitions(${MICROPY_TARGET} PRIVATE JPO_DBGR_BUILD=0)
+    set(JPO_COPY_TO_PATH ${JPO_PATH}/resources/bin/jpo_micropython_fast.elf)
+else()
+    message(FATAL_ERROR "Build dir name must be 'build-jpo-dbgr' or 'build-jpo-fast', was ${BINARY_DIR_NAME}")
+endif()
 
 target_link_libraries(${MICROPY_TARGET}
     ${PICO_SDK_COMPONENTS}
@@ -566,4 +580,4 @@ add_custom_command(
 	TARGET ${PROJECT_NAME} POST_BUILD
 	COMMAND ${CMAKE_COMMAND} -E copy
 			"${CMAKE_CURRENT_BINARY_DIR}/firmware.elf"
-			"${JPO_PATH}/resources/bin/jpo_micropython.elf")
+			"${JPO_COPY_TO_PATH}")

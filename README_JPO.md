@@ -61,31 +61,20 @@ cd /d/danilom_micropython/ports/rp2
 make BOARD=PICO submodules
 ```
 
-7. Key step: run Cmake with the "Unix Makefiles" generator (not the MSYS default "Ninja" generator)
-```
-cmake -G "Unix Makefiles" -S . -B build-PICO -DPICO_BUILD_DOCS=0 -DMICROPY_BOARD=PICO -DMICROPY_BOARD_DIR=/d/danilom_micropython/ports/rp2/boards/PICO
-```
-This should succeed and create a `build-PICO` diretory.
-
 ## Building
 
-1. Open the `mingw64.exe` shell and run make. 
-Simple `make` works after CMake is done (`build-PICO` exists), but if not, it invokes CMake with the default generator (Ninja, wrong) not "Unix Makefiles". 
-Running only the make step is:
-```
-cd /d/danilom_micropython/ports/rp2
-make -s -C build-PICO
-```
-This might also work, but often produces "Nothin to be done" (TODO: investigate why)
-```
-make -e build-PICO/Makefile
-```
+1. Open the `mingw64.exe` shell, do `cd ports/rp2` and run `./jpo-build.sh`. 
 
-This should generate the binary as `build-PICO\firmware.elf`
+Specify no args for both builds, or `dbgr`/`fast` for a specific build, `clean` to remove `build` folders.
 
-2. To flash the binary, in **Windows** command prompt (or powershell), do
+This should generate the `firmware.elf` binary in `build-jpo-dbgr` and/or `build-jpo-fast`,
+and also copy it to 
+
+2. To flash the binary, connect the brain and in **Windows** command prompt (or powershell), do `jpo sw mpy -f` (or -fast)
+
+Alternatively, do:
 ```
-cd D:\danilom_micropython\ports\rp2\build-PICO\
+cd D:\danilom_micropython\ports\rp2\build-jpo-dbgr\
 jpo flash
 ```
 
