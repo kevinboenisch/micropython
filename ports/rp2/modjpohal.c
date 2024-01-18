@@ -24,8 +24,32 @@
 // TODO === io.h
 // TODO === motor.h
 
-// === oled.h
+Motor motor_port_to_id(mp_obj_t motor_port_obj) {
+    int motor_port = mp_obj_get_int(motor_port_obj);
+    Motor motor_id = motor_port - 1 + M1;
+    if (motor_id < M1 || motor_id > M10) {
+        mp_raise_ValueError(MP_ERROR_TEXT("motor_port out of range [1-10]"));
+    }
+    return motor_id;
+}
 
+// motor_set(motor_port, float percent) -> None
+// Port is in the [1-10] range.
+STATIC mp_obj_t jpohal_motor_set(mp_obj_t port_obj, mp_obj_t percent_obj) {
+    Motor motor = motor_port_to_id(port_obj);
+
+    float percent = 0;
+    if (!mp_obj_get_float_maybe(percent_obj, &percent)) {
+        mp_raise_msg_varg(&mp_type_TypeError,
+            MP_ERROR_TEXT("percent: can't convert %s to float"), mp_obj_get_type_str(percent_obj));
+    }
+
+    motor_set(motor, percent);
+    return mp_const_none;
+}
+MP_DEFINE_CONST_FUN_OBJ_2(jpohal_motor_set_obj, jpohal_motor_set);
+
+// === oled.h
 
 // oled_access_buffer() -> bytearray
 // Buffer format is an internal implementation detail (e.g [0] is special).
@@ -96,6 +120,8 @@ MP_DEFINE_CONST_FUN_OBJ_0(jpohal_oled_render_obj, jpohal_oled_render);
 // === Members table ===
 STATIC const mp_rom_map_elem_t mp_module_jpohal_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_jpohal) },
+
+    { MP_ROM_QSTR(MP_QSTR_motor_set), MP_ROM_PTR(&jpohal_motor_set_obj) },
 
     { MP_ROM_QSTR(MP_QSTR_oled_access_buffer), MP_ROM_PTR(&jpohal_oled_access_buffer_obj) },
     { MP_ROM_QSTR(MP_QSTR_oled_set_pixel), MP_ROM_PTR(&jpohal_oled_set_pixel_obj) },

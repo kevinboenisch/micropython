@@ -1,5 +1,21 @@
 import _jpo
 
+class Motor:
+    def __init__(self, port):
+        """
+        @param port: port the motor is connected to [1-10]
+        """
+        self._port = port
+        # Raises an error port is out of range (and stops the motor if running)
+        _jpo.motor_set(self._port, 0)
+
+    def set_speed(self, speed):
+        """
+        Set the speed of the motor.
+        @param speed: the speed in percent [-100.0, 100.0]
+        """
+        _jpo.motor_set(self._port, speed)        
+
 class Oled:
     def __init__(self):        
         self.render_immediately = True
