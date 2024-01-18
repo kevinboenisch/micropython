@@ -24,11 +24,18 @@
 // TODO === io.h
 // TODO === motor.h
 
-// TODO === oled.h
+// === oled.h
 
-// skip: oled_access_buffer()
-// TODO add a way to get/set the entire buffer from a Python byte buffer object
-//    (in conjunction with a higher-level fn)
+
+// oled_access_buffer() -> bytearray
+// Buffer format is an internal implementation detail (e.g [0] is special).
+// Exposing to allow Python graphics code to manipulate the buffer directly.
+STATIC mp_obj_t jpohal_oled_access_buffer(void) {
+    // bytes is immutable, bytearray can be changed
+    mp_obj_t ba = mp_obj_new_bytearray_by_ref(oled_buffer_size(), oled_access_buffer());
+    return ba;
+}
+MP_DEFINE_CONST_FUN_OBJ_0(jpohal_oled_access_buffer_obj, jpohal_oled_access_buffer);
 
 // oled_set_pixel(x, y, is_on) -> None
 STATIC mp_obj_t jpohal_oled_set_pixel(mp_obj_t x_obj, mp_obj_t y_obj, mp_obj_t is_on_obj) {
@@ -90,6 +97,7 @@ MP_DEFINE_CONST_FUN_OBJ_0(jpohal_oled_render_obj, jpohal_oled_render);
 STATIC const mp_rom_map_elem_t mp_module_jpohal_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_jpohal) },
 
+    { MP_ROM_QSTR(MP_QSTR_oled_access_buffer), MP_ROM_PTR(&jpohal_oled_access_buffer_obj) },
     { MP_ROM_QSTR(MP_QSTR_oled_set_pixel), MP_ROM_PTR(&jpohal_oled_set_pixel_obj) },
     { MP_ROM_QSTR(MP_QSTR_oled_clear_row), MP_ROM_PTR(&jpohal_oled_clear_row_obj) },
     { MP_ROM_QSTR(MP_QSTR_oled_write_string), MP_ROM_PTR(&jpohal_oled_write_string_obj) },
@@ -103,6 +111,6 @@ const mp_obj_module_t mp_module_jpohal = {
     .globals = (mp_obj_dict_t *)&mp_module_jpohal_globals,
 };
 
-MP_REGISTER_MODULE(MP_QSTR_jpohal, mp_module_jpohal);
+MP_REGISTER_MODULE(MP_QSTR__jpo, mp_module_jpohal);
 
 #endif

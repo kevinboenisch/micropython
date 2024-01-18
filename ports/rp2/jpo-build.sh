@@ -2,7 +2,7 @@ is_dbgr=0
 is_fast=0
 
 if [ $# -eq 0 ]; then
-    echo "Both FAST and DEBUG builds"
+    echo "Both FAST and DBGR builds"
 	is_dbgr=1
 	is_fast=1
 elif [ "$1" == "fast" ]; then
