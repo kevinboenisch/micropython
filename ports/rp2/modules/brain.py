@@ -1,11 +1,66 @@
 import _jpo
 
+class Button:
+    def __init__(self, io_port):
+        """
+        @param io_port: io port the button is connected to [1-11]
+        """
+        self._port = io_port
+        _jpo.io_button_init(self._port)
+
+    def is_pressed(self):
+        """
+        @return: True if the button is pressed, False otherwise
+        """
+        return _jpo.io_button_is_pressed(self._port)
+    
+    # Micropython does not call __del__ on object destruction
+    # See https://github.com/micropython/micropython/issues/1878
+    def deinit(self):
+        _jpo.io_deinit(self._port)
+
+class Potentiometer:
+    def __init__(self, io_lower_port):
+        """
+        @param io_lower_port: lower io port the potentiometer is connected to [1-10]
+               For example, to set up an encoder on ports 4 and 5, pass 4 here.
+        """
+        self._port = io_lower_port
+        _jpo.io_potentiometer_init(self._port)
+
+    def read(self):
+        """
+        @return: the value of the potentiometer [0-100]
+        """
+        return _jpo.io_potentiometer_read(self._port)
+
+    def deinit(self):
+        _jpo.io_deinit(self._port)
+
+class QuadratureEncoder:
+    def __init__(self, io_port):
+        """
+        @param io_port: port the encoder is connected to [1-11]
+        """
+        self._port = io_port
+        _jpo.io_encoder_init_quadrature(self._port)
+
+    def read(self):
+        """
+        @return: the value of the encoder [-100, 100]
+        """
+        return _jpo.io_encoder_read(self._port)
+
+    def deinit(self):
+        _jpo.io_deinit(self._port)
+
+
 class Motor:
-    def __init__(self, port):
+    def __init__(self, motor_port):
         """
-        @param port: port the motor is connected to [1-10]
+        @param motor_port: port the motor is connected to [1-10]
         """
-        self._port = port
+        self._port = motor_port
         # Raises an error port is out of range (and stops the motor if running)
         _jpo.motor_set(self._port, 0)
 
@@ -84,4 +139,3 @@ class Oled:
 
 
 oled = Oled()
-

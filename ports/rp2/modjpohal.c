@@ -2,8 +2,10 @@
 
 #include "py/builtin.h"
 #include "py/runtime.h"
+#include "py/obj.h"
 
 #include "mpconfigport.h"
+#include "jpo/debug.h" // for DBG_SEND
 
 #if JPO_MOD_JPOHAL
 #include "jpo/hal.h"
@@ -21,9 +23,89 @@
 
 // TODO === brain.h
 // TODO === iic.h
-// TODO === io.h
-// TODO === motor.h
 
+// === io.h
+
+// Convert [1-11] values; 
+int io_port_to_id(mp_obj_t io_port_obj) {
+    int io_port = mp_obj_get_int(io_port_obj);
+    //DBG_SEND("io_port %d", io_port);
+    int io_id = IO1 - (io_port - 1); // IO11 = 19, IO1=29, descending order
+    //DBG_SEND("io_id %d [IO1=%d..IO11=%d]", io_id, IO1, IO11);
+
+    if (io_id < IO11 || io_id > IO1) { // reversed, descending order
+        mp_raise_ValueError(MP_ERROR_TEXT("io_port out of range [1-11]"));
+    }
+    return io_id;
+}
+
+//void io_deinit(IO io);
+STATIC mp_obj_t jpohal_io_deinit(mp_obj_t io_port_obj) {
+    IO io = io_port_to_id(io_port_obj);
+    io_deinit(io);
+    return mp_const_none;
+}
+MP_DEFINE_CONST_FUN_OBJ_1(jpohal_io_deinit_obj, jpohal_io_deinit);
+
+//void io_button_init(IO io);
+STATIC mp_obj_t jpohal_io_button_init(mp_obj_t io_port_obj) {
+    IO io = io_port_to_id(io_port_obj);
+    io_button_init(io);
+    return mp_const_none;
+}
+MP_DEFINE_CONST_FUN_OBJ_1(jpohal_io_button_init_obj, jpohal_io_button_init);
+
+//bool io_button_is_pressed(IO io);
+STATIC mp_obj_t jpohal_io_button_is_pressed(mp_obj_t io_port_obj) {
+    IO io = io_port_to_id(io_port_obj);
+    bool rv = io_button_is_pressed(io);
+    return mp_obj_new_bool(rv);
+}
+MP_DEFINE_CONST_FUN_OBJ_1(jpohal_io_button_is_pressed_obj, jpohal_io_button_is_pressed);
+
+//void io_potentiometer_init(IO io);
+STATIC mp_obj_t jpohal_io_potentiometer_init(mp_obj_t io_port_obj) {
+    IO io = io_port_to_id(io_port_obj);
+    io_potentiometer_init(io);
+    return mp_const_none;
+}
+MP_DEFINE_CONST_FUN_OBJ_1(jpohal_io_potentiometer_init_obj, jpohal_io_potentiometer_init);
+
+//float io_potentiometer_read(IO io);
+STATIC mp_obj_t jpohal_io_potentiometer_read(mp_obj_t io_port_obj) {
+    IO io = io_port_to_id(io_port_obj);
+    float rv = io_potentiometer_read(io);
+    return mp_obj_new_float(rv);
+}
+MP_DEFINE_CONST_FUN_OBJ_1(jpohal_io_potentiometer_read_obj, jpohal_io_potentiometer_read);
+
+//bool io_encoder_init_quadrature(IO lower_pin);
+STATIC mp_obj_t jpohal_io_encoder_init_quadrature(mp_obj_t io_lower_port_obj) {
+    IO io = io_port_to_id(io_lower_port_obj);
+    if (io == IO11) { // reversed, descending order
+        mp_raise_ValueError(MP_ERROR_TEXT("lower port cannot be IO11"));
+    }
+
+    bool rv = io_encoder_init_quadrature(io);
+    if (!rv) {
+        mp_raise_msg(&mp_type_RuntimeError, MP_ERROR_TEXT("init failed"));
+    }
+    return mp_const_none;
+}
+MP_DEFINE_CONST_FUN_OBJ_1(jpohal_io_encoder_init_quadrature_obj, jpohal_io_encoder_init_quadrature);
+
+//int32_t io_encoder_read(IO io);
+STATIC mp_obj_t jpohal_io_encoder_read(mp_obj_t io_port_obj) {
+    IO io = io_port_to_id(io_port_obj);
+    int32_t rv = io_encoder_read(io);
+    return mp_obj_new_int(rv);
+}
+MP_DEFINE_CONST_FUN_OBJ_1(jpohal_io_encoder_read_obj, jpohal_io_encoder_read);
+
+// TODO: io_output_init
+// TODO: io_output_set
+
+// === motor.h
 Motor motor_port_to_id(mp_obj_t motor_port_obj) {
     int motor_port = mp_obj_get_int(motor_port_obj);
     Motor motor_id = motor_port - 1 + M1;
@@ -120,6 +202,14 @@ MP_DEFINE_CONST_FUN_OBJ_0(jpohal_oled_render_obj, jpohal_oled_render);
 // === Members table ===
 STATIC const mp_rom_map_elem_t mp_module_jpohal_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_jpohal) },
+
+    { MP_ROM_QSTR(MP_QSTR_io_deinit), MP_ROM_PTR(&jpohal_io_deinit_obj) },
+    { MP_ROM_QSTR(MP_QSTR_io_button_init), MP_ROM_PTR(&jpohal_io_button_init_obj) },
+    { MP_ROM_QSTR(MP_QSTR_io_button_is_pressed), MP_ROM_PTR(&jpohal_io_button_is_pressed_obj) },
+    { MP_ROM_QSTR(MP_QSTR_io_potentiometer_init), MP_ROM_PTR(&jpohal_io_potentiometer_init_obj) },
+    { MP_ROM_QSTR(MP_QSTR_io_potentiometer_read), MP_ROM_PTR(&jpohal_io_potentiometer_read_obj) },
+    { MP_ROM_QSTR(MP_QSTR_io_encoder_init_quadrature), MP_ROM_PTR(&jpohal_io_encoder_init_quadrature_obj) },
+    { MP_ROM_QSTR(MP_QSTR_io_encoder_read), MP_ROM_PTR(&jpohal_io_encoder_read_obj) },
 
     { MP_ROM_QSTR(MP_QSTR_motor_set), MP_ROM_PTR(&jpohal_motor_set_obj) },
 
