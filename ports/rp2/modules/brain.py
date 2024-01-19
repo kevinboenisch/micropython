@@ -1,5 +1,41 @@
 import _jpo
 
+class ColorReading:
+    """
+    Color reading from the color sensor.
+    """
+    def __init__(self, clear, red, green, blue):
+        self.clear = clear
+        self.red = red
+        self.green = green
+        self.blue = blue
+
+class ColorSensor:
+    def __init__(self, iic_port):
+        """
+        @param iic_port: IIC port the sensor is connected to [1-8]
+        """
+        self._port = iic_port
+        _jpo.iic_color_init(self._port)
+
+    def read(self):
+        """
+        @return: a ColorReading object with detected color
+        """
+        color_tuple = _jpo.iic_color_read(self._port)
+        print("color_tuple", color_tuple)
+        return ColorReading(*color_tuple)
+    
+    def set_led(self, red, green, blue, white):
+        """
+        Set the color of the LED on the sensor.
+        """
+        # return is for testing
+        return _jpo.iic_color_set_led(self._port, (red, green, blue, white))
+
+    def deinit(self):
+        _jpo.io_deinit(self._port)
+
 class DistanceSensor:
     def __init__(self, iic_port):
         """

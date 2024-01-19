@@ -22,6 +22,13 @@ STATIC NORETURN void raise_JpoHalErrorr() {
     mp_raise_msg(&mp_type_JpoHalError, NULL);
 }
 
+STATIC void check_byte_range(int value, const char *name) {
+    if (value < 0 || value > 255) {
+        mp_raise_msg_varg(&mp_type_ValueError,
+            MP_ERROR_TEXT("%s out of range [0-255]"), name);
+    }
+}
+
 STATIC bool _test_no_hw = false;
 
 // Internal. Allow testing Python wrappers with no hardware device present. 
@@ -50,7 +57,7 @@ int iic_port_to_id(mp_obj_t iic_port_obj) {
     return iic_id;
 }
 
-// bool iic_distance_init(IIC iic);
+// iic_distance_init(iic_port) -> None
 STATIC mp_obj_t jpohal_iic_distance_init(mp_obj_t iic_port_obj) {
     IIC iic = iic_port_to_id(iic_port_obj);
     
@@ -62,7 +69,7 @@ STATIC mp_obj_t jpohal_iic_distance_init(mp_obj_t iic_port_obj) {
 }
 MP_DEFINE_CONST_FUN_OBJ_1(jpohal_iic_distance_init_obj, jpohal_iic_distance_init);
 
-// bool iic_distance_deinit(IIC iic);
+// iic_distance_deinit(iic_port) -> None
 STATIC mp_obj_t jpohal_iic_distance_deinit(mp_obj_t iic_port_obj) {
     IIC iic = iic_port_to_id(iic_port_obj);
 
@@ -74,7 +81,7 @@ STATIC mp_obj_t jpohal_iic_distance_deinit(mp_obj_t iic_port_obj) {
 }
 MP_DEFINE_CONST_FUN_OBJ_1(jpohal_iic_distance_deinit_obj, jpohal_iic_distance_deinit);
 
-// bool iic_distance_read(IIC iic, float *reading);
+// iic_distance_read(iic_port) -> float in unknown units
 STATIC mp_obj_t jpohal_iic_distance_read(mp_obj_t iic_port_obj) {
     IIC iic = iic_port_to_id(iic_port_obj);
 
@@ -87,10 +94,87 @@ STATIC mp_obj_t jpohal_iic_distance_read(mp_obj_t iic_port_obj) {
 }
 MP_DEFINE_CONST_FUN_OBJ_1(jpohal_iic_distance_read_obj, jpohal_iic_distance_read);
 
-// bool iic_color_init(IIC iic);
-// bool iic_color_deinit(IIC iic);
-// bool iic_color_read(IIC iic, IIC_COLOR_READING *reading);
-// bool iic_color_set_led(IIC iic, IIC_COLOR_LED_SETTING setting);
+// iic_color_init(iic_port) -> None
+STATIC mp_obj_t jpohal_iic_color_init(mp_obj_t iic_port_obj) {
+    IIC iic = iic_port_to_id(iic_port_obj);
+
+    if (_test_no_hw) { return mp_const_none; }
+
+    bool rv = iic_color_init(iic);
+    if (!rv) { raise_JpoHalErrorr(); }
+    return mp_const_none;
+}
+MP_DEFINE_CONST_FUN_OBJ_1(jpohal_iic_color_init_obj, jpohal_iic_color_init);
+
+// iic_color_deinit(iic_port) -> None
+STATIC mp_obj_t jpohal_iic_color_deinit(mp_obj_t iic_port_obj) {
+    IIC iic = iic_port_to_id(iic_port_obj);
+
+    if (_test_no_hw) { return mp_const_none; }
+
+    bool rv = iic_color_deinit(iic);
+    if (!rv) { raise_JpoHalErrorr(); }
+    return mp_const_none;
+}
+MP_DEFINE_CONST_FUN_OBJ_1(jpohal_iic_color_deinit_obj, jpohal_iic_color_deinit);
+
+// iic_color_read(iic_port) -> tuple(clear: uint16, red: uint16, green: uint16, blue: uint16) 
+STATIC mp_obj_t jpohal_iic_color_read(mp_obj_t iic_port_obj) {
+    IIC iic = iic_port_to_id(iic_port_obj);
+
+    IIC_COLOR_READING reading = {0};
+    if (_test_no_hw) {
+        // Test values
+        reading.clear = 1;
+        reading.red = 2;
+        reading.green = 3;
+        reading.blue = 4;
+    }
+    else {
+        bool rv = iic_color_read(iic, &reading);
+        if (!rv) { raise_JpoHalErrorr(); }
+    }
+
+    mp_obj_t tuple[4];
+    tuple[0] = mp_obj_new_int(reading.clear);
+    tuple[1] = mp_obj_new_int(reading.red);
+    tuple[2] = mp_obj_new_int(reading.green);
+    tuple[3] = mp_obj_new_int(reading.blue);
+    return mp_obj_new_tuple(4, tuple);
+}
+MP_DEFINE_CONST_FUN_OBJ_1(jpohal_iic_color_read_obj, jpohal_iic_color_read);
+
+// iic_color_set_led(IIC iic, setting: tuple(red: int [0-255], green, blue, white) ) -> None;
+STATIC mp_obj_t jpohal_iic_color_set_led(mp_obj_t iic_port_obj, mp_obj_t setting_tuple) {
+    IIC iic = iic_port_to_id(iic_port_obj);
+
+    size_t len = 0;    
+    mp_obj_t* items = NULL;
+    mp_obj_tuple_get(setting_tuple, &len, &items);
+    if (len != 4) {
+        mp_raise_ValueError(MP_ERROR_TEXT("setting must be a tuple of 4 items"));
+    }
+
+    IIC_COLOR_LED_SETTING setting = {0};
+    setting.red = mp_obj_get_int(items[0]);
+    setting.green = mp_obj_get_int(items[1]);
+    setting.blue = mp_obj_get_int(items[2]);
+    setting.white = mp_obj_get_int(items[3]);
+    check_byte_range(setting.red, "red");
+    check_byte_range(setting.green, "green");
+    check_byte_range(setting.blue, "blue");
+    check_byte_range(setting.white, "white");
+
+    if (_test_no_hw) {
+        // test value: if args are 1,2,3,4 return 1234
+        return mp_obj_new_int(setting.red * 1000 + setting.green * 100 + setting.blue * 10 + setting.white); 
+    }
+
+    bool rv = iic_color_set_led(iic, setting);
+    if (!rv) { raise_JpoHalErrorr(); }
+    return mp_const_none;
+}
+MP_DEFINE_CONST_FUN_OBJ_2(jpohal_iic_color_set_led_obj, jpohal_iic_color_set_led);
 
 // bool iic_imu_init(IIC iic);
 // bool iic_imu_deinit(IIC iic);
@@ -277,6 +361,11 @@ STATIC const mp_rom_map_elem_t mp_module_jpohal_globals_table[] = {
 
     { MP_ROM_QSTR(MP_QSTR__set_test_no_hw), MP_ROM_PTR(&jpohal__set_test_no_hw_obj) },
     { MP_ROM_QSTR(MP_QSTR_JpoHalError), MP_ROM_PTR(&mp_type_JpoHalError) },
+
+    { MP_ROM_QSTR(MP_QSTR_iic_color_init), MP_ROM_PTR(&jpohal_iic_color_init_obj) },
+    { MP_ROM_QSTR(MP_QSTR_iic_color_deinit), MP_ROM_PTR(&jpohal_iic_color_deinit_obj) },
+    { MP_ROM_QSTR(MP_QSTR_iic_color_read), MP_ROM_PTR(&jpohal_iic_color_read_obj) },
+    { MP_ROM_QSTR(MP_QSTR_iic_color_set_led), MP_ROM_PTR(&jpohal_iic_color_set_led_obj) },
 
     { MP_ROM_QSTR(MP_QSTR_iic_distance_init), MP_ROM_PTR(&jpohal_iic_distance_init_obj) },
     { MP_ROM_QSTR(MP_QSTR_iic_distance_deinit), MP_ROM_PTR(&jpohal_iic_distance_deinit_obj) },
