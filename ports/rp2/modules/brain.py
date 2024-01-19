@@ -179,6 +179,31 @@ class Motor:
         """
         _jpo.motor_set(self._port, speed)        
 
+class BrainButtons:
+    BTN_NONE = 0
+    BTN_UP = 1 << 0
+    BTN_DOWN = 1 << 1
+    BTN_CANCEL = 1 << 2
+    BTN_ENTER = 1 << 3
+
+    def __init__(self):
+        pass
+
+    def read(self):
+        return _jpo.brain_get_buttons()
+
+    def is_up_pressed(self):
+        return _jpo.brain_get_buttons() & BrainButtons.BTN_UP == BrainButtons.BTN_UP
+    
+    def is_down_pressed(self):
+        return _jpo.brain_get_buttons() & BrainButtons.BTN_DOWN == BrainButtons.BTN_DOWN
+    
+    def is_cancel_pressed(self):
+        return _jpo.brain_get_buttons() & BrainButtons.BTN_CANCEL == BrainButtons.BTN_CANCEL
+    
+    def is_enter_pressed(self):
+        return _jpo.brain_get_buttons() & BrainButtons.BTN_ENTER == BrainButtons.BTN_ENTER
+
 class Oled:
     def __init__(self):        
         self.render_immediately = True
@@ -244,7 +269,4 @@ class Oled:
             _jpo.oled_render()
 
         # TODO: if we have print, reset the line to top
-
-
-oled = Oled()
 

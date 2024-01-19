@@ -33,6 +33,7 @@ STATIC void check_byte_range(int value, const char *name) {
 STATIC bool _test_no_hw = false;
 
 // Internal. Allow testing Python wrappers with no hardware device present. 
+// If set to True, wrappers will return dummy values or skip operations that might raise a JpoHalError
 STATIC mp_obj_t jpohal__set_test_no_hw(mp_obj_t enabled_obj) {
     _test_no_hw = mp_obj_is_true(enabled_obj);
     return mp_const_none;
@@ -40,12 +41,20 @@ STATIC mp_obj_t jpohal__set_test_no_hw(mp_obj_t enabled_obj) {
 MP_DEFINE_CONST_FUN_OBJ_1(jpohal__set_test_no_hw_obj, jpohal__set_test_no_hw);
 
 // === jpo/hal.h
-
 // skip: hal_init() is already called by main.c.
 // skip: hal_atexit() is used to keep listening for JCOMP commands, 
 //       mpy does that anyway.
 
-// TODO === brain.h
+// === brain.h
+// brain_get_buttons() -> int (flags: NONE=0, up=1, down=2, cancel=3, enter=4)
+mp_obj_t jpohal_brain_get_buttons(void) {
+    BRAIN_BTN buttons = 0;
+    bool rv = brain_get_buttons(&buttons);
+    if (!rv) { raise_JpoHalError(); }
+
+    return mp_obj_new_int(buttons);
+}
+MP_DEFINE_CONST_FUN_OBJ_0(jpohal_brain_get_buttons_obj, jpohal_brain_get_buttons);
 
 // === iic.h
 const char* iic_error_to_string(IIC_ERROR err) {
@@ -450,6 +459,8 @@ MP_DEFINE_CONST_FUN_OBJ_0(jpohal_oled_render_obj, jpohal_oled_render);
 // === Members table ===
 STATIC const mp_rom_map_elem_t mp_module_jpohal_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_jpohal) },
+
+    { MP_ROM_QSTR(MP_QSTR_brain_get_buttons), MP_ROM_PTR(&jpohal_brain_get_buttons_obj) },
 
     { MP_ROM_QSTR(MP_QSTR__set_test_no_hw), MP_ROM_PTR(&jpohal__set_test_no_hw_obj) },
     { MP_ROM_QSTR(MP_QSTR_JpoHalError), MP_ROM_PTR(&mp_type_JpoHalError) },
