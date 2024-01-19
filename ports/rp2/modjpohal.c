@@ -15,6 +15,22 @@
 #include "jpo/hal/motor.h"
 #include "jpo/hal/oled.h"
 
+// Error in the underlying C JPO HAL API
+MP_DEFINE_EXCEPTION(JpoHalError, Exception)
+
+STATIC NORETURN void raise_JpoHalErrorr() {
+    mp_raise_msg(&mp_type_JpoHalError, NULL);
+}
+
+STATIC bool _test_no_hw = false;
+
+// Internal. Allow testing Python wrappers with no hardware device present. 
+STATIC mp_obj_t jpohal__set_test_no_hw(mp_obj_t enabled_obj) {
+    _test_no_hw = mp_obj_is_true(enabled_obj);
+    return mp_const_none;
+}
+MP_DEFINE_CONST_FUN_OBJ_1(jpohal__set_test_no_hw_obj, jpohal__set_test_no_hw);
+
 // === jpo/hal.h
 
 // skip: hal_init() is already called by main.c.
@@ -22,7 +38,65 @@
 //       mpy does that anyway.
 
 // TODO === brain.h
-// TODO === iic.h
+// === iic.h
+// IIC1 = 0... IIC8 = 7
+int iic_port_to_id(mp_obj_t iic_port_obj) {
+    int iic_port = mp_obj_get_int(iic_port_obj);
+    int iic_id = iic_port - 1 + IIC1;
+
+    if (iic_id < IIC1 || iic_id > IIC8) {
+        mp_raise_ValueError(MP_ERROR_TEXT("iic_port out of range [1-8]"));
+    }
+    return iic_id;
+}
+
+// bool iic_distance_init(IIC iic);
+STATIC mp_obj_t jpohal_iic_distance_init(mp_obj_t iic_port_obj) {
+    IIC iic = iic_port_to_id(iic_port_obj);
+    
+    if (_test_no_hw) { return mp_const_none; }
+
+    bool rv = iic_distance_init(iic);
+    if (!rv) { raise_JpoHalErrorr(); }
+    return mp_const_none;
+}
+MP_DEFINE_CONST_FUN_OBJ_1(jpohal_iic_distance_init_obj, jpohal_iic_distance_init);
+
+// bool iic_distance_deinit(IIC iic);
+STATIC mp_obj_t jpohal_iic_distance_deinit(mp_obj_t iic_port_obj) {
+    IIC iic = iic_port_to_id(iic_port_obj);
+
+    if (_test_no_hw) { return mp_const_none; }
+
+    bool rv = iic_distance_deinit(iic);
+    if (!rv) { raise_JpoHalErrorr(); }
+    return mp_const_none;
+}
+MP_DEFINE_CONST_FUN_OBJ_1(jpohal_iic_distance_deinit_obj, jpohal_iic_distance_deinit);
+
+// bool iic_distance_read(IIC iic, float *reading);
+STATIC mp_obj_t jpohal_iic_distance_read(mp_obj_t iic_port_obj) {
+    IIC iic = iic_port_to_id(iic_port_obj);
+
+    if (_test_no_hw) { return mp_obj_new_float(123.45); }
+
+    float reading = 0;
+    bool rv = iic_distance_read(iic, &reading);
+    if (!rv) { raise_JpoHalErrorr(); }
+    return mp_obj_new_float(reading);
+}
+MP_DEFINE_CONST_FUN_OBJ_1(jpohal_iic_distance_read_obj, jpohal_iic_distance_read);
+
+// bool iic_color_init(IIC iic);
+// bool iic_color_deinit(IIC iic);
+// bool iic_color_read(IIC iic, IIC_COLOR_READING *reading);
+// bool iic_color_set_led(IIC iic, IIC_COLOR_LED_SETTING setting);
+
+// bool iic_imu_init(IIC iic);
+// bool iic_imu_deinit(IIC iic);
+// bool iic_imu_poll_orientation(IIC iic, IIC_IMU_QUATERNION *reading);
+// bool iic_imu_poll_acceleration(IIC iic, IIC_IMU_ACCELERATION *reading);
+
 
 // === io.h
 
@@ -87,9 +161,7 @@ STATIC mp_obj_t jpohal_io_encoder_init_quadrature(mp_obj_t io_lower_port_obj) {
     }
 
     bool rv = io_encoder_init_quadrature(io);
-    if (!rv) {
-        mp_raise_msg(&mp_type_RuntimeError, MP_ERROR_TEXT("init failed"));
-    }
+    if (!rv) { raise_JpoHalErrorr(); }
     return mp_const_none;
 }
 MP_DEFINE_CONST_FUN_OBJ_1(jpohal_io_encoder_init_quadrature_obj, jpohal_io_encoder_init_quadrature);
@@ -202,6 +274,13 @@ MP_DEFINE_CONST_FUN_OBJ_0(jpohal_oled_render_obj, jpohal_oled_render);
 // === Members table ===
 STATIC const mp_rom_map_elem_t mp_module_jpohal_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_jpohal) },
+
+    { MP_ROM_QSTR(MP_QSTR__set_test_no_hw), MP_ROM_PTR(&jpohal__set_test_no_hw_obj) },
+    { MP_ROM_QSTR(MP_QSTR_JpoHalError), MP_ROM_PTR(&mp_type_JpoHalError) },
+
+    { MP_ROM_QSTR(MP_QSTR_iic_distance_init), MP_ROM_PTR(&jpohal_iic_distance_init_obj) },
+    { MP_ROM_QSTR(MP_QSTR_iic_distance_deinit), MP_ROM_PTR(&jpohal_iic_distance_deinit_obj) },
+    { MP_ROM_QSTR(MP_QSTR_iic_distance_read), MP_ROM_PTR(&jpohal_iic_distance_read_obj) },
 
     { MP_ROM_QSTR(MP_QSTR_io_deinit), MP_ROM_PTR(&jpohal_io_deinit_obj) },
     { MP_ROM_QSTR(MP_QSTR_io_button_init), MP_ROM_PTR(&jpohal_io_button_init_obj) },

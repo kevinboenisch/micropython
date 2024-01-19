@@ -1,9 +1,26 @@
 import _jpo
 
+class DistanceSensor:
+    def __init__(self, iic_port):
+        """
+        @param iic_port: IIC port the sensor is connected to [1-8]
+        """
+        self._port = iic_port
+        _jpo.iic_distance_init(self._port)
+
+    def read(self):
+        """
+        @return: the distance (TODO: specify unit)
+        """
+        return _jpo.iic_distance_read(self._port)
+
+    def deinit(self):
+        _jpo.io_deinit(self._port)
+
 class Button:
     def __init__(self, io_port):
         """
-        @param io_port: io port the button is connected to [1-11]
+        @param io_port: IO port the button is connected to [1-11]
         """
         self._port = io_port
         _jpo.io_button_init(self._port)
@@ -22,7 +39,7 @@ class Button:
 class Potentiometer:
     def __init__(self, io_lower_port):
         """
-        @param io_lower_port: lower io port the potentiometer is connected to [1-10]
+        @param io_lower_port: lower IO port the potentiometer is connected to [1-10]
                For example, to set up an encoder on ports 4 and 5, pass 4 here.
         """
         self._port = io_lower_port
@@ -40,7 +57,7 @@ class Potentiometer:
 class QuadratureEncoder:
     def __init__(self, io_port):
         """
-        @param io_port: port the encoder is connected to [1-11]
+        @param io_port: IO port the encoder is connected to [1-11]
         """
         self._port = io_port
         _jpo.io_encoder_init_quadrature(self._port)
@@ -139,3 +156,4 @@ class Oled:
 
 
 oled = Oled()
+
