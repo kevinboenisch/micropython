@@ -1,5 +1,28 @@
 import _jpo
 
+class ImuQuaternion:
+    def __init__(self, i, j, k, real):
+        self.i = i
+        self.j = j
+        self.k = k
+        self.real = real
+
+    def __repr__(self):
+        return f"ImuQuaternion({self.i}, {self.j}, {self.k}, {self.real})"
+    def __str__(self):
+        return f"ImuQuaternion(i:{self.i} j:{self.j} k:{self.k} real:{self.real})"
+
+class ImuAcceleration:
+    def __init__(self, x, y, z):
+        self.x = x
+        self.y = y
+        self.z = z
+
+    def __repr__(self):
+        return f"ImuAcceleration({self.x}, {self.y}, {self.z})"
+    def __str__(self):
+        return f"ImuAcceleration(x:{self.x} y:{self.y} z:{self.z})"
+
 class ColorReading:
     """
     Color reading from the color sensor.
@@ -9,6 +32,38 @@ class ColorReading:
         self.red = red
         self.green = green
         self.blue = blue
+
+    def __repr__(self):
+        return f"ColorReading({self.clear}, {self.red}, {self.green}, {self.blue})"
+    def __str__(self):
+        return f"ColorReading(clear:{self.clear} red:{self.red} green:{self.green} blue:{self.blue})"
+
+class ImuSensor:
+    def __init__(self, iic_port):
+        """
+        @param iic_port: IIC port the sensor is connected to [1-8]
+        """
+        self._port = iic_port
+        _jpo.iic_imu_init(self._port)
+
+    def poll_orientation(self):
+        """
+        @return: an ImuQuaternion object with orientation data
+        """
+        tup = _jpo.iic_imu_poll_orientation(self._port)
+        #print("orientation tuple", tup)
+        return ImuQuaternion(*tup)
+
+    def poll_acceleration(self):
+        """
+        @return: an ImuAcceleration object with acceleration data
+        """
+        tup = _jpo.iic_imu_poll_acceleration(self._port)
+        #print("acceleration tuple", tup)
+        return ImuAcceleration(*tup)
+
+    def deinit(self):
+        _jpo.iic_imu_deinit(self._port)
 
 class ColorSensor:
     def __init__(self, iic_port):
@@ -22,9 +77,9 @@ class ColorSensor:
         """
         @return: a ColorReading object with detected color
         """
-        color_tuple = _jpo.iic_color_read(self._port)
-        print("color_tuple", color_tuple)
-        return ColorReading(*color_tuple)
+        tup = _jpo.iic_color_read(self._port)
+        #print("color_tuple", tup)
+        return ColorReading(*tup)
     
     def set_led(self, red, green, blue, white):
         """

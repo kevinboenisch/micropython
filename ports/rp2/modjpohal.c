@@ -17,8 +17,9 @@
 
 // Error in the underlying C JPO HAL API
 MP_DEFINE_EXCEPTION(JpoHalError, Exception)
+MP_DEFINE_EXCEPTION(IicError, JpoHalError)
 
-STATIC NORETURN void raise_JpoHalErrorr() {
+STATIC NORETURN void raise_JpoHalError() {
     mp_raise_msg(&mp_type_JpoHalError, NULL);
 }
 
@@ -45,7 +46,30 @@ MP_DEFINE_CONST_FUN_OBJ_1(jpohal__set_test_no_hw_obj, jpohal__set_test_no_hw);
 //       mpy does that anyway.
 
 // TODO === brain.h
+
 // === iic.h
+const char* iic_error_to_string(IIC_ERROR err) {
+    switch(err) {
+        case IIC_SUCCESS: return "success";
+        case IIC_UNCONFIGURED: return "not configured";
+        case IIC_NO_DATA: return "no data";
+        case IIC_SHTP_INVALID: return "SHTP invalid";
+        case IIC_SHTP_INCOMPLETE: return "SHTP incomplete";
+        case IIC_SHTP_EOF: return "SHTP eof";
+        case IIC_SH2_INVALID: return "SH2 invalid";
+        case IIC_SH2_UNIMPLEMENTED: return "SH2 unimplemented";
+        case IIC_TIMEOUT: return "timeout";
+        case IIC_GENERIC_PROBLEM: return "generic problem";
+        default: return "unknown error";
+    }
+}
+
+void raise_IicError() {
+    IIC_ERROR err = iic_error;
+    mp_raise_msg_varg(&mp_type_IicError,
+        MP_ERROR_TEXT("%s"), iic_error_to_string(err));
+}
+
 // IIC1 = 0... IIC8 = 7
 int iic_port_to_id(mp_obj_t iic_port_obj) {
     int iic_port = mp_obj_get_int(iic_port_obj);
@@ -64,7 +88,7 @@ STATIC mp_obj_t jpohal_iic_distance_init(mp_obj_t iic_port_obj) {
     if (_test_no_hw) { return mp_const_none; }
 
     bool rv = iic_distance_init(iic);
-    if (!rv) { raise_JpoHalErrorr(); }
+    if (!rv) { raise_IicError(); }
     return mp_const_none;
 }
 MP_DEFINE_CONST_FUN_OBJ_1(jpohal_iic_distance_init_obj, jpohal_iic_distance_init);
@@ -76,7 +100,7 @@ STATIC mp_obj_t jpohal_iic_distance_deinit(mp_obj_t iic_port_obj) {
     if (_test_no_hw) { return mp_const_none; }
 
     bool rv = iic_distance_deinit(iic);
-    if (!rv) { raise_JpoHalErrorr(); }
+    if (!rv) { raise_IicError(); }
     return mp_const_none;
 }
 MP_DEFINE_CONST_FUN_OBJ_1(jpohal_iic_distance_deinit_obj, jpohal_iic_distance_deinit);
@@ -89,7 +113,7 @@ STATIC mp_obj_t jpohal_iic_distance_read(mp_obj_t iic_port_obj) {
 
     float reading = 0;
     bool rv = iic_distance_read(iic, &reading);
-    if (!rv) { raise_JpoHalErrorr(); }
+    if (!rv) { raise_IicError(); }
     return mp_obj_new_float(reading);
 }
 MP_DEFINE_CONST_FUN_OBJ_1(jpohal_iic_distance_read_obj, jpohal_iic_distance_read);
@@ -101,7 +125,7 @@ STATIC mp_obj_t jpohal_iic_color_init(mp_obj_t iic_port_obj) {
     if (_test_no_hw) { return mp_const_none; }
 
     bool rv = iic_color_init(iic);
-    if (!rv) { raise_JpoHalErrorr(); }
+    if (!rv) { raise_IicError(); }
     return mp_const_none;
 }
 MP_DEFINE_CONST_FUN_OBJ_1(jpohal_iic_color_init_obj, jpohal_iic_color_init);
@@ -113,7 +137,7 @@ STATIC mp_obj_t jpohal_iic_color_deinit(mp_obj_t iic_port_obj) {
     if (_test_no_hw) { return mp_const_none; }
 
     bool rv = iic_color_deinit(iic);
-    if (!rv) { raise_JpoHalErrorr(); }
+    if (!rv) { raise_IicError(); }
     return mp_const_none;
 }
 MP_DEFINE_CONST_FUN_OBJ_1(jpohal_iic_color_deinit_obj, jpohal_iic_color_deinit);
@@ -132,7 +156,7 @@ STATIC mp_obj_t jpohal_iic_color_read(mp_obj_t iic_port_obj) {
     }
     else {
         bool rv = iic_color_read(iic, &reading);
-        if (!rv) { raise_JpoHalErrorr(); }
+        if (!rv) { raise_IicError(); }
     }
 
     mp_obj_t tuple[4];
@@ -148,7 +172,7 @@ MP_DEFINE_CONST_FUN_OBJ_1(jpohal_iic_color_read_obj, jpohal_iic_color_read);
 STATIC mp_obj_t jpohal_iic_color_set_led(mp_obj_t iic_port_obj, mp_obj_t setting_tuple) {
     IIC iic = iic_port_to_id(iic_port_obj);
 
-    size_t len = 0;    
+    size_t len = 0;
     mp_obj_t* items = NULL;
     mp_obj_tuple_get(setting_tuple, &len, &items);
     if (len != 4) {
@@ -171,16 +195,84 @@ STATIC mp_obj_t jpohal_iic_color_set_led(mp_obj_t iic_port_obj, mp_obj_t setting
     }
 
     bool rv = iic_color_set_led(iic, setting);
-    if (!rv) { raise_JpoHalErrorr(); }
+    if (!rv) { raise_IicError(); }
     return mp_const_none;
 }
 MP_DEFINE_CONST_FUN_OBJ_2(jpohal_iic_color_set_led_obj, jpohal_iic_color_set_led);
 
 // bool iic_imu_init(IIC iic);
-// bool iic_imu_deinit(IIC iic);
-// bool iic_imu_poll_orientation(IIC iic, IIC_IMU_QUATERNION *reading);
-// bool iic_imu_poll_acceleration(IIC iic, IIC_IMU_ACCELERATION *reading);
+STATIC mp_obj_t jpohal_iic_imu_init(mp_obj_t iic_port_obj) {
+    IIC iic = iic_port_to_id(iic_port_obj);
 
+    if (_test_no_hw) { return mp_const_none; }
+
+    bool rv = iic_imu_init(iic);
+    if (!rv) { raise_IicError(); }
+    return mp_const_none;
+}
+MP_DEFINE_CONST_FUN_OBJ_1(jpohal_iic_imu_init_obj, jpohal_iic_imu_init);
+
+// bool iic_imu_deinit(IIC iic);
+STATIC mp_obj_t jpohal_iic_imu_deinit(mp_obj_t iic_port_obj) {
+    IIC iic = iic_port_to_id(iic_port_obj);
+
+    if (_test_no_hw) { return mp_const_none; }
+
+    bool rv = iic_imu_deinit(iic);
+    if (!rv) { raise_IicError(); }
+    return mp_const_none;
+}
+MP_DEFINE_CONST_FUN_OBJ_1(jpohal_iic_imu_deinit_obj, jpohal_iic_imu_deinit);
+
+// bool iic_imu_poll_orientation(IIC iic, IIC_IMU_QUATERNION *reading);
+STATIC mp_obj_t jpohal_iic_imu_poll_orientation(mp_obj_t iic_port_obj) {
+    IIC iic = iic_port_to_id(iic_port_obj);
+
+    IIC_IMU_QUATERNION reading = {0};
+    if (_test_no_hw) {
+        // Test values
+        reading.i = 1;
+        reading.j = 2;
+        reading.k = 3;
+        reading.real = 4;
+    }
+    else {
+        bool rv = iic_imu_poll_orientation(iic, &reading);
+        if (!rv) { raise_IicError(); }
+    }
+
+    mp_obj_t tuple[4];
+    tuple[0] = mp_obj_new_float(reading.i);
+    tuple[1] = mp_obj_new_float(reading.j);
+    tuple[2] = mp_obj_new_float(reading.k);
+    tuple[3] = mp_obj_new_float(reading.real);
+    return mp_obj_new_tuple(4, tuple);
+}
+MP_DEFINE_CONST_FUN_OBJ_1(jpohal_iic_imu_poll_orientation_obj, jpohal_iic_imu_poll_orientation);
+
+// bool iic_imu_poll_acceleration(IIC iic, IIC_IMU_ACCELERATION *reading);
+STATIC mp_obj_t jpohal_iic_imu_poll_acceleration(mp_obj_t iic_port_obj) {
+    IIC iic = iic_port_to_id(iic_port_obj);
+
+    IIC_IMU_ACCELERATION reading = {0};
+    if (_test_no_hw) {
+        // Test values
+        reading.x = 1;
+        reading.y = 2;
+        reading.z = 3;
+    }
+    else {
+        bool rv = iic_imu_poll_acceleration(iic, &reading);
+        if (!rv) { raise_IicError(); }
+    }
+
+    mp_obj_t tuple[3];
+    tuple[0] = mp_obj_new_float(reading.x);
+    tuple[1] = mp_obj_new_float(reading.y);
+    tuple[2] = mp_obj_new_float(reading.z);
+    return mp_obj_new_tuple(3, tuple);
+}
+MP_DEFINE_CONST_FUN_OBJ_1(jpohal_iic_imu_poll_acceleration_obj, jpohal_iic_imu_poll_acceleration);
 
 // === io.h
 
@@ -245,7 +337,7 @@ STATIC mp_obj_t jpohal_io_encoder_init_quadrature(mp_obj_t io_lower_port_obj) {
     }
 
     bool rv = io_encoder_init_quadrature(io);
-    if (!rv) { raise_JpoHalErrorr(); }
+    if (!rv) { raise_JpoHalError(); }
     return mp_const_none;
 }
 MP_DEFINE_CONST_FUN_OBJ_1(jpohal_io_encoder_init_quadrature_obj, jpohal_io_encoder_init_quadrature);
@@ -361,6 +453,12 @@ STATIC const mp_rom_map_elem_t mp_module_jpohal_globals_table[] = {
 
     { MP_ROM_QSTR(MP_QSTR__set_test_no_hw), MP_ROM_PTR(&jpohal__set_test_no_hw_obj) },
     { MP_ROM_QSTR(MP_QSTR_JpoHalError), MP_ROM_PTR(&mp_type_JpoHalError) },
+    { MP_ROM_QSTR(MP_QSTR_IicError), MP_ROM_PTR(&mp_type_IicError) },
+
+    { MP_ROM_QSTR(MP_QSTR_iic_imu_init), MP_ROM_PTR(&jpohal_iic_imu_init_obj) },
+    { MP_ROM_QSTR(MP_QSTR_iic_imu_deinit), MP_ROM_PTR(&jpohal_iic_imu_deinit_obj) },
+    { MP_ROM_QSTR(MP_QSTR_iic_imu_poll_orientation), MP_ROM_PTR(&jpohal_iic_imu_poll_orientation_obj) },
+    { MP_ROM_QSTR(MP_QSTR_iic_imu_poll_acceleration), MP_ROM_PTR(&jpohal_iic_imu_poll_acceleration_obj) },
 
     { MP_ROM_QSTR(MP_QSTR_iic_color_init), MP_ROM_PTR(&jpohal_iic_color_init_obj) },
     { MP_ROM_QSTR(MP_QSTR_iic_color_deinit), MP_ROM_PTR(&jpohal_iic_color_deinit_obj) },
