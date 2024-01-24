@@ -33,8 +33,9 @@
 #include "py/runtime.h"
 #include "py/bc0.h"
 #include "py/profile.h"
+#include "py/scope.h"
 
-#include "mpconfigport.h" // for JPO_DBGR_BUILD
+#include "mpconfigport.h" // for JPO_DBGR_BUILD and JPO_LOCAL_VAR_NAMES
 
 // *FORMAT-OFF*
 
@@ -1442,6 +1443,12 @@ unwind_loop:
                 for (size_t i = 0; i < 1 + n_pos_args + n_kwonly_args; ++i) {
                     ip = mp_decode_uint_skip(ip);
                 }
+                #if JPO_LOCAL_VAR_NAMES
+                for (size_t i = 0; i < n_id_infos; i++) {
+                    mp_decode_id_info_skip(&ip);
+                }
+                #endif
+
                 #if MICROPY_EMIT_BYTECODE_USES_QSTR_TABLE
                 block_name = code_state->fun_bc->context->constants.qstr_table[block_name];
                 qstr source_file = code_state->fun_bc->context->constants.qstr_table[0];
