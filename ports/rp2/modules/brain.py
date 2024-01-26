@@ -38,6 +38,8 @@ class ColorReading:
     def __str__(self):
         return f"ColorReading(clear:{self.clear} red:{self.red} green:{self.green} blue:{self.blue})"
 
+# IIC
+# ===
 class ImuSensor:
     def __init__(self, iic_port):
         """
@@ -89,7 +91,7 @@ class ColorSensor:
         return _jpo.iic_color_set_led(self._port, (red, green, blue, white))
 
     def deinit(self):
-        _jpo.io_deinit(self._port)
+        _jpo.iic_color_deinit(self._port)
 
 class DistanceSensor:
     def __init__(self, iic_port):
@@ -106,8 +108,10 @@ class DistanceSensor:
         return _jpo.iic_distance_read(self._port)
 
     def deinit(self):
-        _jpo.io_deinit(self._port)
+        _jpo.iic_distance_deinit(self._port)
 
+# I/O
+# ===
 class Button:
     def __init__(self, io_port):
         """
@@ -124,6 +128,24 @@ class Button:
     
     # Micropython does not call __del__ on object destruction
     # See https://github.com/micropython/micropython/issues/1878
+    def deinit(self):
+        _jpo.io_deinit(self._port)
+
+class Output:
+    def __init__(self, io_port):
+        """
+        @param io_port: IO port the output is connected to [1-11]
+        """
+        self._port = io_port
+        _jpo.io_output_init(self._port)
+
+    def set(self, is_on):
+        """
+        Set the output.
+        @param is_on: True to set, False to clear
+        """
+        _jpo.io_output_set(self._port, is_on)
+
     def deinit(self):
         _jpo.io_deinit(self._port)
 
@@ -162,7 +184,8 @@ class QuadratureEncoder:
     def deinit(self):
         _jpo.io_deinit(self._port)
 
-
+# Motors
+# ======
 class Motor:
     def __init__(self, motor_port):
         """
@@ -179,6 +202,8 @@ class Motor:
         """
         _jpo.motor_set(self._port, speed)        
 
+# Brain
+# =====
 class BrainButtons:
     BTN_NONE = 0
     BTN_UP = 1 << 0
@@ -269,4 +294,5 @@ class Oled:
             _jpo.oled_render()
 
         # TODO: if we have print, reset the line to top
+
 

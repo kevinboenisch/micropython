@@ -306,6 +306,23 @@ STATIC mp_obj_t jpohal_io_deinit(mp_obj_t io_port_obj) {
 }
 MP_DEFINE_CONST_FUN_OBJ_1(jpohal_io_deinit_obj, jpohal_io_deinit);
 
+//void io_output_init(IO io);
+STATIC mp_obj_t jpohal_io_output_init(mp_obj_t io_port_obj) {
+    IO io = io_port_to_id(io_port_obj);
+    io_output_init(io);
+    return mp_const_none;
+}
+MP_DEFINE_CONST_FUN_OBJ_1(jpohal_io_output_init_obj, jpohal_io_output_init);
+
+//void io_output_set(IO io, bool is_on);
+STATIC mp_obj_t jpohal_io_output_set(mp_obj_t io_port_obj, mp_obj_t is_on_obj) {
+    IO io = io_port_to_id(io_port_obj);
+    bool is_on = mp_obj_is_true(is_on_obj);
+    io_output_set(io, is_on);
+    return mp_const_none;
+}
+MP_DEFINE_CONST_FUN_OBJ_2(jpohal_io_output_set_obj, jpohal_io_output_set);
+
 //void io_button_init(IO io);
 STATIC mp_obj_t jpohal_io_button_init(mp_obj_t io_port_obj) {
     IO io = io_port_to_id(io_port_obj);
@@ -481,6 +498,8 @@ STATIC const mp_rom_map_elem_t mp_module_jpohal_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_iic_distance_read), MP_ROM_PTR(&jpohal_iic_distance_read_obj) },
 
     { MP_ROM_QSTR(MP_QSTR_io_deinit), MP_ROM_PTR(&jpohal_io_deinit_obj) },
+    { MP_ROM_QSTR(MP_QSTR_io_output_init), MP_ROM_PTR(&jpohal_io_output_init_obj) },
+    { MP_ROM_QSTR(MP_QSTR_io_output_set), MP_ROM_PTR(&jpohal_io_output_set_obj) },
     { MP_ROM_QSTR(MP_QSTR_io_button_init), MP_ROM_PTR(&jpohal_io_button_init_obj) },
     { MP_ROM_QSTR(MP_QSTR_io_button_is_pressed), MP_ROM_PTR(&jpohal_io_button_is_pressed_obj) },
     { MP_ROM_QSTR(MP_QSTR_io_potentiometer_init), MP_ROM_PTR(&jpohal_io_potentiometer_init_obj) },
