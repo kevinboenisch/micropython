@@ -1,6 +1,9 @@
 import _jpo
 
 class ImuQuaternion:
+    """
+    Orientation as a quaternion.
+    """
     def __init__(self, i, j, k, real):
         self.i = i
         self.j = j
@@ -13,6 +16,9 @@ class ImuQuaternion:
         return f"ImuQuaternion(i:{self.i} j:{self.j} k:{self.k} real:{self.real})"
 
 class ImuAcceleration:
+    """
+    Linear acceleration (i.e., removing the effect of gravity) in [m/s^2].
+    """
     def __init__(self, x, y, z):
         self.x = x
         self.y = y
@@ -38,6 +44,9 @@ class ColorReading:
     def __str__(self):
         return f"ColorReading(clear:{self.clear} red:{self.red} green:{self.green} blue:{self.blue})"
 
+
+METER_PER_SECOND_SQUARED = 1
+
 # IIC
 # ===
 class ImuSensor:
@@ -56,12 +65,13 @@ class ImuSensor:
         #print("orientation tuple", tup)
         return ImuQuaternion(*tup)
 
-    def poll_acceleration(self):
+    def poll_acceleration(self, unit = METER_PER_SECOND_SQUARED):
         """
-        @return: an ImuAcceleration object with acceleration data
+        Polls the accelerometer for linear acceleration (i.e., removing the effect of gravity)
+        @param unit: unit of acceleration, METER_PER_SECOND_SQUARED 
+        @return: an ImuAcceleration object with acceleration data in [m/s^2]
         """
         tup = _jpo.iic_imu_poll_acceleration(self._port)
-        #print("acceleration tuple", tup)
         return ImuAcceleration(*tup)
 
     def deinit(self):
