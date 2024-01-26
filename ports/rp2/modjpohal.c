@@ -288,12 +288,20 @@ MP_DEFINE_CONST_FUN_OBJ_1(jpohal_iic_imu_poll_acceleration_obj, jpohal_iic_imu_p
 // Convert [1-11] values; 
 int io_port_to_id(mp_obj_t io_port_obj) {
     int io_port = mp_obj_get_int(io_port_obj);
-    //DBG_SEND("io_port %d", io_port);
     int io_id = IO1 - (io_port - 1); // IO11 = 19, IO1=29, descending order
-    //DBG_SEND("io_id %d [IO1=%d..IO11=%d]", io_id, IO1, IO11);
 
-    if (io_id < IO11 || io_id > IO1) { // reversed, descending order
+    if (!(io_id >= IO11 && io_id <= IO1)) { // reversed, descending order
         mp_raise_ValueError(MP_ERROR_TEXT("io_port out of range [1-11]"));
+    }
+    return io_id;
+}
+int io_port_to_id_adc(mp_obj_t io_port_obj) {
+    int io_port = mp_obj_get_int(io_port_obj);
+    int io_id = IO1 - (io_port - 1); // IO11 = 19, IO1=29, descending order
+
+    // special test, see is_adc_io in io.c
+    if (!(io_id >= IO4 && io_id <= IO1)) { // reversed, descending order
+        mp_raise_ValueError(MP_ERROR_TEXT("adc io_port out of range [1-4]"));
     }
     return io_id;
 }
@@ -339,9 +347,13 @@ STATIC mp_obj_t jpohal_io_button_is_pressed(mp_obj_t io_port_obj) {
 }
 MP_DEFINE_CONST_FUN_OBJ_1(jpohal_io_button_is_pressed_obj, jpohal_io_button_is_pressed);
 
+// same as in io.c
+static inline bool is_adc_io(IO io) {
+    return io >= IO4;
+}
 //void io_potentiometer_init(IO io);
 STATIC mp_obj_t jpohal_io_potentiometer_init(mp_obj_t io_port_obj) {
-    IO io = io_port_to_id(io_port_obj);
+    IO io = io_port_to_id_adc(io_port_obj);
     io_potentiometer_init(io);
     return mp_const_none;
 }
