@@ -279,9 +279,18 @@ class Oled:
         @param items: items to write
         """
         text = ' '.join([str(a) for a in items])
-        _jpo.oled_write_string(row, column, text)
+        _jpo.oled_printf(row, column, text)
         if (self.render_immediately):
             _jpo.oled_render()
+
+    def print(self, *items):
+        """
+        Write a line to the display and scroll as needed
+        @param items: items to write
+        """
+        text = ' '.join([str(a) for a in items])
+        _jpo.oled_printf_line(text)
+        # always renders immediately
 
     def render(self):
         _jpo.oled_render()
@@ -298,11 +307,8 @@ class Oled:
         """
         Clear the display.
         """
-        for row in range(0, 7):
-            _jpo.oled_clear_row(row)
+        _jpo.oled_clear()
         if (self.render_immediately):
             _jpo.oled_render()
 
         # TODO: if we have print, reset the line to top
-
-

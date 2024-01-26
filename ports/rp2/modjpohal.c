@@ -454,10 +454,17 @@ STATIC mp_obj_t jpohal_oled_clear_row(mp_obj_t row_obj) {
 }
 MP_DEFINE_CONST_FUN_OBJ_1(jpohal_oled_clear_row_obj, jpohal_oled_clear_row);
 
-// skip: oled_write_char() as Python has no char type, so write_string() is enough
+STATIC mp_obj_t jpohal_oled_clear() {
+    oled_clear();
+    return mp_const_none;
+}
+MP_DEFINE_CONST_FUN_OBJ_0(jpohal_oled_clear_obj, jpohal_oled_clear);
 
-// oled_write_string(row, col, str) -> None
-STATIC mp_obj_t jpohal_oled_write_string(mp_obj_t row_obj, mp_obj_t col_obj, mp_obj_t str_obj) {
+// skip: oled_write_char() as Python has no char type, so oled_printf() is enough
+
+// oled_printf(row, col, str) -> None
+// no need to pass a list of args here, fix them up in Python
+STATIC mp_obj_t jpohal_oled_printf(mp_obj_t row_obj, mp_obj_t col_obj, mp_obj_t str_obj) {
     OLED_ROW row = mp_obj_get_int(row_obj);
     OLED_COL col = mp_obj_get_int(col_obj);
     if (row < ROW_0 || row > ROW_7) {
@@ -468,14 +475,20 @@ STATIC mp_obj_t jpohal_oled_write_string(mp_obj_t row_obj, mp_obj_t col_obj, mp_
     }
     const char *str = mp_obj_str_get_str(str_obj);
 
-    // skipping the return value, in C code it's not returned
-    oled_write_string(row, col, str);
+    oled_printf(row, col, str);
     return mp_const_none;
 }
-MP_DEFINE_CONST_FUN_OBJ_3(jpohal_oled_write_string_obj, jpohal_oled_write_string);
+MP_DEFINE_CONST_FUN_OBJ_3(jpohal_oled_printf_obj, jpohal_oled_printf);
 
-// skip: oled_printf(OLED_ROW row, OLED_COL col, const char *fmt, ...);
-// implement differently in the Python wrapper, using str() and write_string()
+// printf with scrolling
+// no need to pass a list of args here, fix them up in Python
+STATIC mp_obj_t jpohal_oled_printf_line(mp_obj_t str_obj) {
+    const char *str = mp_obj_str_get_str(str_obj);
+
+    oled_printf_line(str);
+    return mp_const_none;
+}
+MP_DEFINE_CONST_FUN_OBJ_1(jpohal_oled_printf_line_obj, jpohal_oled_printf_line);
 
 // oled_render() -> False on error, True on success
 // don't want to raise an exception, since it's unclear what went wrong
@@ -524,7 +537,9 @@ STATIC const mp_rom_map_elem_t mp_module_jpohal_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_oled_access_buffer), MP_ROM_PTR(&jpohal_oled_access_buffer_obj) },
     { MP_ROM_QSTR(MP_QSTR_oled_set_pixel), MP_ROM_PTR(&jpohal_oled_set_pixel_obj) },
     { MP_ROM_QSTR(MP_QSTR_oled_clear_row), MP_ROM_PTR(&jpohal_oled_clear_row_obj) },
-    { MP_ROM_QSTR(MP_QSTR_oled_write_string), MP_ROM_PTR(&jpohal_oled_write_string_obj) },
+    { MP_ROM_QSTR(MP_QSTR_oled_clear), MP_ROM_PTR(&jpohal_oled_clear_obj) },
+    { MP_ROM_QSTR(MP_QSTR_oled_printf), MP_ROM_PTR(&jpohal_oled_printf_obj) },
+    { MP_ROM_QSTR(MP_QSTR_oled_printf_line), MP_ROM_PTR(&jpohal_oled_printf_line_obj) },
     { MP_ROM_QSTR(MP_QSTR_oled_render), MP_ROM_PTR(&jpohal_oled_render_obj) },
 };
 STATIC MP_DEFINE_CONST_DICT(mp_module_jpohal_globals, mp_module_jpohal_globals_table);
