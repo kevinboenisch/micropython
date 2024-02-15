@@ -174,7 +174,7 @@ uintptr_t mp_hal_stdio_poll(uintptr_t poll_flags) {
 int mp_hal_stdin_rx_chr(void) {
     #ifdef JPO_JCOMP
     for (;;) {
-        int ch = jcomp_stdin_getchar();
+        int ch = jcomp_getchar();
 
         // Maybe redundant, since the check is done in MICROPY_EVENT_POLL_HOOK
         // but since chars arrive on core1, better be safe and check again. 
