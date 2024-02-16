@@ -1,0 +1,20 @@
+{
+    "deploy": [
+        "../deploy.md"
+    ],
+    "docs": "",
+    "features": [
+        "Breadboard friendly",
+        "Castellated Pads",
+        "Micro USB"
+    ],
+    "id": "jpo-brain",
+    "images": [
+        "rp2-pico.jpg"
+    ],
+    "mcu": "rp2040",
+    "product": "JPO Brain",
+    "thumbnail": "",
+    "url": "",
+    "vendor": "JPO"
+}

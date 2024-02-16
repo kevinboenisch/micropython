@@ -29,7 +29,7 @@ if [ $is_dbgr == 1 ]; then
 	if [ ! -d "build-jpo-dbgr" ]; then
 		echo "=== Directory build-jpo-dbgr does not exist, running cmake"
 		cmake -G "Unix Makefiles" -S . -B build-jpo-dbgr -DPICO_BUILD_DOCS=0 \
-			  -DMICROPY_BOARD=PICO -DMICROPY_BOARD_DIR=boards/PICO
+			  -DMICROPY_BOARD=PICO -DMICROPY_BOARD_DIR=boards/JPO_BRAIN
 	fi
 
 	cd build-jpo-dbgr
@@ -51,7 +51,7 @@ if [ $is_fast == 1 ]; then
 	if [ ! -d "build-jpo-fast" ]; then
 		echo "=== Directory build-jpo-fast does not exist, running cmake"
 		cmake -G "Unix Makefiles" -S . -B build-jpo-fast -DPICO_BUILD_DOCS=0 \
-			  -DMICROPY_BOARD=PICO -DMICROPY_BOARD_DIR=boards/PICO
+			  -DMICROPY_BOARD=PICO -DMICROPY_BOARD_DIR=boards/JPO_BRAIN
 	fi
 
 	cd build-jpo-fast
