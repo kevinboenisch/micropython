@@ -240,7 +240,7 @@ class BrainButtons:
         return _jpo.brain_get_buttons() & BrainButtons.BTN_ENTER == BrainButtons.BTN_ENTER
 
 class Oled:
-    def __init__(self):        
+    def __init__(self):
         self.render_immediately = True
 
     def set_pixel(self, x, y, is_on = True):
