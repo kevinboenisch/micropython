@@ -4,13 +4,7 @@ echo.
 echo Requires a "stubber" tool from https://github.com/Josverl/micropython-stubber, to install (in admin console):
 echo     pip install -U micropython-stubber
 echo.
-
-set OUT_PATH=%JPO_PATH%\resources\py_stubs
-
-if EXIST "%OUT_PATH%" GOTO OUT_PATH_EXISTS 
-  echo Error: environment variable JPO_PATH not set or "%OUT_PATH%" does not exist
-  exit -1
-:OUT_PATH_EXISTS
+echo In case of a "bad credentials" error, install stubber again using the above line.
 
 cd %~dp0/repos
 
@@ -52,13 +46,4 @@ REM GOTO SKIP_STUBBER
   if %errorlevel% neq 0 exit %errorlevel%
 :SKIP_STUBBER
 
-echo Writing to "%OUT_PATH%"...
-rd /s /q %OUT_PATH%
-
-md %OUT_PATH%\docstubs
-xcopy /e stubs\micropython-preview-docstubs\*.pyi "%OUT_PATH%\docstubs\"
-
-md %OUT_PATH%\frozen\rp2
-xcopy /e stubs\micropython-preview-frozen\rp2\GENERIC\*.pyi "%OUT_PATH%\frozen\rp2\"
-
-echo Done, see "%OUT_PATH%".
+echo Done.

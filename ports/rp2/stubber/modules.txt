@@ -1,0 +1,21 @@
+// Switch to Micropython and start REPL
+C:\> jpo sw mpy
+C:\> jpo term
+
+// Retrieve modules by running the following command in the REPL
+>>> help('modules')
+
+// Paste output below
+__main__          asyncio/lock      gc                re
+_asyncio          asyncio/stream    hashlib           rp2
+_boot             binascii          heapq             select
+_boot_fat         brain             io                struct
+_jpo              builtins          json              sys
+_onewire          cmath             machine           time
+_rp2              collections       math              uasyncio
+array             cryptolib         micropython       uctypes
+asyncio/__init__  dht               neopixel          zlib
+asyncio/core      ds18x20           onewire
+asyncio/event     errno             os
+asyncio/funcs     framebuf          random
+Plus any modules on the filesystem
