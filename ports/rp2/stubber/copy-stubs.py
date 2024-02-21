@@ -82,6 +82,10 @@ def create_manual_stubs(missing, dest_dir):
     # do not rmtree, do not overwrite existing files
     os.makedirs(dest_dir, exist_ok=True)
 
+    if "builtins" in missing:
+        print("Special case: not creating builtins stub (it's in stdlib)")
+        missing.remove("builtins")
+
     for mod in missing:
         mod_path = os.path.join(dest_dir, mod + ".pyi")
         if os.path.exists(mod_path):
