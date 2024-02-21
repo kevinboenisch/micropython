@@ -102,6 +102,12 @@ def detect_duplicate_manual_stubs(modules, missing, dest_dir):
                 if (mod in modules) and (not mod in missing):
                     print(f"WARNING: Duplicate stub for {mod} in {root}")
 
+def print_imports(modules):
+    # print imports to copy/paste for testing
+    for mod in modules:
+        print("import " + mod.replace("/", "."))
+    exit(0)
+
 def main():
     try:
         jpo_path = os.environ["JPO_PATH"]
@@ -112,8 +118,8 @@ def main():
     print("JPO_PATH:", jpo_path)
 
     modules = read_modules_txt()
-    # for mod in modules:
-    #     print(mod)
+    # print_imports(modules)
+    # exit(0)
 
     dir_rp2 = os.path.join(jpo_path, "resources/py_stubs/auto")
     dir_manual = os.path.join(jpo_path, "resources/py_stubs/manual")
