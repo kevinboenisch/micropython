@@ -92,15 +92,35 @@ def create_manual_stubs(missing, dest_dir):
             print(f"Already exists {mod_path}")
         else:
             print(f"Created emtpy stub {mod_path}")
-            create_file(mod, dest_dir, ".pyi", "TODO: edit manual stub")
+            create_file(mod, dest_dir, ".pyi", "# TODO: edit manual stub")
 
-def detect_duplicate_manual_stubs(modules, missing, dest_dir):
-    for root, dirs, files in os.walk(dest_dir):
-        for file in files:
-            if file.endswith(".pyi"):
-                mod = file[:-4]
-                if (mod in modules) and (not mod in missing):
-                    print(f"WARNING: Duplicate stub for {mod} in {root}")
+def detect_duplicates(*stub_dirs):
+    print("=== Detect duplicates in stub dirs")
+    mod_files = {}
+    for sdir in stub_dirs:
+        for root, dirs, files in os.walk(sdir):
+            for file in files:
+                if file.endswith(".pyi"):
+                    mod = file[:-4]
+                    if mod in mod_files:
+                        print(f"DUPLICATE: {mod}.pyi in {root} and {mod_files[mod]}")
+                    else:
+                        mod_files[mod] = root
+            for dd in dirs:
+                # check if the dir is a __init__ module
+                init_path = os.path.join(root, dd, "__init__.pyi") 
+                if os.path.exists(init_path):
+                    #print(f"!! {init_path} exists")
+                    mod = dd
+                    if mod in mod_files:
+                        print(f"DUPLICATE: {mod} dir in {root} and {mod_files[mod]}")
+                    else:
+                        mod_files[mod] = root
+            # stop after first level, do not go into subdirs
+            break
+
+
+
 
 def print_imports(modules):
     # print imports to copy/paste for testing
@@ -123,12 +143,14 @@ def main():
 
     dir_rp2 = os.path.join(jpo_path, "resources/py_stubs/auto")
     dir_manual = os.path.join(jpo_path, "resources/py_stubs/manual")
+    dir_stdlib = os.path.join(jpo_path, "resources/py_stubs/stdlib")
     dir_pylint = os.path.join(jpo_path, "resources/py_stubs/pylint")
 
     create_empty_py_files(modules, dir_pylint)
     missing = copy_stubs(modules, dir_rp2)
     create_manual_stubs(missing, dir_manual)
-    detect_duplicate_manual_stubs(modules, missing, dir_manual)
+
+    detect_duplicates(dir_rp2, dir_manual, dir_stdlib)
 
 if __name__ == "__main__":
     main()
