@@ -94,7 +94,27 @@ def create_manual_stubs(missing, dest_dir):
             print(f"Created emtpy stub {mod_path}")
             create_file(mod, dest_dir, ".pyi", "# TODO: edit manual stub")
 
-def detect_duplicates(*stub_dirs):
+def replace_in_stubs(cur_text, new_text, stub_dirs):
+    print(f"=== Replace {cur_text} with {new_text} in stubs")
+    file_count = 0
+    for sdir in stub_dirs:
+        for root, _, files in os.walk(sdir):
+            for file in files:
+                if file.endswith(".pyi"):
+                    stub_path = os.path.join(root, file)
+                    with open(stub_path, "r", encoding="utf-8") as f:
+                        content = f.read()
+                    new_content = content.replace(cur_text, new_text)
+                    if new_content != content:
+                        file_count += 1
+                        with open(stub_path, "w", encoding="utf-8") as f:
+                            f.write(new_content)
+            # stop after first level, do not go into subdirs
+            break
+    print(f"Replaced in {file_count} files")
+
+
+def detect_duplicates(stub_dirs):
     print("=== Detect duplicates in stub dirs")
     mod_files = {}
     dupes = []
@@ -150,12 +170,17 @@ def main():
     dir_manual = os.path.join(jpo_path, "resources/py_stubs/manual")
     dir_stdlib = os.path.join(jpo_path, "resources/py_stubs/stdlib")
     dir_pylint = os.path.join(jpo_path, "resources/py_stubs/pylint")
+    stub_dirs = [dir_rp2, dir_manual, dir_stdlib]
 
     create_empty_py_files(modules, dir_pylint)
     missing = copy_stubs(modules, dir_rp2)
     create_manual_stubs(missing, dir_manual)
 
-    detect_duplicates(dir_rp2, dir_manual, dir_stdlib)
+    mpy_url = 'https://docs.micropython.org/en/v1.20.0'
+    mpy_url_preview = 'https://docs.micropython.org/en/preview'
+    replace_in_stubs(mpy_url_preview, mpy_url, stub_dirs)
+
+    detect_duplicates(stub_dirs)
 
 if __name__ == "__main__":
     main()
