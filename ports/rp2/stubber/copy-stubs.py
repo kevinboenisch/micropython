@@ -97,6 +97,7 @@ def create_manual_stubs(missing, dest_dir):
 def detect_duplicates(*stub_dirs):
     print("=== Detect duplicates in stub dirs")
     mod_files = {}
+    dupes = []
     for sdir in stub_dirs:
         for root, dirs, files in os.walk(sdir):
             for file in files:
@@ -104,6 +105,7 @@ def detect_duplicates(*stub_dirs):
                     mod = file[:-4]
                     if mod in mod_files:
                         print(f"DUPLICATE: {mod}.pyi in {root} and {mod_files[mod]}")
+                        dupes += mod
                     else:
                         mod_files[mod] = root
             for dd in dirs:
@@ -114,11 +116,14 @@ def detect_duplicates(*stub_dirs):
                     mod = dd
                     if mod in mod_files:
                         print(f"DUPLICATE: {mod} dir in {root} and {mod_files[mod]}")
+                        dupes += mod
                     else:
                         mod_files[mod] = root
             # stop after first level, do not go into subdirs
             break
 
+    if len(dupes) == 0:
+        print("No duplicates found")
 
 
 
