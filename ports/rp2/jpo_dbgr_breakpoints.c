@@ -1,8 +1,8 @@
 #include "jpo_dbgr_breakpoints.h"
 #include "jpo_dbgr_protocol.h"
 
-#include "jpo/jcomp_protocol.h"
-#include "jpo/debug.h"
+#include "jpo/jcomp/jcomp_protocol.h"
+#include "jpo/jcomp/debug.h"
 
 #if JPO_DBGR_BUILD
 

@@ -46,7 +46,7 @@
 #include "py/gc.h"
 
 #include "jpo_debugger.h"
-#include "jpo/debug.h" // for DBG_SEND
+#include "jpo/jcomp/debug.h" // for DBG_SEND
 
 #if MICROPY_DEBUG_VERBOSE // print debugging info
 #define DEBUG_PRINT (1)

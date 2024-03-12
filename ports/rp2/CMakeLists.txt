@@ -100,15 +100,18 @@ message("JPO_PATH (from environment) is ${JPO_PATH}")
 target_include_directories(${MICROPY_TARGET}
     PRIVATE "${JPO_PATH}/sdk/hal/include"
     PRIVATE "${JPO_PATH}/sdk/jcomp/include"
+    PRIVATE "${JPO_PATH}/sdk/jcomp/protocol/include"
 )
 target_link_directories(${MICROPY_TARGET}
     PRIVATE "${JPO_PATH}/sdk/build/hal"
     PRIVATE "${JPO_PATH}/sdk/build/jcomp"
+    PRIVATE "${JPO_PATH}/sdk/build/jcomp/protocol"
 )
 
 target_link_libraries(${MICROPY_TARGET} 
     jpo_hal
     jpo_jcomp
+    jpo_jcomp_protocol
 )
 
 ###### end JPO additions

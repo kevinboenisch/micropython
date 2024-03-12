@@ -5,8 +5,8 @@
 #include "jpo_dbgr_protocol.h"
 #include "jpo_dbgr_breakpoints.h"
 
-#include "jpo/jcomp_protocol.h"
-#include "jpo/debug.h"
+#include "jpo/jcomp/jcomp_protocol.h"
+#include "jpo/jcomp/debug.h"
 
 #include "mphalport.h" // for JPO_DBGR_BUILD
 #include "py/qstr.h"

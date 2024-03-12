@@ -32,7 +32,7 @@
 #include "py/repl.h"
 #include "py/mphal.h"
 #include "shared/readline/readline.h"
-#include "jpo/debug.h"
+#include "jpo/jcomp/debug.h"
 
 #if 0 // print debugging info
 #define DEBUG_PRINT (1)

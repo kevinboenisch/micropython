@@ -38,9 +38,9 @@
 #define JPO_JCOMP
 
 #ifdef JPO_JCOMP
-#include "jpo/jcomp_protocol.h"
-#include "jpo/jcomp_stdio.h"
-#include "jpo/debug.h"
+#include "jpo/jcomp/jcomp_protocol.h"
+#include "jpo/jcomp/jcomp_stdio.h"
+#include "jpo/jcomp/debug.h"
 #else
 #include "tusb.h"
 #endif //JPO_JCOMP

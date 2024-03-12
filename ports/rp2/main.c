@@ -61,8 +61,8 @@
 
 #ifdef JPO_JCOMP
     #include "jpo/hal.h"
-    #include "jpo/debug.h"
-    #include "jpo/jcomp_protocol.h"
+    #include "jpo/jcomp/debug.h"
+    #include "jpo/jcomp/jcomp_protocol.h"
 #else
     #include "tusb.h"
 #endif //JPO_JCOMP
@@ -135,6 +135,7 @@ int main(int argc, char **argv) {
     gc_init(&__GcHeapStart, &__GcHeapEnd);
 
     #ifdef JPO_JCOMP
+    DBG_OLED("main");
     // Initialize JPO HAL library (including JCOMP)
     // TODO-P2: add the Micropython version (MICROPY_BANNER_*), so PC knows to upgrade it
     #if JPO_DBGR_BUILD

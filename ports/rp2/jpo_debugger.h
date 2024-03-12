@@ -8,7 +8,7 @@
 #include "py/mpstate.h" // for dbgr_bytecode_pos_t
 #include "py/profile.h" // for frame
 
-#include "jpo/jcomp_protocol.h" // for JCOMP_MSG
+#include "jpo/jcomp/jcomp_protocol.h" // for JCOMP_MSG
 
 // Minimal debugger features are always enabled
 #define JPO_DBGR (1)

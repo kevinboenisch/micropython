@@ -257,7 +257,7 @@ class QuadratureEncoder:
 
     def read(self) -> float:
         """
-        @return: the value of the encoder [-100, 100]
+        #return: the value of the encoder [-100, 100]
         """
         return _jpo.io_encoder_read(self._port)
 

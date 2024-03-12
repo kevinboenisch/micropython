@@ -6,7 +6,7 @@
 
 #include <stdbool.h>
 #include "py/qstr.h"
-#include "jpo/jcomp_protocol.h"
+#include "jpo/jcomp/jcomp_protocol.h"
 
 void bkpt_clear_all();
 

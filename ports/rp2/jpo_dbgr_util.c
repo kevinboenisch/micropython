@@ -6,7 +6,7 @@
 #include "py/obj.h"
 #include "py/objtype.h"
 
-#include "jpo/debug.h"
+#include "jpo/jcomp/debug.h"
 
 // Improvement on vstr.c::vstr_add_strn
 // Add a string if there's enough space; truncate if needed. Does NOT add \0.

@@ -39,7 +39,7 @@
 #include "py/persistentcode.h"
 #include "py/smallint.h"
 
-#include "jpo/debug.h" // for DBG_SEND
+#include "jpo/jcomp/debug.h" // for DBG_SEND
 
 #if MICROPY_ENABLE_COMPILER
 

@@ -30,7 +30,7 @@
 #include "py/objfun.h"
 #include "py/scope.h"
 
-#include "jpo/debug.h" // for DBG_SEND
+#include "jpo/jcomp/debug.h" // for DBG_SEND
 #include "mpconfigport.h" // for JPO_LOCAL_VAR_NAMES
 
 #if MICROPY_PY_SYS_SETTRACE
