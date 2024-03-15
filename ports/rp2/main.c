@@ -135,7 +135,6 @@ int main(int argc, char **argv) {
     gc_init(&__GcHeapStart, &__GcHeapEnd);
 
     #ifdef JPO_JCOMP
-    DBG_OLED("main");
     // Initialize JPO HAL library (including JCOMP)
     // TODO-P2: add the Micropython version (MICROPY_BANNER_*), so PC knows to upgrade it
     #if JPO_DBGR_BUILD
