@@ -38,19 +38,20 @@ class ColorReading:
     Color reading from the color sensor.
     """
     def __init__(self, clear: int, red: int, green: int, blue: int):
-        # TODO: document range. In C it's uint16
         self.clear = clear
+        """Clear component of the color reading, range [0-65535]"""
         self.red = red
+        """Red component of the color reading, range [0-65535]"""
         self.green = green
+        """Green component of the color reading, range [0-65535]"""
         self.blue = blue
+        """Blue component of the color reading, range [0-65535]"""
 
     def __repr__(self):
         return f"ColorReading({self.clear}, {self.red}, {self.green}, {self.blue})"
     def __str__(self):
         return f"ColorReading(clear:{self.clear} red:{self.red} green:{self.green} blue:{self.blue})"
 
-
-METER_PER_SECOND_SQUARED = 1
 
 # IIC
 # ===
@@ -75,13 +76,10 @@ class ImuSensor:
         #print("orientation tuple", tup)
         return ImuQuaternion(*tup)
 
-    def poll_acceleration(self, unit = METER_PER_SECOND_SQUARED) -> ImuAcceleration:
+    def poll_acceleration(self) -> ImuAcceleration:
         """
         Polls the accelerometer for linear acceleration (i.e., removing the effect of gravity)
 
-        Args:
-            unit: unit of acceleration, METER_PER_SECOND_SQUARED 
-        
         Returns:
             An ImuAcceleration object with acceleration data in [m/s^2]
         """
@@ -109,7 +107,7 @@ class ColorSensor:
     def read(self) -> ColorReading:
         """
         Returns:
-            A ColorReading object with detected color
+            A ColorReading object with the detected color. Components are in range [0-65535]
         """
         tup = _jpo.iic_color_read(self._port)
         #print("color_tuple", tup)
@@ -148,9 +146,8 @@ class DistanceSensor:
     def read(self) -> float:
         """
         Returns:
-            the distance
+            the distance in meters
         """
-        # TODO: specify unit
         return _jpo.iic_distance_read(self._port)
 
     def deinit(self):
@@ -231,7 +228,7 @@ class Potentiometer:
     def read(self) -> float:
         """
         Returns:
-            Readout of the potentiometer [0-100]
+            Readout of the potentiometer, range [0-1]
         """
         return _jpo.io_potentiometer_read(self._port)
 
@@ -255,9 +252,9 @@ class QuadratureEncoder:
         self._port = io_lower_port
         _jpo.io_encoder_init_quadrature(self._port)
 
-    def read(self) -> float:
+    def read(self) -> int:
         """
-        #return: the value of the encoder [-100, 100]
+        @return: the value of the quadrature encoder, in ticks
         """
         return _jpo.io_encoder_read(self._port)
 
@@ -367,8 +364,8 @@ class Oled:
         When working with individual pixels, for better performance set `render_immediately` to False.
 
         Args:
-            x: the x coordinate [0-128]
-            y: the y coordinate [0-64]
+            x: the x coordinate [0-127]
+            y: the y coordinate [0-63]
             is_on: True to set, False to clear
         """
         # SSD1306_WIDTH, SSD1306_HEIGHT
