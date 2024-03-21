@@ -6,10 +6,7 @@
 
 class __thonny_helper:
     import builtins
-    try:
-        import uos as os
-    except builtins.ImportError:
-        import os
+    import os
     import sys
     last_non_none_repl_value = None
     
@@ -34,28 +31,26 @@ class __thonny_helper:
             return s
         except cls.builtins.Exception as e:
             return "<could not serialize: " + __thonny_helper.builtins.str(e) + ">"
-        
-    @builtins.classmethod 
-    def listdir(cls, x):
-        if cls.builtins.hasattr(cls.os, "listdir"):
-            return cls.os.listdir(x)
-        else:
-            return [rec[0] for rec in cls.os.ilistdir(x) if rec[0] not in ('.', '..')]
-
-    # Provide unified interface with Unix variant, which has anemic uos
-    @builtins.classmethod
-    def getcwd(cls):
-        return cls.os.getcwd()
-    
-    @builtins.classmethod
-    def chdir(cls, x):
-        return cls.os.chdir(x)
-    
-    @builtins.classmethod
-    def rmdir(cls, x):
-        return cls.os.rmdir(x)
 
     # JPO extensions
+    @builtins.classmethod 
+    def listdir(cls, path = ".", include_hidden = False):
+        result = {}
+        try:
+            names = cls.os.listdir(path)
+        except cls.builtins.OSError as e:
+            cls.print_mgmt_value(None) 
+        else:
+            for name in names:
+                if not name.startswith(".") or include_hidden:
+                    try:
+                        if path[-1] != "/": 
+                            path += "/"
+                        result[name] = cls.os.stat(path + name)
+                    except cls.builtins.OSError as e:
+                        result[name] = cls.builtins.str(e)
+            __thonny_helper.print_mgmt_value(result)
+
     @builtins.classmethod
     def mkdirs(cls, path):
         parts = path.split("/")
@@ -70,3 +65,15 @@ class __thonny_helper:
             except cls.builtins.OSError:
                 cls.os.mkdir(sofar)
 
+    @builtins.classmethod
+    def file_sha1(cls, filename):
+        import hashlib
+        sha1 = hashlib.sha1()
+        with open(filename, "rb") as f:
+            while True:
+                data = f.read(4096)
+                if not data:
+                    break
+                sha1.update(data)
+        hash = sha1.digest()
+        cls.print_mgmt_value(hash.hex())
