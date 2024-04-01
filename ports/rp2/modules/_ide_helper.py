@@ -141,7 +141,7 @@ class __thonny_helper:
         except cls.builtins.OSError as e:
             # Path does not exist, return
             #print("Not exist:", path)
-            return
+            raise e
 
         if is_dir:
             # remove directory contents
@@ -159,7 +159,7 @@ class __thonny_helper:
                     pass
                     # print("Failed to remove:", path, e)
             else:
-                if should_delete_fn and should_delete_fn(path[1:]):
+                if not should_delete_fn or should_delete_fn(path[1:]):
                     # print("--delete:", path)
                     cls.os.remove(path)
                 else:
