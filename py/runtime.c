@@ -45,8 +45,11 @@
 #include "py/stackctrl.h"
 #include "py/gc.h"
 
+#if JPO_DBGR_BUILD
 #include "jpo_debugger.h"
-#include "jpo/jcomp/debug.h" // for DBG_SEND
+#endif
+//#include "jpo/jcomp/debug.h" // for DBG_SEND
+
 
 #if MICROPY_DEBUG_VERBOSE // print debugging info
 #define DEBUG_PRINT (1)

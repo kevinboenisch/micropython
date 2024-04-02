@@ -42,7 +42,9 @@
 
 // Command line options, with their defaults
 STATIC uint emit_opt = MP_EMIT_OPT_NONE;
-mp_uint_t mp_verbose_flag = 0;
+
+extern mp_uint_t mp_verbose_flag;
+//mp_uint_t mp_verbose_flag = 0;
 
 // Heap size of GC heap (if enabled)
 // Make it larger on a 64 bit machine, because pointers are larger.

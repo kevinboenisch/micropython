@@ -33,7 +33,7 @@
 
 #include "mpconfigport.h"
 
-#include "jpo/jcomp/debug.h" // for DBG_SEND
+//#include "jpo/jcomp/debug.h" // for DBG_SEND
 
 #if MICROPY_DEBUG_PRINTERS
 

@@ -36,7 +36,7 @@
 #include "py/emit.h"
 #include "py/bc0.h"
 
-#include "jpo/jcomp/debug.h" // for DBG_SEND
+//#include "jpo/jcomp/debug.h" // for DBG_SEND
 #include "mpconfigport.h" // for JPO_LOCAL_VAR_NAMES
 
 #if MICROPY_ENABLE_COMPILER

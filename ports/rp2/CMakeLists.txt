@@ -7,13 +7,22 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE MinSizeRel)
 endif()
 
+### JPO_PATH
+set(TO_FIX "To fix, (re)install the JPO tools.")
+if (NOT DEFINED ENV{JPO_PATH})
+	message(FATAL_ERROR "Environment variable JPO_PATH not set. ${TO_FIX}")
+endif()
+# Fix backslashes in Windows
+file(TO_CMAKE_PATH "$ENV{JPO_PATH}" JPO_PATH)
+message("JPO_PATH (from environment) is ${JPO_PATH}")
+
 # Set main target and component locations
 set(MICROPY_TARGET firmware)
 get_filename_component(MICROPY_DIR "../.." ABSOLUTE)
 if (PICO_SDK_PATH_OVERRIDE)
     set(PICO_SDK_PATH ${PICO_SDK_PATH_OVERRIDE})
 else()
-    set(PICO_SDK_PATH ../../lib/pico-sdk)
+    set(PICO_SDK_PATH "${JPO_PATH}/sdk/pico-sdk")
 endif()
 
 # Use the local tinyusb instead of the one in pico-sdk
@@ -83,20 +92,11 @@ include(${MICROPY_DIR}/py/usermod.cmake)
 
 add_executable(${MICROPY_TARGET})
 
-###### JPO additions
+### JPO additions
 # Enable usb output, disable uart output
 pico_enable_stdio_usb(${MICROPY_TARGET} 1)
 
-### Prerequisites
-set(TO_FIX "To fix, (re)install the JPO tools.")
-if (NOT DEFINED ENV{JPO_PATH})
-	message(FATAL_ERROR "Environment variable JPO_PATH not set. ${TO_FIX}")
-endif()
-# Fix backslashes in Windows
-file(TO_CMAKE_PATH "$ENV{JPO_PATH}" JPO_PATH)
-message("JPO_PATH (from environment) is ${JPO_PATH}")
-
-### Includes
+### JPO Includes
 target_include_directories(${MICROPY_TARGET}
     PRIVATE "${JPO_PATH}/sdk/hal/include"
     PRIVATE "${JPO_PATH}/sdk/jcomp/include"
