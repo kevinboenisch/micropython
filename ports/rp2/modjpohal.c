@@ -14,6 +14,7 @@
 #include "jpo/hal/io.h"
 #include "jpo/hal/motor.h"
 #include "jpo/hal/oled.h"
+#include "jpo/hal/joystick.h"
 
 // Error in the underlying C JPO HAL API
 MP_DEFINE_EXCEPTION(JpoHalError, Exception)
@@ -498,6 +499,43 @@ STATIC mp_obj_t jpohal_oled_render(void) {
 }
 MP_DEFINE_CONST_FUN_OBJ_0(jpohal_oled_render_obj, jpohal_oled_render);
 
+// === Joystick ===
+// Returns the tuple of buttons/axes, e.g. ((True, True, False), (-1.0, 0, 1.0, 0.73))
+STATIC mp_obj_t jpohal_joystick_get_state(void) {
+    // Works, but there's a fair bit of memory allocation: 3 tuples, floats...
+    JOYSTICK_STATE state = {0};
+    joystick_read(&state);
+
+    if (_test_no_hw) {
+        state.num_buttons = 8;
+        state.buttons[0] = 0b10101010;
+        state.num_axes = 4;
+        state.axes[0] = 0;
+        state.axes[1] = 127;
+        state.axes[2] = 255;
+        state.axes[3] = 0;
+    }
+
+    int n_buttons = joystick_button_count(&state);
+    mp_obj_t tup_buttons[n_buttons];
+    for (int i = 0; i < n_buttons; i++) {
+        tup_buttons[i] = joystick_button_is_pressed(&state, i) ? mp_const_true : mp_const_false;
+    }
+
+    int n_axes = joystick_axis_count(&state);
+    mp_obj_t tup_axes[n_axes];
+    for (int i = 0; i < n_axes; i++) {
+        tup_axes[i] = mp_obj_new_float(joystick_axis(&state, i));
+    }
+
+    mp_obj_t tuple[2];
+    tuple[0] = mp_obj_new_tuple(n_buttons, tup_buttons);
+    tuple[1] = mp_obj_new_tuple(n_axes, tup_axes);
+    return mp_obj_new_tuple(2, tuple);
+}
+MP_DEFINE_CONST_FUN_OBJ_0(jpohal_joystick_get_state_obj, jpohal_joystick_get_state);
+
+
 // === Members table ===
 STATIC const mp_rom_map_elem_t mp_module_jpohal_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_jpohal) },
@@ -541,6 +579,8 @@ STATIC const mp_rom_map_elem_t mp_module_jpohal_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_oled_printf), MP_ROM_PTR(&jpohal_oled_printf_obj) },
     { MP_ROM_QSTR(MP_QSTR_oled_printf_line), MP_ROM_PTR(&jpohal_oled_printf_line_obj) },
     { MP_ROM_QSTR(MP_QSTR_oled_render), MP_ROM_PTR(&jpohal_oled_render_obj) },
+
+    { MP_ROM_QSTR(MP_QSTR_joystick_get_state), MP_ROM_PTR(&jpohal_joystick_get_state_obj) },
 };
 STATIC MP_DEFINE_CONST_DICT(mp_module_jpohal_globals, mp_module_jpohal_globals_table);
 
