@@ -67,5 +67,5 @@ fi
 
 echo === Done.
 # TODO: native beep
-jpo.cmd beep
+jpo beep
 

@@ -25,6 +25,28 @@ else()
     set(PICO_SDK_PATH "${JPO_PATH}/sdk/pico-sdk")
 endif()
 
+### PIOASM and mingw32 fix
+if(WIN32 OR UNIX)
+	# Use a pre-built PIOASM to prevent mingw32 (Windows)
+	# errors when trying to build it
+	if (WIN32)
+		set(PIOASM_PATH "${JPO_PATH}/resources/bin/pioasm.exe") # windows
+	else()
+		set(PIOASM_PATH "${JPO_PATH}/resources/bin/pioasm") # linux
+	endif()
+	message("----cmake:PIOASM_PATH: ${PIOASM_PATH}")
+
+	if(EXISTS "${PIOASM_PATH}" AND NOT IS_DIRECTORY "${PIOASM_PATH}")
+		add_executable(Pioasm IMPORTED)
+		set_property(TARGET Pioasm PROPERTY IMPORTED_LOCATION ${PIOASM_PATH})
+		set(Pioasm_FOUND 1)
+		message("----Added precompiled PIOASM")
+	else()
+		message(FATAL_ERROR "Precompiled pioasm not found: ${PIOASM_PATH}")
+	endif()
+endif()
+
+
 # Use the local tinyusb instead of the one in pico-sdk
 set(PICO_TINYUSB_PATH ${MICROPY_DIR}/lib/tinyusb)
 # Use the local lwip instead of the one in pico-sdk
