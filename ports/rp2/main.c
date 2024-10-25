@@ -143,7 +143,8 @@ int main(int argc, char **argv) {
     jcomp_set_env_type("MPYT-FAST:" MICROPY_BANNER_NAME_AND_VERSION);
     #endif
 
-    hal_init();
+    // TODO: change once radio is fixed
+    hal_init_no_radio();
     //DBG_OLED("Micropython");
     #endif //JPO_JCOMP
 
