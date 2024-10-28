@@ -215,11 +215,14 @@ void mp_hal_stdout_tx_strn(const char *str, mp_uint_t len) {
     #ifdef JPO_JCOMP
     //DBG_SEND(":%d:", len); // find JCOMP stdout inefficiencies
 
+    // Bug fix: at least one keyboard poll, to allow Ctrl+C to interrupt
+    MICROPY_EVENT_POLL_HOOK_FAST;
+
     JCOMP_RV rv = jcomp_stdout_send_bytes((uint8_t*)str, len);
     if (rv) {
         // How to handle errors properly?
         DBG_SEND("jcomp_stdout_send_bytes err:%d", rv);
-    }
+    }    
     return;
 
     #endif //JPO_JCOMP 
@@ -257,6 +260,8 @@ void mp_hal_stdout_tx_strn(const char *str, mp_uint_t len) {
 
 void mp_hal_delay_ms(mp_uint_t ms) {
     absolute_time_t t = make_timeout_time_ms(ms);
+    // Bug fix: at least one keyboard poll, to allow Ctrl+C to interrupt
+    MICROPY_EVENT_POLL_HOOK_FAST;
     while (!time_reached(t)) {
         MICROPY_EVENT_POLL_HOOK_FAST;
         best_effort_wfe_or_timeout(t);
