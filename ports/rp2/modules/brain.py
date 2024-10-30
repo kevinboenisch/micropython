@@ -442,3 +442,46 @@ class Oled:
             First byte is special, modify others to manipulate pixels. 
         """
         return _jpo.oled_access_buffer()
+
+class JoystickState:
+    """
+    State of the joystick (game controller).  
+    """
+    def __init__(self):
+        # get state as two tuples, eg. ((True,False), (0, -1.0, 1.0)) 
+        data = _jpo.joystick_get_state()
+        self.buttons = data[0]
+        self.axes = data[1]
+
+    def button(self, i):
+        return self.buttons[i]
+    
+    def axis(self, i):
+        return self.axes[i]
+
+class MT208JoystickState(JoystickState):
+    def __init__(self):
+        super().__init__()
+
+    def btn1(self): return self.buttons[0]
+    def btn2(self): return self.buttons[1]
+    def btn3(self): return self.buttons[2]
+    def btn4(self): return self.buttons[3]
+
+    def btn_back_left1(self): return self.buttons[4]
+    def btn_back_right1(self): return self.buttons[5]
+    def btn_back_left2(self): return self.buttons[6]
+    def btn_back_right2(self): return self.buttons[7]
+
+    def btn_select(self): return self.buttons[8]
+    def btn_start(self): return self.buttons[9]
+    def btn_left_stick(self): return self.buttons[10]
+    def btn_right_stick(self): return self.buttons[11]
+
+    def axis_dpad_x(self): return self.axes[0]
+    def axis_dpad_y(self): return self.axes[1]
+    def axis_left_x(self): return self.axes[2]
+    def axis_left_y(self): return self.axes[3]
+    def axis_right_x(self): return self.axes[4]
+    def axis_right_y(self): return self.axes[5]
+
