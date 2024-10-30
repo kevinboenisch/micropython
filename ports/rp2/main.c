@@ -51,6 +51,8 @@
 #include "pico/unique_id.h"
 #include "hardware/rtc.h"
 #include "hardware/structs/rosc.h"
+#include "hardware/structs/watchdog.h"
+
 #if MICROPY_PY_LWIP
 #include "lwip/init.h"
 #include "lwip/apps/mdns.h"
@@ -81,6 +83,18 @@ bi_decl(bi_program_version_string(MICROPY_GIT_TAG));
 bi_decl(bi_program_feature_group_with_flags(BINARY_INFO_TAG_MICROPYTHON,
     BINARY_INFO_ID_MP_FROZEN, "frozen modules",
     BI_NAMED_GROUP_SEPARATE_COMMAS | BI_NAMED_GROUP_SORT_ALPHA));
+
+
+void check_watchdog_flags() {
+    uint32_t flags = watchdog_hw->scratch[7];
+    // reset the flags
+    watchdog_hw->scratch[7] = 0;
+
+    DBG_OLED("wd flags %d", flags);
+    // TODO: delete main.py, or do other stuff specified by flags
+
+    // 
+}
 
 int main(int argc, char **argv) {   
     #ifdef JPO_JCOMP
@@ -146,6 +160,9 @@ int main(int argc, char **argv) {
     // TODO: change once radio is fixed
     hal_init_no_radio();
     //DBG_OLED("Micropython");
+
+    check_watchdog_flags();
+
     #endif //JPO_JCOMP
 
     #ifdef JPO_DBGR
