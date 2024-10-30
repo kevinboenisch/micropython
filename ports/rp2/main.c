@@ -84,16 +84,19 @@ bi_decl(bi_program_feature_group_with_flags(BINARY_INFO_TAG_MICROPYTHON,
     BINARY_INFO_ID_MP_FROZEN, "frozen modules",
     BI_NAMED_GROUP_SEPARATE_COMMAS | BI_NAMED_GROUP_SORT_ALPHA));
 
+#define BOOT_FLAG_REMOVE_MAIN_PY 0x1
+static bool _remove_user_scripts = false;
 
 void check_watchdog_flags() {
     uint32_t flags = watchdog_hw->scratch[7];
     // reset the flags
     watchdog_hw->scratch[7] = 0;
 
-    DBG_OLED("wd flags %d", flags);
-    // TODO: delete main.py, or do other stuff specified by flags
+    //DBG_OLED("wd flags %d", flags);
 
-    // 
+    if (flags & BOOT_FLAG_REMOVE_MAIN_PY) {
+        _remove_user_scripts = true;
+    }
 }
 
 int main(int argc, char **argv) {   
@@ -229,6 +232,13 @@ int main(int argc, char **argv) {
         #else
         pyexec_frozen_module("_boot.py", false);
         #endif
+
+        // Delete user scripts if requested
+        if (_remove_user_scripts) {
+            _remove_user_scripts = false;
+            pyexec_frozen_module("_remove_user_scripts.py", false);
+            //DBG_OLED("rmv main done");
+        }
 
         // Execute user scripts.
         int ret = pyexec_file_if_exists("boot.py");
