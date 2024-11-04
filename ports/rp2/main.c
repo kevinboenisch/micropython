@@ -161,8 +161,9 @@ int main(int argc, char **argv) {
     #endif
 
     // TODO: change once radio is fixed
-    hal_init_no_radio();
-    //DBG_OLED("Micropython");
+    //hal_init_no_radio();
+    hal_init();
+    //DBG_OLED("hal_init done");
 
     check_watchdog_flags();
 
