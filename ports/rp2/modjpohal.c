@@ -301,19 +301,19 @@ MP_DEFINE_CONST_FUN_OBJ_1(jpohal_iic_imu_poll_acceleration_obj, jpohal_iic_imu_p
 // Convert [1-11] values; 
 int io_port_to_id(mp_obj_t io_port_obj) {
     int io_port = mp_obj_get_int(io_port_obj);
-    int io_id = IO1 - (io_port - 1); // IO11 = 19, IO1=29, descending order
+    int io_id = io_port - 1 + IO1;
 
-    if (!(io_id >= IO11 && io_id <= IO1)) { // reversed, descending order
-        mp_raise_ValueError(MP_ERROR_TEXT("io_port out of range [1-11]"));
+    if (io_id < IO1 || io_id > IO_MAX) {
+        mp_raise_ValueError(MP_ERROR_TEXT("io_port out of range [1-12]"));
     }
     return io_id;
 }
 int io_port_to_id_adc(mp_obj_t io_port_obj) {
     int io_port = mp_obj_get_int(io_port_obj);
-    int io_id = IO1 - (io_port - 1); // IO11 = 19, IO1=29, descending order
+    int io_id = io_port - 1 + IO1;
 
     // special test, see is_adc_io in io.c
-    if (!(io_id >= IO4 && io_id <= IO1)) { // reversed, descending order
+    if (io_id < IO1 || io_id > IO4) {
         mp_raise_ValueError(MP_ERROR_TEXT("adc io_port out of range [1-4]"));
     }
     return io_id;
@@ -389,8 +389,8 @@ MP_DEFINE_CONST_FUN_OBJ_1(jpohal_io_potentiometer_read_obj, jpohal_io_potentiome
 //bool io_encoder_init_quadrature(IO lower_pin);
 STATIC mp_obj_t jpohal_io_encoder_init_quadrature(mp_obj_t io_lower_port_obj) {
     IO io = io_port_to_id(io_lower_port_obj);
-    if (io == IO11) { // reversed, descending order
-        mp_raise_ValueError(MP_ERROR_TEXT("lower port cannot be IO11"));
+    if (io == IO_MAX) { // reversed, descending order
+        mp_raise_ValueError(MP_ERROR_TEXT("lower port cannot be IO12"));
     }
 
     bool rv = io_encoder_init_quadrature(io);
@@ -416,6 +416,7 @@ MP_DEFINE_CONST_FUN_OBJ_1(jpohal_io_encoder_read_obj, jpohal_io_encoder_read);
 Motor motor_port_to_id(mp_obj_t motor_port_obj) {
     int motor_port = mp_obj_get_int(motor_port_obj);
     Motor motor_id = motor_port - 1 + M1;
+
     if (motor_id < M1 || motor_id > M10) {
         mp_raise_ValueError(MP_ERROR_TEXT("motor_port out of range [1-10]"));
     }

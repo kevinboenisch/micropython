@@ -52,6 +52,12 @@ class ColorReading:
     def __str__(self):
         return f"ColorReading(clear:{self.clear} red:{self.red} green:{self.green} blue:{self.blue})"
 
+IO_PORT_MIN = 1
+IO_PORT_MAX = 12
+IIC_PORT_MIN = 1
+IIC_PORT_MAX = 8
+MOTOR_PORT_MIN = 1
+MOTOR_PORT_MAX = 10
 
 # IIC
 # ===
@@ -165,7 +171,7 @@ class Button:
     def __init__(self, io_port: int):
         """
         Args:
-            io_port: IO port the button is connected to [1-11]
+            io_port: IO port the button is connected to [1-12]
         """
         self._port = io_port
         _jpo.io_button_init(self._port)
@@ -192,7 +198,7 @@ class Output:
     def __init__(self, io_port: int):
         """
         Args:
-            io_port: IO port the output is connected to [1-11]
+            io_port: IO port the output is connected to [1-12]
         """
         self._port = io_port
         _jpo.io_output_init(self._port)
@@ -245,7 +251,7 @@ class QuadratureEncoder:
     def __init__(self, io_lower_port):
         """
         Args:
-            io_lower_port: lower IO port the encoder is connected to [1-10]
+            io_lower_port: lower IO port the encoder is connected to [1-11]
                 Quadrature encoders use two consecutive IO ports.
                 For example, to set up an encoder on IO ports 4 and 5, pass 4 here.
         """
