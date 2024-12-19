@@ -5,11 +5,16 @@ if [ $# -eq 0 ]; then
     echo "Both FAST and DBGR builds"
 	is_dbgr=1
 	is_fast=1
+	# Generate versions file
+	echo "JPO_PATH_DEV is ${JPO_PATH_DEV}"
+	cmake -DH_PATH=./jpo_version.h -DTXT_PATH=${JPO_PATH_DEV}/resources/bin/jpo_micropython_version.txt -P ${JPO_PATH_DEV}/resources/build_config/jpo_version.cmake
 elif [ "$1" == "fast" ]; then
     echo "FAST build only"
+	echo "WARNING: New version not generated. Build both for correct versioning."
 	is_fast=1
 elif [ "$1" == "dbgr" ]; then
     echo "DBGR build only"
+	echo "WARNING: New version generated. Build both for correct versioning."
 	is_dbgr=1
 elif [ "$1" == "clean" ]; then
     echo "Removing build dirs"
@@ -68,4 +73,3 @@ fi
 echo === Done.
 # TODO: native beep
 jpo beep
-

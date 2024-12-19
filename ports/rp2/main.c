@@ -26,6 +26,7 @@
 
 #include <stdio.h>
 
+#include "jpo_version.h"
 #include "py/compile.h"
 #include "py/runtime.h"
 #include "py/gc.h"
@@ -155,9 +156,9 @@ int main(int argc, char **argv) {
     // Initialize JPO HAL library (including JCOMP)
     // TODO-P2: add the Micropython version (MICROPY_BANNER_*), so PC knows to upgrade it
     #if JPO_DBGR_BUILD
-    jcomp_set_env_type("MPYT-DBGR:" MICROPY_BANNER_NAME_AND_VERSION);
+    jcomp_set_env_type("MPYT-DBGR:" MICROPY_BANNER_NAME_AND_VERSION ":" VERSION_TIMESTAMP);
     #else
-    jcomp_set_env_type("MPYT-FAST:" MICROPY_BANNER_NAME_AND_VERSION);
+    jcomp_set_env_type("MPYT-FAST:" MICROPY_BANNER_NAME_AND_VERSION ":" VERSION_TIMESTAMP);
     #endif
 
     // TODO: change once radio is fixed
