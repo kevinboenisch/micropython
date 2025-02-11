@@ -525,6 +525,28 @@ STATIC mp_obj_t jpohal_oled_render(void) {
 MP_DEFINE_CONST_FUN_OBJ_0(jpohal_oled_render_obj, jpohal_oled_render);
 
 // === Joystick ===
+
+
+// bool joystick_init(bool continuous_reporting);
+STATIC mp_obj_t jpohal_joystick_init(mp_obj_t continuous_reporting_obj) {
+    bool continuous_reporting = mp_obj_is_true(continuous_reporting_obj);
+
+    bool rv = joystick_init(continuous_reporting);
+    // Do not raise an error, it's ok to fail if joystick is not connected
+    return rv ? mp_const_true : mp_const_false;
+}
+MP_DEFINE_CONST_FUN_OBJ_1(jpohal_joystick_init_obj, jpohal_joystick_init);
+
+// void joystick_deinit();
+STATIC mp_obj_t jpohal_joystick_deinit() {
+    if (_test_no_hw) { return mp_const_none; }
+
+    joystick_deinit();
+    return mp_const_none;
+}
+MP_DEFINE_CONST_FUN_OBJ_0(jpohal_joystick_deinit_obj, jpohal_joystick_deinit);
+
+
 // Returns the tuple of buttons/axes, e.g. ((True, True, False), (-1.0, 0, 1.0, 0.73))
 STATIC mp_obj_t jpohal_joystick_get_state(void) {
     MICROPY_EVENT_POLL_HOOK_FAST;
@@ -607,6 +629,8 @@ STATIC const mp_rom_map_elem_t mp_module_jpohal_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_oled_printf_line), MP_ROM_PTR(&jpohal_oled_printf_line_obj) },
     { MP_ROM_QSTR(MP_QSTR_oled_render), MP_ROM_PTR(&jpohal_oled_render_obj) },
 
+    { MP_ROM_QSTR(MP_QSTR_joystick_init), MP_ROM_PTR(&jpohal_joystick_init_obj) },
+    { MP_ROM_QSTR(MP_QSTR_joystick_deinit), MP_ROM_PTR(&jpohal_joystick_deinit_obj) },
     { MP_ROM_QSTR(MP_QSTR_joystick_get_state), MP_ROM_PTR(&jpohal_joystick_get_state_obj) },
 };
 STATIC MP_DEFINE_CONST_DICT(mp_module_jpohal_globals, mp_module_jpohal_globals_table);
