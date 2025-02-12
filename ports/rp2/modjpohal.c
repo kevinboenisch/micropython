@@ -530,10 +530,13 @@ MP_DEFINE_CONST_FUN_OBJ_0(jpohal_oled_render_obj, jpohal_oled_render);
 // bool joystick_init(bool continuous_reporting);
 STATIC mp_obj_t jpohal_joystick_init(mp_obj_t continuous_reporting_obj) {
     bool continuous_reporting = mp_obj_is_true(continuous_reporting_obj);
+    //DBG_OLED("Py cr:%d", continuous_reporting);
+
+    if (_test_no_hw) { return mp_const_true; }
 
     bool rv = joystick_init(continuous_reporting);
     // Do not raise an error, it's ok to fail if joystick is not connected
-    return rv ? mp_const_true : mp_const_false;
+    return mp_obj_new_bool(rv);
 }
 MP_DEFINE_CONST_FUN_OBJ_1(jpohal_joystick_init_obj, jpohal_joystick_init);
 
