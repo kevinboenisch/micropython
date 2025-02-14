@@ -248,7 +248,7 @@ class QuadratureEncoder:
     """
     Quadrature encoder sensor.
     """
-    def __init__(self, io_lower_port):
+    def __init__(self, io_lower_port: int):
         """
         Args:
             io_lower_port: lower IO port the encoder is connected to [1-11]
@@ -276,7 +276,7 @@ class Motor:
     """
     Motor connected to a motor port.
     """
-    def __init__(self, motor_port):
+    def __init__(self, motor_port: int):
         """
         Args: 
             motor_port: motor port the motor is connected to [1-10]
@@ -465,6 +465,32 @@ class JoystickState:
     def axis(self, i):
         return self.axes[i]
 
+class Joystick:
+    """
+    Joystick (game controller) connected to the Joystick Module 
+    and comunicating with JPO Brain over the radio.
+    """
+    def __init__(self, continuous_reporting = True):
+        """
+        Args: 
+            continuous_reporting: True to send reports continuously many times per second,
+               and reset state to zero if reports are missed. Puts strain on the radio connection.
+               False to send reports only when the state changes. 
+        """
+        _jpo.joystick_init(continuous_reporting)
+
+    def read(self) -> JoystickState:
+        """
+        Returns: the latest joystick state.
+        """
+        return JoystickState()
+
+    def deinit(self):
+        """
+        Deinitialize the joystick, turn off reporting.
+        """
+        _jpo.joystick_deinit()
+
 class MT208JoystickState(JoystickState):
     def __init__(self):
         super().__init__()
@@ -491,3 +517,13 @@ class MT208JoystickState(JoystickState):
     def axis_right_x(self): return self.axes[4]
     def axis_right_y(self): return self.axes[5]
 
+class MT208Joystick(Joystick):
+    """
+    MT208 Joystick (game controller) connected to the Joystick Module 
+    and comunicating with JPO Brain over the radio.
+    """
+    def read(self) -> MT208JoystickState:
+        """
+        Returns: the latest MT208 joystick state.
+        """
+        return MT208JoystickState()

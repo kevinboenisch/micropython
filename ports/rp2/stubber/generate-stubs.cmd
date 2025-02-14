@@ -1,7 +1,7 @@
 @echo off
 echo Script to generate JPO Micropython stubs used by VS Code for autocompletion/errors/tooltip docs
 echo.
-echo Requires a "stubber" tool from https://github.com/Josverl/micropython-stubber, to install (in admin console):
+echo Requires the "stubber" tool from https://github.com/Josverl/micropython-stubber, to install (in admin console):
 echo     pip install -U micropython-stubber
 echo.
 echo In case of a "bad credentials" error, install stubber again using the above line.
