@@ -37,6 +37,9 @@ REM GOTO SKIP_STUBBER
   rd /s /q stubs
   md stubs
 
+  md repos\micropython-stubs
+  md repos\micropython-stubs\stubs
+
   echo === get-docstubs
   stubber get-docstubs
   if %errorlevel% neq 0 exit %errorlevel%

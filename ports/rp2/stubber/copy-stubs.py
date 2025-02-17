@@ -42,8 +42,8 @@ def copy_stubs(modules, dest_dir):
     print(f"=== Copy stubs to {dest_dir}")
     missing = []
     pyi_dirs = [
-        "stubs/micropython-preview-docstubs",
-        "stubs/micropython-preview-frozen/rp2/GENERIC"
+        "repos/micropython-stubs/stubs/micropython-preview-docstubs",
+        "repos/micropython-stubs/stubs/micropython-preview-frozen/rp2/GENERIC"
     ]
     for dd in pyi_dirs:
         if not os.path.exists(dd):
