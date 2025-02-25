@@ -23,9 +23,9 @@
 
 MEMORY
 {
-    /* JPO: Skip 48kB (JPO bootloader) + 4kb (header) at the start of flash */
+    /* JPO: Skip 52kB (JPO bootloader) + 4kb (header) at the start of flash */
     /* TODO: JPO Brain flash is 16Mb (according to spec), not 2Mb, adjust it */
-    FLASH(rx) : ORIGIN = 0x10000000 + 48k + 4k, LENGTH = (16 * 1024k) - 48k - 4k
+    FLASH(rx) : ORIGIN = 0x10000000 + 52k + 4k, LENGTH = (16 * 1024k) - 52k - 4k
 
     /* JPO: Leave 12k for the stack, 8k for core0 and 4k for core1 */
     RAM(rwx) :       ORIGIN = 0x20000000,              LENGTH = 264k - 16k 
