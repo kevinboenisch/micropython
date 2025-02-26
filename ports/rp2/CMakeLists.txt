@@ -59,7 +59,7 @@ set(MICROPY_PORT_DIR ${CMAKE_CURRENT_LIST_DIR})
 
 # Set the board if it's not already set.
 if(NOT MICROPY_BOARD)
-    set(MICROPY_BOARD PICO)
+    set(MICROPY_BOARD RPI_PICO)
 endif()
 
 # Set the board directory and check that it exists.
@@ -71,10 +71,22 @@ if(NOT EXISTS ${MICROPY_BOARD_DIR}/mpconfigboard.cmake)
     message(FATAL_ERROR "Invalid MICROPY_BOARD specified: ${MICROPY_BOARD}")
 endif()
 
+# If a board variant is specified, check that it exists.
+if(MICROPY_BOARD_VARIANT)
+    if(NOT EXISTS ${MICROPY_BOARD_DIR}/mpconfigvariant_${MICROPY_BOARD_VARIANT}.cmake)
+        message(FATAL_ERROR "Invalid MICROPY_BOARD_VARIANT specified: ${MICROPY_BOARD_VARIANT}")
+    endif()
+endif()
+
 set(MICROPY_USER_FROZEN_MANIFEST ${MICROPY_FROZEN_MANIFEST})
 
 # Include board config, it may override MICROPY_FROZEN_MANIFEST
-include(${MICROPY_BOARD_DIR}/mpconfigboard.cmake) 
+include(${MICROPY_BOARD_DIR}/mpconfigboard.cmake)
+if(NOT MICROPY_BOARD_VARIANT)
+    include(${MICROPY_BOARD_DIR}/mpconfigvariant.cmake OPTIONAL)
+else()
+    include(${MICROPY_BOARD_DIR}/mpconfigvariant_${MICROPY_BOARD_VARIANT}.cmake)
+endif()
 
 # Set the PICO_BOARD if it's not already set (allow a board to override it).
 if(NOT PICO_BOARD)
@@ -113,6 +125,14 @@ pico_sdk_init()
 include(${MICROPY_DIR}/py/usermod.cmake)
 
 add_executable(${MICROPY_TARGET})
+
+# Provide a C-level definitions of PICO_ARM.
+# (The pico-sdk already defines PICO_RISCV when it's enabled.)
+if(PICO_ARM)
+    target_compile_definitions(pico_platform_headers INTERFACE
+        PICO_ARM=1
+    )
+endif()
 
 ### JPO additions
 # Enable usb output, disable uart output
@@ -154,21 +174,33 @@ set(MICROPY_SOURCE_LIB
     ${MICROPY_DIR}/shared/netutils/netutils.c
     ${MICROPY_DIR}/shared/netutils/trace.c
     ${MICROPY_DIR}/shared/readline/readline.c
-    ${MICROPY_DIR}/shared/runtime/gchelper_thumb1.s
     ${MICROPY_DIR}/shared/runtime/gchelper_native.c
     ${MICROPY_DIR}/shared/runtime/interrupt_char.c
     ${MICROPY_DIR}/shared/runtime/mpirq.c
     ${MICROPY_DIR}/shared/runtime/pyexec.c
     ${MICROPY_DIR}/shared/runtime/stdout_helpers.c
+    ${MICROPY_DIR}/shared/runtime/softtimer.c
     ${MICROPY_DIR}/shared/runtime/sys_stdio_mphal.c
     ${MICROPY_DIR}/shared/timeutils/timeutils.c
-    ${MICROPY_DIR}/shared/tinyusb/mp_cdc_common.c
     ${MICROPY_DIR}/shared/tinyusb/mp_usbd.c
+    ${MICROPY_DIR}/shared/tinyusb/mp_usbd_cdc.c
+    ${MICROPY_DIR}/shared/tinyusb/mp_usbd_runtime.c
+
     # JPO: commenting out removing to avoid multiple definition of 
     # tud_descriptor_device_cb, which is also in:
     # pico-sdk\src\rp2_common\pico_stdio_usb\stdio_usb_descriptor.c
     #${MICROPY_DIR}/shared/tinyusb/mp_usbd_descriptor.c
 )
+
+if(PICO_ARM)
+    list(APPEND MICROPY_SOURCE_LIB
+        ${MICROPY_DIR}/shared/runtime/gchelper_thumb1.s
+    )
+elseif(PICO_RISCV)
+    list(APPEND MICROPY_SOURCE_LIB
+        ${MICROPY_DIR}/shared/runtime/gchelper_rv32i.s
+    )
+endif()
 
 set(MICROPY_SOURCE_DRIVERS
     ${MICROPY_DIR}/drivers/bus/softspi.c
@@ -176,6 +208,8 @@ set(MICROPY_SOURCE_DRIVERS
 )
 
 set(MICROPY_SOURCE_PORT
+    clocks_extra.c
+    datetime_patch.c
     fatfs_port.c
     help.c
     jpo_debugger.c
@@ -186,23 +220,21 @@ set(MICROPY_SOURCE_PORT
     machine_adc.c
     machine_bitstream.c
     machine_i2c.c
-    machine_i2s.c
     machine_pin.c
     machine_rtc.c
     machine_spi.c
     machine_timer.c
-    machine_uart.c
-    machine_wdt.c
     main.c
-    modmachine.c
     modjpohal.c
     modrp2.c
     mphalport.c
     mpnetworkport.c
     mpthreadport.c
+    mutex_extra.c
     pendsv.c
     rp2_flash.c
     rp2_pio.c
+    rp2_dma.c
     uart.c
     usbd.c
     msc_disk.c
@@ -215,6 +247,7 @@ set(MICROPY_SOURCE_QSTR
     ${MICROPY_DIR}/shared/readline/readline.c
     ${MICROPY_DIR}/shared/runtime/mpirq.c
     ${MICROPY_DIR}/shared/runtime/sys_stdio_mphal.c
+    ${MICROPY_DIR}/shared/tinyusb/mp_usbd_runtime.c
     ${MICROPY_PORT_DIR}/jpo_debugger.c
     ${MICROPY_PORT_DIR}/jpo_dbgr_breakpoints.c
     ${MICROPY_PORT_DIR}/jpo_dbgr_stackframes.c
@@ -222,26 +255,25 @@ set(MICROPY_SOURCE_QSTR
     ${MICROPY_PORT_DIR}/jpo_dbgr_util.c
     ${MICROPY_PORT_DIR}/machine_adc.c
     ${MICROPY_PORT_DIR}/machine_i2c.c
-    ${MICROPY_PORT_DIR}/machine_i2s.c
     ${MICROPY_PORT_DIR}/machine_pin.c
     ${MICROPY_PORT_DIR}/machine_rtc.c
     ${MICROPY_PORT_DIR}/machine_spi.c
     ${MICROPY_PORT_DIR}/machine_timer.c
     ${MICROPY_PORT_DIR}/machine_uart.c
     ${MICROPY_PORT_DIR}/machine_wdt.c
-    ${MICROPY_PORT_DIR}/modmachine.c
     ${MICROPY_PORT_DIR}/modjpohal.c
     ${MICROPY_PORT_DIR}/modrp2.c
     ${MICROPY_PORT_DIR}/modos.c
     ${MICROPY_PORT_DIR}/rp2_flash.c
     ${MICROPY_PORT_DIR}/rp2_pio.c
+    ${MICROPY_PORT_DIR}/rp2_dma.c
     ${CMAKE_BINARY_DIR}/pins_${MICROPY_BOARD}.c
 )
 
 set(PICO_SDK_COMPONENTS
-    cmsis_core
     hardware_adc
     hardware_base
+    hardware_boot_lock
     hardware_clocks
     hardware_dma
     hardware_flash
@@ -252,19 +284,26 @@ set(PICO_SDK_COMPONENTS
     hardware_pll
     hardware_pwm
     hardware_regs
-    hardware_rtc
+    hardware_resets
     hardware_spi
     hardware_structs
     hardware_sync
+    hardware_sync_spin_lock
     hardware_timer
     hardware_uart
     hardware_watchdog
     hardware_xosc
+    pico_aon_timer
     pico_base_headers
     pico_binary_info
     pico_bootrom
     pico_multicore
     pico_platform
+    pico_platform_compiler
+    pico_platform_panic
+    pico_platform_sections
+    pico_runtime
+    pico_runtime_init
     pico_stdio
     pico_stdlib
     pico_sync
@@ -276,6 +315,71 @@ set(PICO_SDK_COMPONENTS
     #tinyusb_common
     #tinyusb_device
 )
+
+if(PICO_ARM)
+    list(APPEND PICO_SDK_COMPONENTS
+        cmsis_core
+    )
+elseif(PICO_RISCV)
+    list(APPEND PICO_SDK_COMPONENTS
+        hardware_hazard3
+        hardware_riscv
+    )
+endif()
+
+# Use our custom pico_float_micropython float implementation.  This is needed for two reasons:
+# - to fix inf handling in pico-sdk's __wrap___aeabi_fadd();
+# - so we can use our own libm functions, to fix inaccuracies in the pico-sdk versions.
+pico_set_float_implementation(${MICROPY_TARGET} micropython)
+
+# Define our custom pico_float_micropython component.
+pico_add_library(pico_float_micropython)
+
+# pico_float_micropython: add pico-sdk float and our libm source files.
+target_sources(pico_float_micropython INTERFACE
+    ${MICROPY_SOURCE_LIB_LIBM}
+    ${MICROPY_SOURCE_LIB_LIBM_SQRT_SW}
+    ${MICROPY_PORT_DIR}/libm_extra.c
+)
+
+if(PICO_RP2040)
+    target_sources(pico_float_micropython INTERFACE
+        ${PICO_SDK_PATH}/src/rp2_common/pico_float/float_aeabi_rp2040.S
+        ${PICO_SDK_PATH}/src/rp2_common/pico_float/float_init_rom_rp2040.c
+        ${PICO_SDK_PATH}/src/rp2_common/pico_float/float_v1_rom_shim_rp2040.S
+    )
+elseif(PICO_RP2350 AND PICO_ARM)
+    target_sources(pico_float_micropython INTERFACE
+        ${PICO_SDK_PATH}/src/rp2_common/pico_float/float_aeabi_dcp.S
+        ${PICO_SDK_PATH}/src/rp2_common/pico_float/float_conv_m33.S
+    )
+endif()
+
+# pico_float_micropython: wrap low-level floating-point ops, to call the pico-sdk versions.
+pico_wrap_function(pico_float_micropython __aeabi_fdiv)
+pico_wrap_function(pico_float_micropython __aeabi_fmul)
+pico_wrap_function(pico_float_micropython __aeabi_frsub)
+pico_wrap_function(pico_float_micropython __aeabi_fsub)
+pico_wrap_function(pico_float_micropython __aeabi_cfcmpeq)
+pico_wrap_function(pico_float_micropython __aeabi_cfrcmple)
+pico_wrap_function(pico_float_micropython __aeabi_cfcmple)
+pico_wrap_function(pico_float_micropython __aeabi_fcmpeq)
+pico_wrap_function(pico_float_micropython __aeabi_fcmplt)
+pico_wrap_function(pico_float_micropython __aeabi_fcmple)
+pico_wrap_function(pico_float_micropython __aeabi_fcmpge)
+pico_wrap_function(pico_float_micropython __aeabi_fcmpgt)
+pico_wrap_function(pico_float_micropython __aeabi_fcmpun)
+pico_wrap_function(pico_float_micropython __aeabi_i2f)
+pico_wrap_function(pico_float_micropython __aeabi_l2f)
+pico_wrap_function(pico_float_micropython __aeabi_ui2f)
+pico_wrap_function(pico_float_micropython __aeabi_ul2f)
+pico_wrap_function(pico_float_micropython __aeabi_f2iz)
+pico_wrap_function(pico_float_micropython __aeabi_f2lz)
+pico_wrap_function(pico_float_micropython __aeabi_f2uiz)
+if(PICO_RP2040)
+    pico_wrap_function(pico_float_micropython __aeabi_f2ulz)
+endif()
+pico_wrap_function(pico_float_micropython __aeabi_f2d)
 
 if (MICROPY_PY_LWIP)
     target_link_libraries(${MICROPY_TARGET} micropy_lib_lwip)
@@ -446,6 +550,7 @@ endif()
 list(APPEND MICROPY_SOURCE_QSTR
     ${MICROPY_SOURCE_EXTMOD}
     ${MICROPY_SOURCE_USERMOD}
+    ${MICROPY_SOURCE_BOARD}
 )
 
 # Define mpy-cross flags
@@ -464,6 +569,7 @@ target_sources(${MICROPY_TARGET} PRIVATE
     ${MICROPY_SOURCE_LIB}
     ${MICROPY_SOURCE_DRIVERS}
     ${MICROPY_SOURCE_PORT}
+    ${MICROPY_SOURCE_BOARD}
 )
 
 target_link_libraries(${MICROPY_TARGET} micropy_lib_mbedtls)
@@ -481,10 +587,28 @@ target_include_directories(${MICROPY_TARGET} PRIVATE
 target_compile_options(${MICROPY_TARGET} PRIVATE
     -Wall
     -Werror
+    -g  # always include debug information in the ELF
 )
 
 target_link_options(${MICROPY_TARGET} PRIVATE
     -Wl,--defsym=__micropy_c_heap_size__=${MICROPY_C_HEAP_SIZE}
+    -Wl,--wrap=dcd_event_handler
+    -Wl,--wrap=runtime_init_clocks
+)
+
+if(PICO_RP2350)
+    target_link_options(${MICROPY_TARGET} PRIVATE
+        -Wl,--defsym=__micropy_extra_stack__=4096
+    )
+endif()
+
+# Apply optimisations to performance-critical source code.
+set_source_files_properties(
+    ${MICROPY_PY_DIR}/map.c
+    ${MICROPY_PY_DIR}/mpz.c
+    ${MICROPY_PY_DIR}/vm.c
+    PROPERTIES
+    COMPILE_OPTIONS "-O2"
 )
 
 set_source_files_properties(
@@ -502,6 +626,7 @@ set_source_files_properties(
 )
 
 target_compile_definitions(${MICROPY_TARGET} PRIVATE
+    ${MICROPY_DEF_BOARD}
     FFCONF_H=\"${MICROPY_OOFATFS_DIR}/ffconf.h\"
     LFS1_NO_MALLOC LFS1_NO_DEBUG LFS1_NO_WARN LFS1_NO_ERROR LFS1_NO_ASSERT
     LFS2_NO_MALLOC LFS2_NO_DEBUG LFS2_NO_WARN LFS2_NO_ERROR LFS2_NO_ASSERT
@@ -509,12 +634,22 @@ target_compile_definitions(${MICROPY_TARGET} PRIVATE
     PICO_STACK_SIZE=0x3000 # 0x3000 = 12k
     PICO_CORE1_STACK_SIZE=0x1000 # 0x1000 = 4k
     PICO_USE_STACK_GUARDS=0
+    PICO_MAX_SHARED_IRQ_HANDLERS=8 # we need more than the default
     PICO_PROGRAM_NAME="MicroPython"
     PICO_NO_PROGRAM_VERSION_STRING=1 # do it ourselves in main.c
     MICROPY_BUILD_TYPE="${CMAKE_C_COMPILER_ID} ${CMAKE_C_COMPILER_VERSION} ${CMAKE_BUILD_TYPE}"
     PICO_NO_BI_STDIO_UART=1 # we call it UART REPL
-    PICO_RP2040_USB_DEVICE_ENUMERATION_FIX=1
 )
+
+if(PICO_RP2040)
+    target_compile_definitions(${MICROPY_TARGET} PRIVATE
+        PICO_RP2040_USB_DEVICE_ENUMERATION_FIX=1
+    )
+elseif(PICO_RP2350)
+    target_compile_definitions(${MICROPY_TARGET} PRIVATE
+        PICO_EMBED_XIP_SETUP=1 # to put flash into continuous read mode
+    )
+endif()
 
 # checks the argument in make, not cmake
 get_filename_component(BINARY_DIR_NAME ${CMAKE_CURRENT_BINARY_DIR} NAME)
@@ -547,11 +682,19 @@ endif()
 if (PICO_ON_DEVICE AND NOT PICO_NO_FLASH AND NOT PICO_COPY_TO_RAM)
     message(STATUS "Using linker script for '${MICROPY_TARGET}': ${CMAKE_CURRENT_LIST_DIR}/jpo_memmap_mp.ld")
     pico_set_linker_script(${MICROPY_TARGET} ${CMAKE_CURRENT_LIST_DIR}/jpo_memmap_mp.ld)
+    if(PICO_RP2040)
+        pico_set_linker_script(${MICROPY_TARGET} ${CMAKE_CURRENT_LIST_DIR}/memmap_mp_rp2040.ld)
+        message(STATUS "Using linker script for '${MICROPY_TARGET}': ${CMAKE_CURRENT_LIST_DIR}/memmap_mp_rp2040.ld")
+
+    elseif(PICO_RP2350)
+        pico_set_linker_script(${MICROPY_TARGET} ${CMAKE_CURRENT_LIST_DIR}/memmap_mp_rp2350.ld)
+        message(STATUS "Using linker script for '${MICROPY_TARGET}': ${CMAKE_CURRENT_LIST_DIR}/memmap_mp_rp2350.ld")
+    endif()
 endif()
 
 pico_add_extra_outputs(${MICROPY_TARGET})
 
-pico_find_compiler(PICO_COMPILER_SIZE ${PICO_GCC_TRIPLE}-size)
+pico_find_compiler_with_triples(PICO_COMPILER_SIZE "${PICO_GCC_TRIPLE}" size)
 
 add_custom_command(TARGET ${MICROPY_TARGET}
     POST_BUILD
@@ -565,22 +708,29 @@ foreach(comp ${PICO_SDK_COMPONENTS})
     micropy_gather_target_properties(${comp}_headers)
 endforeach()
 
+set(MICROPY_CPP_FLAGS_EXTRA ${PICO_COMMON_LANG_FLAGS})
+separate_arguments(MICROPY_CPP_FLAGS_EXTRA)
+
 # Include the main MicroPython cmake rules.
 include(${MICROPY_DIR}/py/mkrules.cmake)
 
-set(MICROPY_BOARDS_DIR "${MICROPY_PORT_DIR}/boards")
-set(GEN_PINS_AF_CSV "${MICROPY_BOARDS_DIR}/rp2_af.csv")
-set(GEN_PINS_PREFIX "${MICROPY_BOARDS_DIR}/rp2_prefix.c")
-set(GEN_PINS_MKPINS "${MICROPY_BOARDS_DIR}/make-pins.py")
+set(GEN_PINS_AF_CSV "${MICROPY_PORT_DIR}/boards/rp2_af.csv")
+set(GEN_PINS_PREFIX "${MICROPY_PORT_DIR}/boards/rp2_prefix.c")
+set(GEN_PINS_MKPINS "${MICROPY_PORT_DIR}/boards/make-pins.py")
 set(GEN_PINS_SRC "${CMAKE_BINARY_DIR}/pins_${MICROPY_BOARD}.c")
 set(GEN_PINS_HDR "${MICROPY_GENHDR_DIR}/pins.h")
-set(GEN_PINS_QSTR "${CMAKE_BINARY_DIR}/pins_qstr.h")
-set(GEN_PINS_AF_CONST "${MICROPY_GENHDR_DIR}/pins_af_const.h")
-set(GEN_PINS_AF_PY "${CMAKE_BINARY_DIR}/pins_af.py")
 
-if(EXISTS "${MICROPY_BOARDS_DIR}/${MICROPY_BOARD}/pins.csv")
-    set(GEN_PINS_BOARD_CSV "${MICROPY_BOARDS_DIR}/${MICROPY_BOARD}/pins.csv")
-    set(GEN_PINS_CSV_ARG --board "${GEN_PINS_BOARD_CSV}")
+if(NOT PICO_NUM_GPIOS)
+    set(PICO_NUM_GPIOS 30)
+endif()
+
+if(NOT PICO_NUM_EXT_GPIOS)
+    set(PICO_NUM_EXT_GPIOS 10)
+endif()
+
+if(EXISTS "${MICROPY_BOARD_DIR}/pins.csv")
+    set(GEN_PINS_BOARD_CSV "${MICROPY_BOARD_DIR}/pins.csv")
+    set(GEN_PINS_CSV_ARG --board-csv "${GEN_PINS_BOARD_CSV}")
 endif()
 
 target_sources(${MICROPY_TARGET} PRIVATE
@@ -589,9 +739,8 @@ target_sources(${MICROPY_TARGET} PRIVATE
 
 # Generate pins
 add_custom_command(
-    OUTPUT ${GEN_PINS_HDR} ${GEN_PINS_SRC} ${GEN_PINS_QSTR}
-    COMMAND ${Python3_EXECUTABLE} ${GEN_PINS_MKPINS} ${GEN_PINS_CSV_ARG} --af ${GEN_PINS_AF_CSV} --prefix ${GEN_PINS_PREFIX}
-    --hdr ${GEN_PINS_HDR} --qstr ${GEN_PINS_QSTR} --af-const ${GEN_PINS_AF_CONST} --af-py ${GEN_PINS_AF_PY} > ${GEN_PINS_SRC}
+    OUTPUT ${GEN_PINS_HDR} ${GEN_PINS_SRC}
+    COMMAND ${Python3_EXECUTABLE} ${GEN_PINS_MKPINS} ${GEN_PINS_CSV_ARG} --af-csv ${GEN_PINS_AF_CSV} --prefix ${GEN_PINS_PREFIX} --output-source ${GEN_PINS_SRC} --num-gpios ${PICO_NUM_GPIOS} --num-ext-gpios ${PICO_NUM_EXT_GPIOS} --output-header ${GEN_PINS_HDR}
     DEPENDS
         ${GEN_PINS_AF_CSV}
         ${GEN_PINS_BOARD_CSV}
