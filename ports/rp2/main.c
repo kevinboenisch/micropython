@@ -93,25 +93,6 @@ bi_decl(bi_program_feature_group_with_flags(BINARY_INFO_TAG_MICROPYTHON,
     BINARY_INFO_ID_MP_FROZEN, "frozen modules",
     BI_NAMED_GROUP_SEPARATE_COMMAS | BI_NAMED_GROUP_SORT_ALPHA));
 
-int main(int argc, char **argv) {
-    // This is a tickless port, interrupts should always trigger SEV.
-    #if PICO_ARM
-    SCB->SCR |= SCB_SCR_SEVONPEND_Msk;
-    #endif
-
-    pendsv_init();
-    soft_timer_init();
-
-    // Set the MCU frequency and as a side effect the peripheral clock to 48 MHz.
-    set_sys_clock_khz(SYS_CLK_KHZ, false);
-
-    // Hook for setting up anything that needs to be super early in the bootup process.
-    MICROPY_BOARD_STARTUP();
-
-    #if MICROPY_HW_ENABLE_UART_REPL
-    bi_decl(bi_program_feature("UART REPL"))
-    setup_default_uart();
-    mp_uart_init();
 #define BOOT_FLAG_REMOVE_MAIN_PY 0x1
 static bool _remove_user_scripts = false;
 
@@ -127,7 +108,22 @@ void check_watchdog_flags() {
     }
 }
 
-int main(int argc, char **argv) {   
+int main(int argc, char **argv) {
+    // This is a tickless port, interrupts should always trigger SEV.
+    #if PICO_ARM
+    SCB->SCR |= SCB_SCR_SEVONPEND_Msk;
+    #endif
+
+    pendsv_init();
+    soft_timer_init();
+
+    // Set the MCU frequency and as a side effect the peripheral clock to 48 MHz.
+    set_sys_clock_khz(SYS_CLK_KHZ, false);
+
+    // Hook for setting up anything that needs to be super early in the bootup process.
+    MICROPY_BOARD_STARTUP();
+
+
     #ifdef JPO_JCOMP
         // JCOMP i/o replaces any other; UART as well as USB
     #else
@@ -139,7 +135,7 @@ int main(int argc, char **argv) {
         #ifndef NDEBUG
         stdio_init_all();
         #endif
-        #endif
+    #endif
 
     #if MICROPY_HW_ENABLE_USBDEV && MICROPY_HW_USB_CDC
     bi_decl(bi_program_feature("USB REPL"))
@@ -164,16 +160,23 @@ int main(int argc, char **argv) {
     mp_hal_time_ns_set_from_rtc();
 
     // Initialise stack extents and GC heap.
-    mp_cstack_init_with_top(&__StackTop, &__StackTop - &__StackBottom);
-    mp_stack_set_top(&__StackTop);
     #ifdef JPO_JCOMP
-        // Using &__StackOneTop for safety, since &__StackBottom
-        // can overlap with core0 stack (with the default linker config)
-        // Add a safety margin for 128 bytes plus two JCOMP messages (a request and a response)
-        mp_stack_set_limit(&__StackTop - &__StackOneTop - (128 + 2*JCOMP_MSG_BUF_SIZE_MAX));
+        // Not sure if this is correct
+        mp_cstack_init_with_top(&__StackTop, 
+            &__StackTop - &__StackBottom - (128 + 2 * JCOMP_MSG_BUF_SIZE_MAX));
     #else
-        mp_stack_set_limit(&__StackTop - &__StackBottom - 256);    
+        mp_cstack_init_with_top(&__StackTop, &__StackTop - &__StackBottom);
     #endif
+
+    // Deprecated API
+    // mp_stack_set_top(&__StackTop);
+    // #ifdef JPO_JCOMP
+    //     // Using &__StackOneTop for safety, since &__StackBottom
+    //     // can overlap with core0 stack (with the default linker config)
+    //     // Add a safety margin for 128 bytes plus two JCOMP messages (a request and a response)
+    //     mp_stack_set_limit(&__StackTop - &__StackOneTop - (128 + 2*JCOMP_MSG_BUF_SIZE_MAX));
+    // #endif
+
     gc_init(&__GcHeapStart, &__GcHeapEnd);
 
     #ifdef JPO_JCOMP
