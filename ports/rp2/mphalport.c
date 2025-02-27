@@ -124,7 +124,8 @@ uintptr_t mp_hal_stdio_poll(uintptr_t poll_flags) {
     if (poll_flags & MP_STREAM_POLL_WR) {
         ret |= MP_STREAM_POLL_WR;
     }
-    
+    #endif
+
     #if MICROPY_HW_ENABLE_UART_REPL || MICROPY_HW_USB_CDC
         if ((poll_flags & MP_STREAM_POLL_RD) && ringbuf_peek(&stdin_ringbuf) != -1) {
             ret |= MP_STREAM_POLL_RD;
@@ -202,7 +203,7 @@ mp_uint_t mp_hal_stdout_tx_strn(const char *str, mp_uint_t len) {
         // How to handle errors properly?
         DBG_SEND("jcomp_stdout_send_bytes err:%d", rv);
     }    
-    return;
+    return len;
 
     #endif //JPO_JCOMP 
 
@@ -241,22 +242,26 @@ __attribute__((naked)) mp_uint_t mp_hal_ticks_cpu(void) {
 #endif
 
 void mp_hal_delay_us(mp_uint_t us) {
-    // Avoid calling sleep_us() and invoking the alarm pool by splitting long
-    // sleeps into an optional longer sleep and a shorter busy-wait
-    uint64_t end = time_us_64() + us;
-    if (us > 1000) {
-        mp_hal_delay_ms(us / 1000);
-void mp_hal_delay_ms(mp_uint_t ms) {
-    absolute_time_t t = make_timeout_time_ms(ms);
+
+#ifdef JPO_JCOMP
+    absolute_time_t t = make_timeout_time_us(us);
     // Bug fix: at least one keyboard poll, to allow Ctrl+C to interrupt
     JPO_CHECK_FOR_INTERRUPT;
     while (!time_reached(t)) {
         JPO_CHECK_FOR_INTERRUPT;
         best_effort_wfe_or_timeout(t);
     }
+#else
+    // Avoid calling sleep_us() and invoking the alarm pool by splitting long
+    // sleeps into an optional longer sleep and a shorter busy-wait
+    uint64_t end = time_us_64() + us;
+    if (us > 1000) {
+        mp_hal_delay_ms(us / 1000);
+    }
     while (time_us_64() < end) {
         // Tight loop busy-wait for accurate timing
     }
+#endif
 }
 
 void mp_hal_delay_ms(mp_uint_t ms) {
