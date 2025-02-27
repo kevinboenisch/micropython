@@ -14,7 +14,7 @@ if (NOT DEFINED ENV{JPO_PATH})
 endif()
 # Fix backslashes in Windows
 file(TO_CMAKE_PATH "$ENV{JPO_PATH}" JPO_PATH)
-message("JPO_PATH (from environment) is ${JPO_PATH}")
+message("---- JPO_PATH (from environment) is ${JPO_PATH}")
 
 # Set main target and component locations
 set(MICROPY_TARGET firmware)
@@ -24,6 +24,7 @@ if (PICO_SDK_PATH_OVERRIDE)
 else()
     set(PICO_SDK_PATH "${JPO_PATH}/sdk/pico-sdk")
 endif()
+message("---- PICO_SDK_PATH: ${PICO_SDK_PATH}")
 
 ### PIOASM and mingw32 fix
 if(WIN32 OR UNIX)
@@ -34,13 +35,13 @@ if(WIN32 OR UNIX)
 	else()
 		set(PIOASM_PATH "${JPO_PATH}/resources/bin/pioasm") # linux
 	endif()
-	message("----cmake:PIOASM_PATH: ${PIOASM_PATH}")
+	message("---- PIOASM_PATH: ${PIOASM_PATH}")
 
 	if(EXISTS "${PIOASM_PATH}" AND NOT IS_DIRECTORY "${PIOASM_PATH}")
 		add_executable(Pioasm IMPORTED)
 		set_property(TARGET Pioasm PROPERTY IMPORTED_LOCATION ${PIOASM_PATH})
 		set(Pioasm_FOUND 1)
-		message("----Added precompiled PIOASM")
+		message("---- Added precompiled PIOASM")
 	else()
 		message(FATAL_ERROR "Precompiled pioasm not found: ${PIOASM_PATH}")
 	endif()
@@ -271,6 +272,7 @@ set(MICROPY_SOURCE_QSTR
 )
 
 set(PICO_SDK_COMPONENTS
+    boot_bootrom_headers
     hardware_adc
     hardware_base
     hardware_boot_lock
@@ -297,6 +299,7 @@ set(PICO_SDK_COMPONENTS
     pico_base_headers
     pico_binary_info
     pico_bootrom
+    pico_flash
     pico_multicore
     pico_platform
     pico_platform_compiler
@@ -682,14 +685,14 @@ endif()
 if (PICO_ON_DEVICE AND NOT PICO_NO_FLASH AND NOT PICO_COPY_TO_RAM)
     message(STATUS "Using linker script for '${MICROPY_TARGET}': ${CMAKE_CURRENT_LIST_DIR}/jpo_memmap_mp.ld")
     pico_set_linker_script(${MICROPY_TARGET} ${CMAKE_CURRENT_LIST_DIR}/jpo_memmap_mp.ld)
-    if(PICO_RP2040)
-        pico_set_linker_script(${MICROPY_TARGET} ${CMAKE_CURRENT_LIST_DIR}/memmap_mp_rp2040.ld)
-        message(STATUS "Using linker script for '${MICROPY_TARGET}': ${CMAKE_CURRENT_LIST_DIR}/memmap_mp_rp2040.ld")
+    # if(PICO_RP2040)
+    #     pico_set_linker_script(${MICROPY_TARGET} ${CMAKE_CURRENT_LIST_DIR}/memmap_mp_rp2040.ld)
+    #     message(STATUS "Using linker script for '${MICROPY_TARGET}': ${CMAKE_CURRENT_LIST_DIR}/memmap_mp_rp2040.ld")
 
-    elseif(PICO_RP2350)
-        pico_set_linker_script(${MICROPY_TARGET} ${CMAKE_CURRENT_LIST_DIR}/memmap_mp_rp2350.ld)
-        message(STATUS "Using linker script for '${MICROPY_TARGET}': ${CMAKE_CURRENT_LIST_DIR}/memmap_mp_rp2350.ld")
-    endif()
+    # elseif(PICO_RP2350)
+    #     pico_set_linker_script(${MICROPY_TARGET} ${CMAKE_CURRENT_LIST_DIR}/memmap_mp_rp2350.ld)
+    #     message(STATUS "Using linker script for '${MICROPY_TARGET}': ${CMAKE_CURRENT_LIST_DIR}/memmap_mp_rp2350.ld")
+    # endif()
 endif()
 
 pico_add_extra_outputs(${MICROPY_TARGET})

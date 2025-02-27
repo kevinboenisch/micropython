@@ -69,12 +69,12 @@ mp_map_elem_t *mp_map_iter_next(const mp_map_t *map, size_t *cur) {
     assert(map->used == 0 || i == max);
     return NULL;
 }
-STATIC mp_map_elem_t *dict_iter_next(mp_obj_dict_t *dict, size_t *cur) {
+static mp_map_elem_t *dict_iter_next(mp_obj_dict_t *dict, size_t *cur) {
     return mp_map_iter_next(&dict->map, cur);
 }
 
 
-STATIC void dict_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t kind) {
+static void dict_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t kind) {
     mp_obj_dict_t *self = MP_OBJ_TO_PTR(self_in);
     bool first = true;
     const char *item_separator = ", ";

@@ -180,9 +180,9 @@ if(MICROPY_SSL_MBEDTLS)
         ${MICROPY_LIB_MBEDTLS_DIR}/library/asn1parse.c
         ${MICROPY_LIB_MBEDTLS_DIR}/library/asn1write.c
         ${MICROPY_LIB_MBEDTLS_DIR}/library/base64.c
-        ${MICROPY_LIB_MBEDTLS_DIR}/library/bignum_core.c
-        ${MICROPY_LIB_MBEDTLS_DIR}/library/bignum_mod.c
-        ${MICROPY_LIB_MBEDTLS_DIR}/library/bignum_mod_raw.c
+        # ${MICROPY_LIB_MBEDTLS_DIR}/library/bignum_core.c    # not in pico 2.1.1
+        # ${MICROPY_LIB_MBEDTLS_DIR}/library/bignum_mod.c     # not in pico 2.1.1
+        # ${MICROPY_LIB_MBEDTLS_DIR}/library/bignum_mod_raw.c # not in pico 2.1.1
         ${MICROPY_LIB_MBEDTLS_DIR}/library/bignum.c
         ${MICROPY_LIB_MBEDTLS_DIR}/library/camellia.c
         ${MICROPY_LIB_MBEDTLS_DIR}/library/ccm.c
@@ -224,17 +224,17 @@ if(MICROPY_SSL_MBEDTLS)
         ${MICROPY_LIB_MBEDTLS_DIR}/library/poly1305.c
         ${MICROPY_LIB_MBEDTLS_DIR}/library/ripemd160.c
         ${MICROPY_LIB_MBEDTLS_DIR}/library/rsa.c
-        ${MICROPY_LIB_MBEDTLS_DIR}/library/rsa_alt_helpers.c
+        # ${MICROPY_LIB_MBEDTLS_DIR}/library/rsa_alt_helpers.c  # not in pico 2.1.1
         ${MICROPY_LIB_MBEDTLS_DIR}/library/sha1.c
         ${MICROPY_LIB_MBEDTLS_DIR}/library/sha256.c
         ${MICROPY_LIB_MBEDTLS_DIR}/library/sha512.c
         ${MICROPY_LIB_MBEDTLS_DIR}/library/ssl_cache.c
         ${MICROPY_LIB_MBEDTLS_DIR}/library/ssl_ciphersuites.c
-        ${MICROPY_LIB_MBEDTLS_DIR}/library/ssl_tls12_client.c
-        ${MICROPY_LIB_MBEDTLS_DIR}/library/ssl_tls12_server.c
-        ${MICROPY_LIB_MBEDTLS_DIR}/library/ssl_client.c
+        # ${MICROPY_LIB_MBEDTLS_DIR}/library/ssl_tls12_client.c # not in pico 2.1.1
+        # ${MICROPY_LIB_MBEDTLS_DIR}/library/ssl_tls12_server.c # not in pico 2.1.1
+        # ${MICROPY_LIB_MBEDTLS_DIR}/library/ssl_client.c       # not in pico 2.1.1
         ${MICROPY_LIB_MBEDTLS_DIR}/library/ssl_cookie.c
-        ${MICROPY_LIB_MBEDTLS_DIR}/library/ssl_debug_helpers_generated.c
+        # ${MICROPY_LIB_MBEDTLS_DIR}/library/ssl_debug_helpers_generated.c # not in pico 2.1.1
         ${MICROPY_LIB_MBEDTLS_DIR}/library/ssl_msg.c
         ${MICROPY_LIB_MBEDTLS_DIR}/library/ssl_ticket.c
         ${MICROPY_LIB_MBEDTLS_DIR}/library/ssl_tls.c

@@ -20,22 +20,22 @@
 MP_DEFINE_EXCEPTION(JpoHalError, Exception)
 MP_DEFINE_EXCEPTION(IicError, JpoHalError)
 
-STATIC NORETURN void raise_JpoHalError() {
+static NORETURN void raise_JpoHalError() {
     mp_raise_msg(&mp_type_JpoHalError, NULL);
 }
 
-STATIC void check_byte_range(int value, const char *name) {
+static void check_byte_range(int value, const char *name) {
     if (value < 0 || value > 255) {
         mp_raise_msg_varg(&mp_type_ValueError,
             MP_ERROR_TEXT("%s out of range [0-255]"), name);
     }
 }
 
-STATIC bool _test_no_hw = false;
+static bool _test_no_hw = false;
 
 // Internal. Allow testing Python wrappers with no hardware device present. 
 // If set to True, wrappers will return dummy values or skip operations that might raise a JpoHalError
-STATIC mp_obj_t jpohal__set_test_no_hw(mp_obj_t enabled_obj) {
+static mp_obj_t jpohal__set_test_no_hw(mp_obj_t enabled_obj) {
     _test_no_hw = mp_obj_is_true(enabled_obj);
     return mp_const_none;
 }
@@ -94,7 +94,7 @@ int iic_port_to_id(mp_obj_t iic_port_obj) {
 }
 
 // iic_distance_init(iic_port) -> None
-STATIC mp_obj_t jpohal_iic_distance_init(mp_obj_t iic_port_obj) {
+static mp_obj_t jpohal_iic_distance_init(mp_obj_t iic_port_obj) {
     IIC iic = iic_port_to_id(iic_port_obj);
     
     if (_test_no_hw) { return mp_const_none; }
@@ -106,7 +106,7 @@ STATIC mp_obj_t jpohal_iic_distance_init(mp_obj_t iic_port_obj) {
 MP_DEFINE_CONST_FUN_OBJ_1(jpohal_iic_distance_init_obj, jpohal_iic_distance_init);
 
 // iic_distance_deinit(iic_port) -> None
-STATIC mp_obj_t jpohal_iic_distance_deinit(mp_obj_t iic_port_obj) {
+static mp_obj_t jpohal_iic_distance_deinit(mp_obj_t iic_port_obj) {
     IIC iic = iic_port_to_id(iic_port_obj);
 
     if (_test_no_hw) { return mp_const_none; }
@@ -118,7 +118,7 @@ STATIC mp_obj_t jpohal_iic_distance_deinit(mp_obj_t iic_port_obj) {
 MP_DEFINE_CONST_FUN_OBJ_1(jpohal_iic_distance_deinit_obj, jpohal_iic_distance_deinit);
 
 // iic_distance_read(iic_port) -> float in unknown units
-STATIC mp_obj_t jpohal_iic_distance_read(mp_obj_t iic_port_obj) {
+static mp_obj_t jpohal_iic_distance_read(mp_obj_t iic_port_obj) {
     MICROPY_EVENT_POLL_HOOK_FAST;
 
     IIC iic = iic_port_to_id(iic_port_obj);
@@ -133,7 +133,7 @@ STATIC mp_obj_t jpohal_iic_distance_read(mp_obj_t iic_port_obj) {
 MP_DEFINE_CONST_FUN_OBJ_1(jpohal_iic_distance_read_obj, jpohal_iic_distance_read);
 
 // iic_color_init(iic_port) -> None
-STATIC mp_obj_t jpohal_iic_color_init(mp_obj_t iic_port_obj) {
+static mp_obj_t jpohal_iic_color_init(mp_obj_t iic_port_obj) {
     IIC iic = iic_port_to_id(iic_port_obj);
 
     if (_test_no_hw) { return mp_const_none; }
@@ -145,7 +145,7 @@ STATIC mp_obj_t jpohal_iic_color_init(mp_obj_t iic_port_obj) {
 MP_DEFINE_CONST_FUN_OBJ_1(jpohal_iic_color_init_obj, jpohal_iic_color_init);
 
 // iic_color_deinit(iic_port) -> None
-STATIC mp_obj_t jpohal_iic_color_deinit(mp_obj_t iic_port_obj) {
+static mp_obj_t jpohal_iic_color_deinit(mp_obj_t iic_port_obj) {
     IIC iic = iic_port_to_id(iic_port_obj);
 
     if (_test_no_hw) { return mp_const_none; }
@@ -157,7 +157,7 @@ STATIC mp_obj_t jpohal_iic_color_deinit(mp_obj_t iic_port_obj) {
 MP_DEFINE_CONST_FUN_OBJ_1(jpohal_iic_color_deinit_obj, jpohal_iic_color_deinit);
 
 // iic_color_read(iic_port) -> tuple(clear: uint16, red: uint16, green: uint16, blue: uint16) 
-STATIC mp_obj_t jpohal_iic_color_read(mp_obj_t iic_port_obj) {
+static mp_obj_t jpohal_iic_color_read(mp_obj_t iic_port_obj) {
     MICROPY_EVENT_POLL_HOOK_FAST;
 
     IIC iic = iic_port_to_id(iic_port_obj);
@@ -185,7 +185,7 @@ STATIC mp_obj_t jpohal_iic_color_read(mp_obj_t iic_port_obj) {
 MP_DEFINE_CONST_FUN_OBJ_1(jpohal_iic_color_read_obj, jpohal_iic_color_read);
 
 // iic_color_set_led(IIC iic, setting: tuple(red: int [0-255], green, blue, white) ) -> None;
-STATIC mp_obj_t jpohal_iic_color_set_led(mp_obj_t iic_port_obj, mp_obj_t setting_tuple) {
+static mp_obj_t jpohal_iic_color_set_led(mp_obj_t iic_port_obj, mp_obj_t setting_tuple) {
     MICROPY_EVENT_POLL_HOOK_FAST;
 
     IIC iic = iic_port_to_id(iic_port_obj);
@@ -219,7 +219,7 @@ STATIC mp_obj_t jpohal_iic_color_set_led(mp_obj_t iic_port_obj, mp_obj_t setting
 MP_DEFINE_CONST_FUN_OBJ_2(jpohal_iic_color_set_led_obj, jpohal_iic_color_set_led);
 
 // bool iic_imu_init(IIC iic);
-STATIC mp_obj_t jpohal_iic_imu_init(mp_obj_t iic_port_obj) {
+static mp_obj_t jpohal_iic_imu_init(mp_obj_t iic_port_obj) {
     IIC iic = iic_port_to_id(iic_port_obj);
 
     if (_test_no_hw) { return mp_const_none; }
@@ -231,7 +231,7 @@ STATIC mp_obj_t jpohal_iic_imu_init(mp_obj_t iic_port_obj) {
 MP_DEFINE_CONST_FUN_OBJ_1(jpohal_iic_imu_init_obj, jpohal_iic_imu_init);
 
 // bool iic_imu_deinit(IIC iic);
-STATIC mp_obj_t jpohal_iic_imu_deinit(mp_obj_t iic_port_obj) {
+static mp_obj_t jpohal_iic_imu_deinit(mp_obj_t iic_port_obj) {
     IIC iic = iic_port_to_id(iic_port_obj);
 
     if (_test_no_hw) { return mp_const_none; }
@@ -243,7 +243,7 @@ STATIC mp_obj_t jpohal_iic_imu_deinit(mp_obj_t iic_port_obj) {
 MP_DEFINE_CONST_FUN_OBJ_1(jpohal_iic_imu_deinit_obj, jpohal_iic_imu_deinit);
 
 // bool iic_imu_poll_orientation(IIC iic, IIC_IMU_QUATERNION *reading);
-STATIC mp_obj_t jpohal_iic_imu_poll_orientation(mp_obj_t iic_port_obj) {
+static mp_obj_t jpohal_iic_imu_poll_orientation(mp_obj_t iic_port_obj) {
     MICROPY_EVENT_POLL_HOOK_FAST;
 
     IIC iic = iic_port_to_id(iic_port_obj);
@@ -271,7 +271,7 @@ STATIC mp_obj_t jpohal_iic_imu_poll_orientation(mp_obj_t iic_port_obj) {
 MP_DEFINE_CONST_FUN_OBJ_1(jpohal_iic_imu_poll_orientation_obj, jpohal_iic_imu_poll_orientation);
 
 // bool iic_imu_poll_acceleration(IIC iic, IIC_IMU_ACCELERATION *reading);
-STATIC mp_obj_t jpohal_iic_imu_poll_acceleration(mp_obj_t iic_port_obj) {
+static mp_obj_t jpohal_iic_imu_poll_acceleration(mp_obj_t iic_port_obj) {
     MICROPY_EVENT_POLL_HOOK_FAST;
 
     IIC iic = iic_port_to_id(iic_port_obj);
@@ -320,7 +320,7 @@ int io_port_to_id_adc(mp_obj_t io_port_obj) {
 }
 
 //void io_deinit(IO io);
-STATIC mp_obj_t jpohal_io_deinit(mp_obj_t io_port_obj) {
+static mp_obj_t jpohal_io_deinit(mp_obj_t io_port_obj) {
     IO io = io_port_to_id(io_port_obj);
     io_deinit(io);
     return mp_const_none;
@@ -328,7 +328,7 @@ STATIC mp_obj_t jpohal_io_deinit(mp_obj_t io_port_obj) {
 MP_DEFINE_CONST_FUN_OBJ_1(jpohal_io_deinit_obj, jpohal_io_deinit);
 
 //void io_output_init(IO io);
-STATIC mp_obj_t jpohal_io_output_init(mp_obj_t io_port_obj) {
+static mp_obj_t jpohal_io_output_init(mp_obj_t io_port_obj) {
     IO io = io_port_to_id(io_port_obj);
     io_output_init(io);
     return mp_const_none;
@@ -336,7 +336,7 @@ STATIC mp_obj_t jpohal_io_output_init(mp_obj_t io_port_obj) {
 MP_DEFINE_CONST_FUN_OBJ_1(jpohal_io_output_init_obj, jpohal_io_output_init);
 
 //void io_output_set(IO io, bool is_on);
-STATIC mp_obj_t jpohal_io_output_set(mp_obj_t io_port_obj, mp_obj_t is_on_obj) {
+static mp_obj_t jpohal_io_output_set(mp_obj_t io_port_obj, mp_obj_t is_on_obj) {
     MICROPY_EVENT_POLL_HOOK_FAST;
 
     IO io = io_port_to_id(io_port_obj);
@@ -347,7 +347,7 @@ STATIC mp_obj_t jpohal_io_output_set(mp_obj_t io_port_obj, mp_obj_t is_on_obj) {
 MP_DEFINE_CONST_FUN_OBJ_2(jpohal_io_output_set_obj, jpohal_io_output_set);
 
 //void io_button_init(IO io);
-STATIC mp_obj_t jpohal_io_button_init(mp_obj_t io_port_obj) {
+static mp_obj_t jpohal_io_button_init(mp_obj_t io_port_obj) {
     IO io = io_port_to_id(io_port_obj);
     io_button_init(io);
     return mp_const_none;
@@ -355,7 +355,7 @@ STATIC mp_obj_t jpohal_io_button_init(mp_obj_t io_port_obj) {
 MP_DEFINE_CONST_FUN_OBJ_1(jpohal_io_button_init_obj, jpohal_io_button_init);
 
 //bool io_button_is_pressed(IO io);
-STATIC mp_obj_t jpohal_io_button_is_pressed(mp_obj_t io_port_obj) {
+static mp_obj_t jpohal_io_button_is_pressed(mp_obj_t io_port_obj) {
     MICROPY_EVENT_POLL_HOOK_FAST;
 
     IO io = io_port_to_id(io_port_obj);
@@ -369,7 +369,7 @@ static inline bool is_adc_io(IO io) {
     return io >= IO4;
 }
 //void io_potentiometer_init(IO io);
-STATIC mp_obj_t jpohal_io_potentiometer_init(mp_obj_t io_port_obj) {
+static mp_obj_t jpohal_io_potentiometer_init(mp_obj_t io_port_obj) {
     IO io = io_port_to_id_adc(io_port_obj);
     io_potentiometer_init(io);
     return mp_const_none;
@@ -377,7 +377,7 @@ STATIC mp_obj_t jpohal_io_potentiometer_init(mp_obj_t io_port_obj) {
 MP_DEFINE_CONST_FUN_OBJ_1(jpohal_io_potentiometer_init_obj, jpohal_io_potentiometer_init);
 
 //float io_potentiometer_read(IO io);
-STATIC mp_obj_t jpohal_io_potentiometer_read(mp_obj_t io_port_obj) {
+static mp_obj_t jpohal_io_potentiometer_read(mp_obj_t io_port_obj) {
     MICROPY_EVENT_POLL_HOOK_FAST;
 
     IO io = io_port_to_id(io_port_obj);
@@ -387,7 +387,7 @@ STATIC mp_obj_t jpohal_io_potentiometer_read(mp_obj_t io_port_obj) {
 MP_DEFINE_CONST_FUN_OBJ_1(jpohal_io_potentiometer_read_obj, jpohal_io_potentiometer_read);
 
 //bool io_encoder_init_quadrature(IO lower_pin);
-STATIC mp_obj_t jpohal_io_encoder_init_quadrature(mp_obj_t io_lower_port_obj) {
+static mp_obj_t jpohal_io_encoder_init_quadrature(mp_obj_t io_lower_port_obj) {
     IO io = io_port_to_id(io_lower_port_obj);
     if (io == IO_MAX) { // reversed, descending order
         mp_raise_ValueError(MP_ERROR_TEXT("lower port cannot be IO12"));
@@ -400,7 +400,7 @@ STATIC mp_obj_t jpohal_io_encoder_init_quadrature(mp_obj_t io_lower_port_obj) {
 MP_DEFINE_CONST_FUN_OBJ_1(jpohal_io_encoder_init_quadrature_obj, jpohal_io_encoder_init_quadrature);
 
 //int32_t io_encoder_read(IO io);
-STATIC mp_obj_t jpohal_io_encoder_read(mp_obj_t io_port_obj) {
+static mp_obj_t jpohal_io_encoder_read(mp_obj_t io_port_obj) {
     MICROPY_EVENT_POLL_HOOK_FAST;
 
     IO io = io_port_to_id(io_port_obj);
@@ -425,7 +425,7 @@ Motor motor_port_to_id(mp_obj_t motor_port_obj) {
 
 // motor_set(motor_port, float percent) -> None
 // Port is in the [1-10] range.
-STATIC mp_obj_t jpohal_motor_set(mp_obj_t port_obj, mp_obj_t percent_obj) {
+static mp_obj_t jpohal_motor_set(mp_obj_t port_obj, mp_obj_t percent_obj) {
     MICROPY_EVENT_POLL_HOOK_FAST;
 
     Motor motor = motor_port_to_id(port_obj);
@@ -446,7 +446,7 @@ MP_DEFINE_CONST_FUN_OBJ_2(jpohal_motor_set_obj, jpohal_motor_set);
 // oled_access_buffer() -> bytearray
 // Buffer format is an internal implementation detail (e.g [0] is special).
 // Exposing to allow Python graphics code to manipulate the buffer directly.
-STATIC mp_obj_t jpohal_oled_access_buffer(void) {
+static mp_obj_t jpohal_oled_access_buffer(void) {
     // bytes is immutable, bytearray can be changed
     mp_obj_t ba = mp_obj_new_bytearray_by_ref(oled_buffer_size(), oled_access_buffer());
     return ba;
@@ -454,7 +454,7 @@ STATIC mp_obj_t jpohal_oled_access_buffer(void) {
 MP_DEFINE_CONST_FUN_OBJ_0(jpohal_oled_access_buffer_obj, jpohal_oled_access_buffer);
 
 // oled_set_pixel(x, y, is_on) -> None
-STATIC mp_obj_t jpohal_oled_set_pixel(mp_obj_t x_obj, mp_obj_t y_obj, mp_obj_t is_on_obj) {
+static mp_obj_t jpohal_oled_set_pixel(mp_obj_t x_obj, mp_obj_t y_obj, mp_obj_t is_on_obj) {
     size_t x = mp_obj_get_int(x_obj);
     size_t y = mp_obj_get_int(y_obj);
     bool is_on = mp_obj_is_true(is_on_obj);
@@ -468,7 +468,7 @@ STATIC mp_obj_t jpohal_oled_set_pixel(mp_obj_t x_obj, mp_obj_t y_obj, mp_obj_t i
 MP_DEFINE_CONST_FUN_OBJ_3(jpohal_oled_set_pixel_obj, jpohal_oled_set_pixel);
 
 // oled_clear_row(row); -> None
-STATIC mp_obj_t jpohal_oled_clear_row(mp_obj_t row_obj) {
+static mp_obj_t jpohal_oled_clear_row(mp_obj_t row_obj) {
     OLED_ROW row = mp_obj_get_int(row_obj);
     if (row < ROW_0 || row > ROW_7) {
         mp_raise_ValueError(MP_ERROR_TEXT("row out of range [0-7]"));
@@ -478,7 +478,7 @@ STATIC mp_obj_t jpohal_oled_clear_row(mp_obj_t row_obj) {
 }
 MP_DEFINE_CONST_FUN_OBJ_1(jpohal_oled_clear_row_obj, jpohal_oled_clear_row);
 
-STATIC mp_obj_t jpohal_oled_clear() {
+static mp_obj_t jpohal_oled_clear() {
     oled_clear();
     return mp_const_none;
 }
@@ -488,7 +488,7 @@ MP_DEFINE_CONST_FUN_OBJ_0(jpohal_oled_clear_obj, jpohal_oled_clear);
 
 // oled_printf(row, col, str) -> None
 // no need to pass a list of args here, fix them up in Python
-STATIC mp_obj_t jpohal_oled_printf(mp_obj_t row_obj, mp_obj_t col_obj, mp_obj_t str_obj) {
+static mp_obj_t jpohal_oled_printf(mp_obj_t row_obj, mp_obj_t col_obj, mp_obj_t str_obj) {
     OLED_ROW row = mp_obj_get_int(row_obj);
     OLED_COL col = mp_obj_get_int(col_obj);
     if (row < ROW_0 || row > ROW_7) {
@@ -506,7 +506,7 @@ MP_DEFINE_CONST_FUN_OBJ_3(jpohal_oled_printf_obj, jpohal_oled_printf);
 
 // printf with scrolling
 // no need to pass a list of args here, fix them up in Python
-STATIC mp_obj_t jpohal_oled_printf_line(mp_obj_t str_obj) {
+static mp_obj_t jpohal_oled_printf_line(mp_obj_t str_obj) {
     const char *str = mp_obj_str_get_str(str_obj);
 
     oled_printf_line(str);
@@ -516,7 +516,7 @@ MP_DEFINE_CONST_FUN_OBJ_1(jpohal_oled_printf_line_obj, jpohal_oled_printf_line);
 
 // oled_render() -> False on error, True on success
 // don't want to raise an exception, since it's unclear what went wrong
-STATIC mp_obj_t jpohal_oled_render(void) {
+static mp_obj_t jpohal_oled_render(void) {
     MICROPY_EVENT_POLL_HOOK_FAST;
     
     bool rv = oled_render();
@@ -528,7 +528,7 @@ MP_DEFINE_CONST_FUN_OBJ_0(jpohal_oled_render_obj, jpohal_oled_render);
 
 
 // bool joystick_init(bool continuous_reporting);
-STATIC mp_obj_t jpohal_joystick_init(mp_obj_t continuous_reporting_obj) {
+static mp_obj_t jpohal_joystick_init(mp_obj_t continuous_reporting_obj) {
     bool continuous_reporting = mp_obj_is_true(continuous_reporting_obj);
     //DBG_OLED("Py cr:%d", continuous_reporting);
 
@@ -541,7 +541,7 @@ STATIC mp_obj_t jpohal_joystick_init(mp_obj_t continuous_reporting_obj) {
 MP_DEFINE_CONST_FUN_OBJ_1(jpohal_joystick_init_obj, jpohal_joystick_init);
 
 // void joystick_deinit();
-STATIC mp_obj_t jpohal_joystick_deinit() {
+static mp_obj_t jpohal_joystick_deinit() {
     if (_test_no_hw) { return mp_const_none; }
 
     joystick_deinit();
@@ -551,7 +551,7 @@ MP_DEFINE_CONST_FUN_OBJ_0(jpohal_joystick_deinit_obj, jpohal_joystick_deinit);
 
 
 // Returns the tuple of buttons/axes, e.g. ((True, True, False), (-1.0, 0, 1.0, 0.73))
-STATIC mp_obj_t jpohal_joystick_get_state(void) {
+static mp_obj_t jpohal_joystick_get_state(void) {
     MICROPY_EVENT_POLL_HOOK_FAST;
 
     // Works, but there's a fair bit of memory allocation: 3 tuples, floats...
@@ -589,7 +589,7 @@ MP_DEFINE_CONST_FUN_OBJ_0(jpohal_joystick_get_state_obj, jpohal_joystick_get_sta
 
 
 // === Members table ===
-STATIC const mp_rom_map_elem_t mp_module_jpohal_globals_table[] = {
+static const mp_rom_map_elem_t mp_module_jpohal_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_jpohal) },
 
     { MP_ROM_QSTR(MP_QSTR_brain_get_buttons), MP_ROM_PTR(&jpohal_brain_get_buttons_obj) },
@@ -636,7 +636,7 @@ STATIC const mp_rom_map_elem_t mp_module_jpohal_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_joystick_deinit), MP_ROM_PTR(&jpohal_joystick_deinit_obj) },
     { MP_ROM_QSTR(MP_QSTR_joystick_get_state), MP_ROM_PTR(&jpohal_joystick_get_state_obj) },
 };
-STATIC MP_DEFINE_CONST_DICT(mp_module_jpohal_globals, mp_module_jpohal_globals_table);
+static MP_DEFINE_CONST_DICT(mp_module_jpohal_globals, mp_module_jpohal_globals_table);
 
 // === Module definition ===
 const mp_obj_module_t mp_module_jpohal = {

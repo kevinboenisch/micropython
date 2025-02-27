@@ -153,7 +153,7 @@ void scope_check_to_close_over(scope_t *scope, id_info_t *id) {
 
 
 #if JPO_LOCAL_VAR_NAMES
-STATIC byte mp_decode_byte(const byte** ptr) {
+static byte mp_decode_byte(const byte** ptr) {
     return *((*ptr)++);
 }
 

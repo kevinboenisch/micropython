@@ -76,7 +76,6 @@
 #ifndef MICROPY_HW_ENABLE_USB_RUNTIME_DEVICE
 #define MICROPY_HW_ENABLE_USB_RUNTIME_DEVICE    (1) // Support machine.USBDevice
 #endif
-#endif
 
 #if JPO_DBGR_BUILD
 #define MICROPY_PY_SYS_SETTRACE         (1)

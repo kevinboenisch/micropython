@@ -118,7 +118,7 @@ static void emit_write_code_info_qstr(emit_t *emit, qstr qst) {
 
 #if JPO_LOCAL_VAR_NAMES
 // Must be in sync with mp_decode_id_info
-STATIC void emit_write_code_info_id_info(emit_t *emit, id_info_t *id_info) {
+static void emit_write_code_info_id_info(emit_t *emit, id_info_t *id_info) {
     emit_write_code_info_byte(emit, id_info->kind);
     emit_write_code_info_byte(emit, id_info->flags);
     mp_encode_uint(emit, emit_get_cur_to_write_code_info, id_info->local_num);
