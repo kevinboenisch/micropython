@@ -302,7 +302,7 @@ static void loop_while_stopped(mp_obj_frame_t* top_frame, mp_obj_t exception) {
             }
         }
         // Spin-wait
-        MICROPY_EVENT_POLL_HOOK_FAST;
+        JPO_CHECK_FOR_INTERRUPT;
     }
 }
 

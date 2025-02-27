@@ -322,20 +322,14 @@ extern const struct _mp_obj_type_t mod_network_nic_type_wiznet5k;
 #define MICROPY_MAKE_POINTER_CALLABLE(p) ((void *)((mp_uint_t)(p) | 1))
 #endif
 
-#define MICROPY_EVENT_POLL_HOOK_FAST \
+// TODO: check if we need extra items
+#define JPO_CHECK_FOR_INTERRUPT \
     do { \
-        if (get_core_num() == 0) { MICROPY_HW_USBDEV_TASK_HOOK } \
         extern void mp_check_stdin_for_interrupt_char(); \
+        extern void mp_event_wait_ms(mp_uint_t timeout_ms); \
         mp_check_stdin_for_interrupt_char(); \
-        extern void mp_handle_pending(bool); \
-        mp_handle_pending(true); \
+        mp_event_wait_ms(0); \
     } while (0)
-
-#define MICROPY_EVENT_POLL_HOOK \
-    do { \
-        MICROPY_EVENT_POLL_HOOK_FAST; \
-        best_effort_wfe_or_timeout(make_timeout_time_ms(1)); \
-    } while (0);
 
 #define MICROPY_MAKE_POINTER_CALLABLE(p) ((void *)((mp_uint_t)(p) | 1))
 

@@ -49,7 +49,7 @@ MP_DEFINE_CONST_FUN_OBJ_1(jpohal__set_test_no_hw_obj, jpohal__set_test_no_hw);
 // === brain.h
 // brain_get_buttons() -> int (flags: NONE=0, up=1, down=2, cancel=3, enter=4)
 mp_obj_t jpohal_brain_get_buttons(void) {
-    MICROPY_EVENT_POLL_HOOK_FAST;
+    JPO_CHECK_FOR_INTERRUPT;
 
     BRAIN_BTN buttons = 0;
     bool rv = brain_get_buttons(&buttons);
@@ -119,7 +119,7 @@ MP_DEFINE_CONST_FUN_OBJ_1(jpohal_iic_distance_deinit_obj, jpohal_iic_distance_de
 
 // iic_distance_read(iic_port) -> float in unknown units
 static mp_obj_t jpohal_iic_distance_read(mp_obj_t iic_port_obj) {
-    MICROPY_EVENT_POLL_HOOK_FAST;
+    JPO_CHECK_FOR_INTERRUPT;
 
     IIC iic = iic_port_to_id(iic_port_obj);
 
@@ -158,7 +158,7 @@ MP_DEFINE_CONST_FUN_OBJ_1(jpohal_iic_color_deinit_obj, jpohal_iic_color_deinit);
 
 // iic_color_read(iic_port) -> tuple(clear: uint16, red: uint16, green: uint16, blue: uint16) 
 static mp_obj_t jpohal_iic_color_read(mp_obj_t iic_port_obj) {
-    MICROPY_EVENT_POLL_HOOK_FAST;
+    JPO_CHECK_FOR_INTERRUPT;
 
     IIC iic = iic_port_to_id(iic_port_obj);
 
@@ -186,7 +186,7 @@ MP_DEFINE_CONST_FUN_OBJ_1(jpohal_iic_color_read_obj, jpohal_iic_color_read);
 
 // iic_color_set_led(IIC iic, setting: tuple(red: int [0-255], green, blue, white) ) -> None;
 static mp_obj_t jpohal_iic_color_set_led(mp_obj_t iic_port_obj, mp_obj_t setting_tuple) {
-    MICROPY_EVENT_POLL_HOOK_FAST;
+    JPO_CHECK_FOR_INTERRUPT;
 
     IIC iic = iic_port_to_id(iic_port_obj);
 
@@ -244,7 +244,7 @@ MP_DEFINE_CONST_FUN_OBJ_1(jpohal_iic_imu_deinit_obj, jpohal_iic_imu_deinit);
 
 // bool iic_imu_poll_orientation(IIC iic, IIC_IMU_QUATERNION *reading);
 static mp_obj_t jpohal_iic_imu_poll_orientation(mp_obj_t iic_port_obj) {
-    MICROPY_EVENT_POLL_HOOK_FAST;
+    JPO_CHECK_FOR_INTERRUPT;
 
     IIC iic = iic_port_to_id(iic_port_obj);
 
@@ -272,7 +272,7 @@ MP_DEFINE_CONST_FUN_OBJ_1(jpohal_iic_imu_poll_orientation_obj, jpohal_iic_imu_po
 
 // bool iic_imu_poll_acceleration(IIC iic, IIC_IMU_ACCELERATION *reading);
 static mp_obj_t jpohal_iic_imu_poll_acceleration(mp_obj_t iic_port_obj) {
-    MICROPY_EVENT_POLL_HOOK_FAST;
+    JPO_CHECK_FOR_INTERRUPT;
 
     IIC iic = iic_port_to_id(iic_port_obj);
 
@@ -337,7 +337,7 @@ MP_DEFINE_CONST_FUN_OBJ_1(jpohal_io_output_init_obj, jpohal_io_output_init);
 
 //void io_output_set(IO io, bool is_on);
 static mp_obj_t jpohal_io_output_set(mp_obj_t io_port_obj, mp_obj_t is_on_obj) {
-    MICROPY_EVENT_POLL_HOOK_FAST;
+    JPO_CHECK_FOR_INTERRUPT;
 
     IO io = io_port_to_id(io_port_obj);
     bool is_on = mp_obj_is_true(is_on_obj);
@@ -356,7 +356,7 @@ MP_DEFINE_CONST_FUN_OBJ_1(jpohal_io_button_init_obj, jpohal_io_button_init);
 
 //bool io_button_is_pressed(IO io);
 static mp_obj_t jpohal_io_button_is_pressed(mp_obj_t io_port_obj) {
-    MICROPY_EVENT_POLL_HOOK_FAST;
+    JPO_CHECK_FOR_INTERRUPT;
 
     IO io = io_port_to_id(io_port_obj);
     bool rv = io_button_is_pressed(io);
@@ -378,7 +378,7 @@ MP_DEFINE_CONST_FUN_OBJ_1(jpohal_io_potentiometer_init_obj, jpohal_io_potentiome
 
 //float io_potentiometer_read(IO io);
 static mp_obj_t jpohal_io_potentiometer_read(mp_obj_t io_port_obj) {
-    MICROPY_EVENT_POLL_HOOK_FAST;
+    JPO_CHECK_FOR_INTERRUPT;
 
     IO io = io_port_to_id(io_port_obj);
     float rv = io_potentiometer_read(io);
@@ -401,7 +401,7 @@ MP_DEFINE_CONST_FUN_OBJ_1(jpohal_io_encoder_init_quadrature_obj, jpohal_io_encod
 
 //int32_t io_encoder_read(IO io);
 static mp_obj_t jpohal_io_encoder_read(mp_obj_t io_port_obj) {
-    MICROPY_EVENT_POLL_HOOK_FAST;
+    JPO_CHECK_FOR_INTERRUPT;
 
     IO io = io_port_to_id(io_port_obj);
     int32_t rv = io_encoder_read(io);
@@ -426,7 +426,7 @@ Motor motor_port_to_id(mp_obj_t motor_port_obj) {
 // motor_set(motor_port, float percent) -> None
 // Port is in the [1-10] range.
 static mp_obj_t jpohal_motor_set(mp_obj_t port_obj, mp_obj_t percent_obj) {
-    MICROPY_EVENT_POLL_HOOK_FAST;
+    JPO_CHECK_FOR_INTERRUPT;
 
     Motor motor = motor_port_to_id(port_obj);
 
@@ -517,7 +517,7 @@ MP_DEFINE_CONST_FUN_OBJ_1(jpohal_oled_printf_line_obj, jpohal_oled_printf_line);
 // oled_render() -> False on error, True on success
 // don't want to raise an exception, since it's unclear what went wrong
 static mp_obj_t jpohal_oled_render(void) {
-    MICROPY_EVENT_POLL_HOOK_FAST;
+    JPO_CHECK_FOR_INTERRUPT;
     
     bool rv = oled_render();
     return mp_obj_new_bool(rv);
@@ -552,7 +552,7 @@ MP_DEFINE_CONST_FUN_OBJ_0(jpohal_joystick_deinit_obj, jpohal_joystick_deinit);
 
 // Returns the tuple of buttons/axes, e.g. ((True, True, False), (-1.0, 0, 1.0, 0.73))
 static mp_obj_t jpohal_joystick_get_state(void) {
-    MICROPY_EVENT_POLL_HOOK_FAST;
+    JPO_CHECK_FOR_INTERRUPT;
 
     // Works, but there's a fair bit of memory allocation: 3 tuples, floats...
     JOYSTICK_STATE state = {0};

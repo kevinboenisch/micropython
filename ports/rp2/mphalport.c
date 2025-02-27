@@ -153,7 +153,7 @@ int mp_hal_stdin_rx_chr(void) {
     for (;;) {
         int ch = jcomp_getchar();
 
-        // Maybe redundant, since the check is done in MICROPY_EVENT_POLL_HOOK
+        // Maybe redundant, since the check is done in JPO_CHECK_FOR_INTERRUPT,
         // but since chars arrive on core1, better be safe and check again. 
         if (process_interrupt_char(ch)) {
             return -2;
@@ -163,7 +163,7 @@ int mp_hal_stdin_rx_chr(void) {
             return ch;
         }
 
-        MICROPY_EVENT_POLL_HOOK
+        JPO_CHECK_FOR_INTERRUPT;
     }
     return -1;
     #endif //JPO_JCOMP
@@ -195,7 +195,7 @@ mp_uint_t mp_hal_stdout_tx_strn(const char *str, mp_uint_t len) {
     //DBG_SEND(":%d:", len); // find JCOMP stdout inefficiencies
 
     // Bug fix: at least one keyboard poll, to allow Ctrl+C to interrupt
-    MICROPY_EVENT_POLL_HOOK_FAST;
+    JPO_CHECK_FOR_INTERRUPT;
 
     JCOMP_RV rv = jcomp_stdout_send_bytes((uint8_t*)str, len);
     if (rv) {
@@ -249,9 +249,9 @@ void mp_hal_delay_us(mp_uint_t us) {
 void mp_hal_delay_ms(mp_uint_t ms) {
     absolute_time_t t = make_timeout_time_ms(ms);
     // Bug fix: at least one keyboard poll, to allow Ctrl+C to interrupt
-    MICROPY_EVENT_POLL_HOOK_FAST;
+    JPO_CHECK_FOR_INTERRUPT;
     while (!time_reached(t)) {
-        MICROPY_EVENT_POLL_HOOK_FAST;
+        JPO_CHECK_FOR_INTERRUPT;
         best_effort_wfe_or_timeout(t);
     }
     while (time_us_64() < end) {
