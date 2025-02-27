@@ -49,7 +49,7 @@ endif()
 
 
 # Use the local tinyusb instead of the one in pico-sdk
-set(PICO_TINYUSB_PATH ${MICROPY_DIR}/lib/tinyusb)
+set(PICO_TINYUSB_PATH ${PICO_SDK_PATH}/lib/tinyusb)
 # Use the local lwip instead of the one in pico-sdk
 set(PICO_LWIP_PATH ${MICROPY_DIR}/lib/lwip)
 # Use the local btstack instead of the one in pico-sdk
