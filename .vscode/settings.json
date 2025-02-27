@@ -40,7 +40,9 @@
         "sstream": "c",
         "streambuf": "c",
         "cmath": "c",
-        "modtime.h": "c"
+        "modtime.h": "c",
+        "mphal.h": "c",
+        "stdint.h": "c"
     },
     "workbench.colorCustomizations": {
         "titleBar.activeBackground": "#292e33",

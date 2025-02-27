@@ -25,6 +25,8 @@
  * THE SOFTWARE.
  */
 
+#include <stdio.h>
+#include <string.h>
 #include <assert.h>
 
 #include "py/emitglue.h"

@@ -218,7 +218,6 @@ set(MICROPY_SOURCE_PORT
     jpo_dbgr_stackframes.c
     jpo_dbgr_variables.c
     jpo_dbgr_util.c
-    machine_adc.c
     machine_bitstream.c
     machine_i2c.c
     machine_pin.c
