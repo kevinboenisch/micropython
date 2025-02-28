@@ -61,7 +61,8 @@
 static uint64_t time_us_64_offset_from_epoch;
 #endif
 
-#if MICROPY_HW_ENABLE_UART_REPL || MICROPY_HW_USB_CDC
+// JPO: making the build pass by always including this
+//#if MICROPY_HW_ENABLE_UART_REPL || MICROPY_HW_USB_CDC
 
 #ifndef MICROPY_HW_STDIN_BUFFER_LEN
 #define MICROPY_HW_STDIN_BUFFER_LEN 512

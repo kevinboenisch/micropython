@@ -187,10 +187,10 @@ set(MICROPY_SOURCE_LIB
     ${MICROPY_DIR}/shared/tinyusb/mp_usbd_cdc.c
     ${MICROPY_DIR}/shared/tinyusb/mp_usbd_runtime.c
 
-    # JPO: commenting out removing to avoid multiple definition of 
-    # tud_descriptor_device_cb, which is also in:
+    # JPO: edited to avoid multiple definition conflicts.
+    # some of this code is also in:
     # pico-sdk\src\rp2_common\pico_stdio_usb\stdio_usb_descriptor.c
-    #${MICROPY_DIR}/shared/tinyusb/mp_usbd_descriptor.c
+    ${MICROPY_DIR}/shared/tinyusb/mp_usbd_descriptor.c
 )
 
 if(PICO_ARM)

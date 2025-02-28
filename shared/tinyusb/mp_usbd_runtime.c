@@ -105,24 +105,24 @@ static void *usbd_get_buffer_in_cb(mp_obj_t obj, mp_uint_t flags) {
     }
 }
 
-const uint8_t *tud_descriptor_device_cb(void) {
-    mp_obj_usb_device_t *usbd = MP_OBJ_TO_PTR(MP_STATE_VM(usbd));
-    const void *result = NULL;
-    if (usbd) {
-        result = usbd_get_buffer_in_cb(usbd->desc_dev, MP_BUFFER_READ);
-    }
-    return result ? result : &mp_usbd_builtin_desc_dev;
-}
+// const uint8_t *tud_descriptor_device_cb(void) {
+//     mp_obj_usb_device_t *usbd = MP_OBJ_TO_PTR(MP_STATE_VM(usbd));
+//     const void *result = NULL;
+//     if (usbd) {
+//         result = usbd_get_buffer_in_cb(usbd->desc_dev, MP_BUFFER_READ);
+//     }
+//     return result ? result : &mp_usbd_builtin_desc_dev;
+// }
 
-const uint8_t *tud_descriptor_configuration_cb(uint8_t index) {
-    (void)index;
-    mp_obj_usb_device_t *usbd = MP_OBJ_TO_PTR(MP_STATE_VM(usbd));
-    const void *result = NULL;
-    if (usbd) {
-        result = usbd_get_buffer_in_cb(usbd->desc_cfg, MP_BUFFER_READ);
-    }
-    return result ? result : &mp_usbd_builtin_desc_cfg;
-}
+// const uint8_t *tud_descriptor_configuration_cb(uint8_t index) {
+//     (void)index;
+//     mp_obj_usb_device_t *usbd = MP_OBJ_TO_PTR(MP_STATE_VM(usbd));
+//     const void *result = NULL;
+//     if (usbd) {
+//         result = usbd_get_buffer_in_cb(usbd->desc_cfg, MP_BUFFER_READ);
+//     }
+//     return result ? result : &mp_usbd_builtin_desc_cfg;
+// }
 
 const char *mp_usbd_runtime_string_cb(uint8_t index) {
     mp_obj_usb_device_t *usbd = MP_OBJ_TO_PTR(MP_STATE_VM(usbd));
