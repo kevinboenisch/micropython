@@ -108,7 +108,20 @@ void check_watchdog_flags() {
     }
 }
 
+// DEBUG
+extern bool dbg_hal_init();
+#include "jpo/hal/oled.h"
+
 int main(int argc, char **argv) {
+    // DEBUG
+    dbg_hal_init();
+    DBG_OLED("dbg 3 jcin");
+
+    while(true) {
+        sleep_ms(1000);
+    }
+    return 0;
+
     // This is a tickless port, interrupts should always trigger SEV.
     #if PICO_ARM
     SCB->SCR |= SCB_SCR_SEVONPEND_Msk;
@@ -191,7 +204,7 @@ int main(int argc, char **argv) {
     // TODO: change once radio is fixed
     //hal_init_no_radio();
     hal_init();
-    //DBG_OLED("hal_init done");
+    DBG_OLED("hal_init done");
 
     check_watchdog_flags();
 
