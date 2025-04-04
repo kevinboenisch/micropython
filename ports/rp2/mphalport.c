@@ -71,8 +71,6 @@ static uint64_t time_us_64_offset_from_epoch;
 static uint8_t stdin_ringbuf_array[MICROPY_HW_STDIN_BUFFER_LEN];
 ringbuf_t stdin_ringbuf = { stdin_ringbuf_array, sizeof(stdin_ringbuf_array) };
 
-#endif
-
 bool process_interrupt_char(int ch) {
     if (ch != -1 && ch == mp_interrupt_char) {
         // Clear the buffer, other chars should not arrive after ctrl+c
