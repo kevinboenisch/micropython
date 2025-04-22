@@ -108,14 +108,7 @@ void check_watchdog_flags() {
     }
 }
 
-// DEBUG
-#include "jpo/hal/oled.h"
-
 int main(int argc, char **argv) {
-    // DEBUG
-    hal_init();
-    DBG_OLED("main");
-
     // This is a tickless port, interrupts should always trigger SEV.
     #if PICO_ARM
     SCB->SCR |= SCB_SCR_SEVONPEND_Msk;
@@ -195,8 +188,6 @@ int main(int argc, char **argv) {
     jcomp_set_env_type("MPYT-FAST:" MICROPY_BANNER_NAME_AND_VERSION ":" VERSION_TIMESTAMP);
     #endif
 
-    // TODO: change once radio is fixed
-    //hal_init_no_radio();
     hal_init();
     DBG_OLED("hal_init done");
 
