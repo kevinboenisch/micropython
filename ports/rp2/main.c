@@ -116,15 +116,6 @@ int main(int argc, char **argv) {
     hal_init();
     DBG_OLED("main");
 
-    int i = 0;
-    while(true) {
-        DBG_OLED("loop %d", i++);
-        sleep_ms(3000);
-    }
-    return 0;
-}
-
-int rest_of_main(int argc, char **argv) {
     // This is a tickless port, interrupts should always trigger SEV.
     #if PICO_ARM
     SCB->SCR |= SCB_SCR_SEVONPEND_Msk;
