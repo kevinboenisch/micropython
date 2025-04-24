@@ -309,21 +309,31 @@ int main(int argc, char **argv) {
         #if MICROPY_PY_NETWORK
         mod_network_deinit();
         #endif
+
         machine_i2s_deinit_all();
         rp2_dma_deinit();
         rp2_pio_deinit();
+
         #if MICROPY_PY_BLUETOOTH
         mp_bluetooth_deinit();
         #endif
+
         machine_pwm_deinit_all();
         machine_pin_deinit();
+
+        #if MICROPY_PY_MACHINE_UART
         machine_uart_deinit_all();
+        #endif
+
         #if MICROPY_PY_THREAD
         mp_thread_deinit();
         #endif
+
         soft_timer_deinit();
+
         #if MICROPY_HW_ENABLE_USB_RUNTIME_DEVICE
         mp_usbd_deinit();
+
         #endif
 
         // Hook for resetting anything right at the end of a soft reset command.
@@ -331,10 +341,12 @@ int main(int argc, char **argv) {
 
         gc_sweep_all();
         mp_deinit();
+
         #if MICROPY_HW_ENABLE_UART_REPL
         setup_default_uart();
         mp_uart_init();
         #endif
+
     }
 
     return 0;

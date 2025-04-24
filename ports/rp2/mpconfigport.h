@@ -48,6 +48,7 @@
 #ifndef MICROPY_HW_ENABLE_UART_REPL
 #define MICROPY_HW_ENABLE_UART_REPL             (0) // useful if there is no USB
 #endif
+
 #ifndef MICROPY_HW_ENABLE_USBDEV
 #define MICROPY_HW_ENABLE_USBDEV                (1)
 #endif
@@ -59,7 +60,11 @@
 // Output to test the debugger
 #define JPO_DBGR_TEST
 
-#define JPO_MOD_JPOHAL 1
+// UART to radio module (RS485) in use
+#define JPO_RADIO_UART (1)
+
+// JPO HAL module (Python HAL/brain API)
+#define JPO_MOD_JPOHAL (1)
 
 // Debug build is enabled
 // There are two separate Micropython builds: fast (non-debug) and debug.
@@ -68,6 +73,7 @@
 #ifndef JPO_DBGR_BUILD
 #define JPO_DBGR_BUILD (1)
 #endif
+
 // Enable USB Mass Storage with FatFS filesystem.
 #ifndef MICROPY_HW_USB_MSC
 #define MICROPY_HW_USB_MSC (0)
@@ -98,11 +104,11 @@
     #define MICROPY__HW_USB_CDC (0)
 #else
     #if MICROPY_HW_ENABLE_USBDEV
-    // Enable USB-CDC serial port
-    #ifndef MICROPY_HW_USB_CDC
-    #define MICROPY_HW_USB_CDC (1)
+        // Enable USB-CDC serial port
+        #ifndef MICROPY_HW_USB_CDC
+        #define MICROPY_HW_USB_CDC (1)
+        #endif
     #endif
-    #endif //JPO_JCOMP
 
     // Enable USB Mass Storage with FatFS filesystem.
     #ifndef MICROPY_HW_USB_MSC
@@ -201,7 +207,15 @@
 #define MICROPY_PY_MACHINE_SPI_MSB              (SPI_MSB_FIRST)
 #define MICROPY_PY_MACHINE_SPI_LSB              (SPI_LSB_FIRST)
 #define MICROPY_PY_MACHINE_SOFTSPI              (1)
-#define MICROPY_PY_MACHINE_UART                 (1)
+
+#if JPO_RADIO_UART
+    // UART RS-485 used for radio-module comms, disable in mpy API
+    #define MICROPY_PY_MACHINE_UART             (0)
+#else
+    #define MICROPY_PY_MACHINE_UART             (1)
+#endif
+
+
 #define MICROPY_PY_MACHINE_UART_INCLUDEFILE     "ports/rp2/machine_uart.c"
 #define MICROPY_PY_MACHINE_UART_SENDBREAK       (1)
 #define MICROPY_PY_MACHINE_UART_IRQ             (1)
