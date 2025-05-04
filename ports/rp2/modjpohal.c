@@ -132,6 +132,76 @@ static mp_obj_t jpohal_iic_distance_read(mp_obj_t iic_port_obj) {
 }
 MP_DEFINE_CONST_FUN_OBJ_1(jpohal_iic_distance_read_obj, jpohal_iic_distance_read);
 
+// iic_absoluteenc_init(iic_port) -> None
+static mp_obj_t jpohal_iic_absoluteenc_init(mp_obj_t iic_port_obj) {
+    IIC iic = iic_port_to_id(iic_port_obj);
+    
+    if (_test_no_hw) { return mp_const_none; }
+
+    bool rv = iic_absoluteenc_init(iic);
+    if (!rv) { raise_IicError(); }
+    return mp_const_none;
+}
+MP_DEFINE_CONST_FUN_OBJ_1(jpohal_iic_absoluteenc_init_obj, jpohal_iic_absoluteenc_init);
+
+// iic_absoluteenc_deinit(iic_port) -> None
+static mp_obj_t jpohal_iic_absoluteenc_deinit(mp_obj_t iic_port_obj) {
+    IIC iic = iic_port_to_id(iic_port_obj);
+
+    if (_test_no_hw) { return mp_const_none; }
+
+    bool rv = iic_absoluteenc_deinit(iic);
+    if (!rv) { raise_IicError(); }
+    return mp_const_none;
+}
+MP_DEFINE_CONST_FUN_OBJ_1(jpohal_iic_absoluteenc_deinit_obj, jpohal_iic_absoluteenc_deinit);
+
+// iic_absoluteenc_poll_raw(iic_port, is_continous) -> int
+static mp_obj_t jpohal_iic_absoluteenc_poll_raw(mp_obj_t iic_port_obj, mp_obj_t is_continous_obj) {
+    JPO_CHECK_FOR_INTERRUPT;
+
+    IIC iic = iic_port_to_id(iic_port_obj);
+    bool is_continuous = mp_obj_is_true(is_continous_obj);
+
+    if (_test_no_hw) { return mp_obj_new_int(is_continuous ? 123 : 456); }
+
+    if (is_continuous) {
+        int32_t reading = 0;
+        bool rv = iic_absoluteenc_poll_raw_continuous(iic, &reading);
+        if (!rv) { raise_IicError(); }
+        return mp_obj_new_int(reading);
+    }
+
+    uint16_t reading = 0;
+    bool rv = iic_absoluteenc_poll_raw(iic, &reading);
+    if (!rv) { raise_IicError(); }
+    return mp_obj_new_int(reading);
+}
+MP_DEFINE_CONST_FUN_OBJ_2(jpohal_iic_absoluteenc_poll_raw_obj, jpohal_iic_absoluteenc_poll_raw);
+
+// iic_absoluteenc_poll_angle(iic_port, is_continous) -> float
+static mp_obj_t jpohal_iic_absoluteenc_poll_angle(mp_obj_t iic_port_obj, mp_obj_t is_continous_obj) {
+    JPO_CHECK_FOR_INTERRUPT;
+
+    IIC iic = iic_port_to_id(iic_port_obj);
+    bool is_continuous = mp_obj_is_true(is_continous_obj);
+
+    if (_test_no_hw) { return mp_obj_new_int(is_continuous ? 123.4 : 456.7); }
+
+    if (is_continuous) {
+        float reading = 0;
+        bool rv = iic_absoluteenc_poll_angle_continuous(iic, &reading);
+        if (!rv) { raise_IicError(); }
+        return mp_obj_new_float(reading);
+    }
+
+    float reading = 0;
+    bool rv = iic_absoluteenc_poll_angle(iic, &reading);
+    if (!rv) { raise_IicError(); }
+    return mp_obj_new_float(reading);
+}
+MP_DEFINE_CONST_FUN_OBJ_2(jpohal_iic_absoluteenc_poll_angle_obj, jpohal_iic_absoluteenc_poll_angle);
+
 // iic_color_init(iic_port) -> None
 static mp_obj_t jpohal_iic_color_init(mp_obj_t iic_port_obj) {
     IIC iic = iic_port_to_id(iic_port_obj);
@@ -386,28 +456,28 @@ static mp_obj_t jpohal_io_potentiometer_read(mp_obj_t io_port_obj) {
 }
 MP_DEFINE_CONST_FUN_OBJ_1(jpohal_io_potentiometer_read_obj, jpohal_io_potentiometer_read);
 
-//bool io_encoder_init_quadrature(IO lower_pin);
-static mp_obj_t jpohal_io_encoder_init_quadrature(mp_obj_t io_lower_port_obj) {
+//bool io_motorquadenc_init(IO lower_pin);
+static mp_obj_t jpohal_io_motorquadenc_init(mp_obj_t io_lower_port_obj) {
     IO io = io_port_to_id(io_lower_port_obj);
     if (io == IO_MAX) { // reversed, descending order
         mp_raise_ValueError(MP_ERROR_TEXT("lower port cannot be IO12"));
     }
 
-    bool rv = io_encoder_init_quadrature(io);
+    bool rv = io_motorquadenc_init(io);
     if (!rv) { raise_JpoHalError(); }
     return mp_const_none;
 }
-MP_DEFINE_CONST_FUN_OBJ_1(jpohal_io_encoder_init_quadrature_obj, jpohal_io_encoder_init_quadrature);
+MP_DEFINE_CONST_FUN_OBJ_1(jpohal_io_motorquadenc_init_obj, jpohal_io_motorquadenc_init);
 
-//int32_t io_encoder_read(IO io);
-static mp_obj_t jpohal_io_encoder_read(mp_obj_t io_port_obj) {
+//int32_t io_motorquadenc_read(IO io);
+static mp_obj_t jpohal_io_motorquadenc_read(mp_obj_t io_port_obj) {
     JPO_CHECK_FOR_INTERRUPT;
 
     IO io = io_port_to_id(io_port_obj);
-    int32_t rv = io_encoder_read(io);
+    int32_t rv = io_motorquadenc_read(io);
     return mp_obj_new_int(rv);
 }
-MP_DEFINE_CONST_FUN_OBJ_1(jpohal_io_encoder_read_obj, jpohal_io_encoder_read);
+MP_DEFINE_CONST_FUN_OBJ_1(jpohal_io_motorquadenc_read_obj, jpohal_io_motorquadenc_read);
 
 // TODO: io_output_init
 // TODO: io_output_set
@@ -612,6 +682,11 @@ static const mp_rom_map_elem_t mp_module_jpohal_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_iic_distance_deinit), MP_ROM_PTR(&jpohal_iic_distance_deinit_obj) },
     { MP_ROM_QSTR(MP_QSTR_iic_distance_read), MP_ROM_PTR(&jpohal_iic_distance_read_obj) },
 
+    { MP_ROM_QSTR(MP_QSTR_iic_absoluteenc_init), MP_ROM_PTR(&jpohal_iic_absoluteenc_init_obj) },
+    { MP_ROM_QSTR(MP_QSTR_iic_absoluteenc_deinit), MP_ROM_PTR(&jpohal_iic_absoluteenc_deinit_obj) },
+    { MP_ROM_QSTR(MP_QSTR_iic_absoluteenc_poll_raw), MP_ROM_PTR(&jpohal_iic_absoluteenc_poll_raw_obj) },
+    { MP_ROM_QSTR(MP_QSTR_iic_absoluteenc_poll_angle), MP_ROM_PTR(&jpohal_iic_absoluteenc_poll_angle_obj) },
+
     { MP_ROM_QSTR(MP_QSTR_io_deinit), MP_ROM_PTR(&jpohal_io_deinit_obj) },
     { MP_ROM_QSTR(MP_QSTR_io_output_init), MP_ROM_PTR(&jpohal_io_output_init_obj) },
     { MP_ROM_QSTR(MP_QSTR_io_output_set), MP_ROM_PTR(&jpohal_io_output_set_obj) },
@@ -619,8 +694,8 @@ static const mp_rom_map_elem_t mp_module_jpohal_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_io_button_is_pressed), MP_ROM_PTR(&jpohal_io_button_is_pressed_obj) },
     { MP_ROM_QSTR(MP_QSTR_io_potentiometer_init), MP_ROM_PTR(&jpohal_io_potentiometer_init_obj) },
     { MP_ROM_QSTR(MP_QSTR_io_potentiometer_read), MP_ROM_PTR(&jpohal_io_potentiometer_read_obj) },
-    { MP_ROM_QSTR(MP_QSTR_io_encoder_init_quadrature), MP_ROM_PTR(&jpohal_io_encoder_init_quadrature_obj) },
-    { MP_ROM_QSTR(MP_QSTR_io_encoder_read), MP_ROM_PTR(&jpohal_io_encoder_read_obj) },
+    { MP_ROM_QSTR(MP_QSTR_io_motorquadenc_init), MP_ROM_PTR(&jpohal_io_motorquadenc_init_obj) },
+    { MP_ROM_QSTR(MP_QSTR_io_motorquadenc_read), MP_ROM_PTR(&jpohal_io_motorquadenc_read_obj) },
 
     { MP_ROM_QSTR(MP_QSTR_motor_set), MP_ROM_PTR(&jpohal_motor_set_obj) },
 

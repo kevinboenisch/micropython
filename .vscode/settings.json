@@ -48,5 +48,6 @@
     "workbench.colorCustomizations": {
         "titleBar.activeBackground": "#292e33",
         "activityBar.background": "#292e33"
-    }
+    },
+    "git.enabled": false
 }
