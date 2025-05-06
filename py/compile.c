@@ -3416,7 +3416,7 @@ static void scope_compute_things(scope_t *scope) {
         // params always count for 1 local, even if they are a cell
         if (id->kind == ID_INFO_KIND_LOCAL || (id->flags & ID_FLAG_IS_PARAM)) {
             id->local_num = scope->num_locals++;
-            //DBG_SEND("id KIND_LOCAL: '%s' local_num:%d", qstr_str(id->qst), id->local_num);
+            //DBG_SEND(T_NONE, "id KIND_LOCAL: '%s' local_num:%d", qstr_str(id->qst), id->local_num);
         }
     }
 

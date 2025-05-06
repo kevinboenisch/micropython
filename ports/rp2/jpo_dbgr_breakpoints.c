@@ -6,10 +6,8 @@
 
 #if JPO_DBGR_BUILD
 
-// Disable debugging
-#undef DBG_SEND
-#define DBG_SEND(...)
-
+// Disable debugging.
+#define T_DBGR NULL // "dbgr"
 
 #define CMD_LENGTH 8
 #define MAX_BREAKPOINTS 100
@@ -48,7 +46,7 @@ static int find_set_idx(int start) {
 static void dbg_send_breakpoints() {
     int i = 0;
     (void)(i); // suppress warning
-    DBG_SEND("[%d] 0:%d/%d 1:%d/%d 2:%d/%d 3:%d:%d 4:%d/%d 5:%d/%d 6:%d/%d 7:%d/%d 8:%d/%d 9:%d/%d", i,
+    DBG_SEND(T_DBGR, "[%d] 0:%d/%d 1:%d/%d 2:%d/%d 3:%d:%d 4:%d/%d 5:%d/%d 6:%d/%d 7:%d/%d 8:%d/%d 9:%d/%d", i,
         FILE(breakpoints, i+0), LINE(breakpoints, i+0),
         FILE(breakpoints, i+1), LINE(breakpoints, i+1),
         FILE(breakpoints, i+2), LINE(breakpoints, i+2),
@@ -63,7 +61,7 @@ static void dbg_send_breakpoints() {
 
 /// @brief Compact the breakpoints array, putting all empty items at the bottom
 static void bkpt_compact() {
-    DBG_SEND("bkpt_compact()");
+    DBG_SEND(T_DBGR, "bkpt_compact()");
     dbg_send_breakpoints();
 
     int cur_idx = 0;
@@ -77,7 +75,7 @@ static void bkpt_compact() {
             // No more set items
             break;
         }
-        //DBG_SEND("bkpt_compact() cur_idx:%d free_idx:%d next_set_idx:%d", cur_idx, free_idx, next_set_idx);
+        //DBG_SEND(T_DBGR, "bkpt_compact() cur_idx:%d free_idx:%d next_set_idx:%d", cur_idx, free_idx, next_set_idx);
         // move set item to free spot
         FILE(breakpoints, free_idx) = FILE(breakpoints, next_set_idx);
         LINE(breakpoints, free_idx) = LINE(breakpoints, next_set_idx);
@@ -93,7 +91,7 @@ static void bkpt_compact() {
 }
 
 void bkpt_clear(qstr file) {
-    DBG_SEND("bkpt_clear() file:%d '%s'", file, qstr_str(file));
+    DBG_SEND(T_DBGR, "bkpt_clear() file:%d '%s'", file, qstr_str(file));
 
     for(int bp_idx = 0; bp_idx < MAX_BREAKPOINTS; bp_idx++) {
         if (FILE(breakpoints, bp_idx) == file) {
@@ -108,13 +106,13 @@ bool bkpt_is_set(qstr file, int line_num) {
     for(int bp_idx = 0; bp_idx < MAX_BREAKPOINTS; bp_idx++) {
         if (FILE(breakpoints, bp_idx) == 0) {
             // Reached the end
-            //DBG_SEND("bkpt_is_set() %d '%s' line:%d not found", file, qstr_str(file), line_num);
+            //DBG_SEND(T_DBGR, "bkpt_is_set() %d '%s' line:%d not found", file, qstr_str(file), line_num);
             return false;
         }
         if (FILE(breakpoints, bp_idx) == file
             && LINE(breakpoints, bp_idx) == line_num) {
             // Found it
-            //DBG_SEND("bkpt_is_set() %d '%s' line:%d FOUND", file, qstr_str(file), line_num);
+            //DBG_SEND(T_DBGR, "bkpt_is_set() %d '%s' line:%d FOUND", file, qstr_str(file), line_num);
             return true;
         }
     }
@@ -122,13 +120,15 @@ bool bkpt_is_set(qstr file, int line_num) {
 }
 
 bool bkpt_set(qstr file, int line_num) {    
-    DBG_SEND("bkpt_set() file:%d '%s' line:%d", file, qstr_str(file), line_num);
+    DBG_SEND(T_DBGR, "bkpt_set() file:%d '%s' line:%d", file, qstr_str(file), line_num);
 
     for(int bp_idx = 0; bp_idx < MAX_BREAKPOINTS; bp_idx++) {
         if (FILE(breakpoints, bp_idx) == 0) {
             // Free spot
             // Is it safe to cast qstr to uint16_t?
-            if (file != (uint16_t)file) { DBG_SEND("Warning: bkpt_set() file qstr:%d doesn't fit in uint16_t", file); }
+            if (file != (uint16_t)file) {
+                DBG_SEND(T_WARN, "bkpt_set() file qstr:%d doesn't fit in uint16_t", file); 
+            }
 
             FILE(breakpoints, bp_idx) = (uint16_t)file;
             LINE(breakpoints, bp_idx) = (uint16_t)line_num;
@@ -136,14 +136,14 @@ bool bkpt_set(qstr file, int line_num) {
         }
     }
     // No free spot
-    DBG_SEND("Warning: bkpt_set() no free spot for file:%d '%s' line:%d", qstr_str(file), line_num);
+    DBG_SEND(T_WARN, "bkpt_set() no free spot for file:%d '%s' line:%d", qstr_str(file), line_num);
     return false;
 }
 
 void bkpt_set_from_msg(JCOMP_MSG msg) {
     int delim_pos = jcomp_msg_find_byte(msg, CMD_LENGTH, (uint8_t)'\0');
     if (delim_pos == -1) {
-        DBG_SEND("Error: bkpt no '\\0' found");
+        DBG_SEND(T_ERROR, "bkpt no '\\0' found");
         return;
     }
 
@@ -153,7 +153,7 @@ void bkpt_set_from_msg(JCOMP_MSG msg) {
     jcomp_msg_get_str(msg, CMD_LENGTH, file, file_len + 1);
     qstr file_qstr = qstr_find_strn(file, file_len);
     if (file_qstr == 0) {
-        DBG_SEND("Warning: file '%s' not found as qstr, ignoring.", file);
+        DBG_SEND(T_WARN, "file '%s' not found as qstr, ignoring.", file);
         return;
     }
 

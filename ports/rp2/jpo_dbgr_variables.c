@@ -18,8 +18,7 @@
 #if JPO_DBGR_BUILD
 
 // Disable debugging
-// #undef DBG_SEND
-// #define DBG_SEND(...)
+#define T_DBGR NULL // "dbgr"
 
 #define VARS_PAYLOAD_SIZE JCOMP_MAX_PAYLOAD_SIZE
 #define MAX_NAME_LENGTH   32
@@ -83,7 +82,7 @@ static void localnames_init(localnames_t* localnames, const mp_code_state_t* cod
         || code_state->fun_bc == NULL 
         || code_state->fun_bc->rc == NULL
         || code_state->fun_bc->context == NULL) {
-        DBG_SEND("Error: localnames_init(): code_state, fun_bc, rc or context is NULL");
+        DBG_SEND(T_ERROR, "localnames_init(): code_state, fun_bc, rc or context is NULL");
         return;
     }
 
@@ -220,7 +219,7 @@ static void varinfo_set_address(varinfo_t* varinfo, mp_obj_t obj) {
 }
 static void iter_init_object(vars_iter_t* iter, mp_obj_t obj) {
     if (obj == NULL) {
-        DBG_SEND("Error: iter_init_object(): object address is NULL");
+        DBG_SEND(T_ERROR, "iter_init_object(): object address is NULL");
         return;
     }
 
@@ -284,7 +283,7 @@ static void iter_init_object(vars_iter_t* iter, mp_obj_t obj) {
         iter->obj_names_are_indexes = true;
     }
     else {
-        DBG_SEND("Error: iter_init_from_obj(): unknown type:%s", mp_obj_get_type_str(obj));
+        DBG_SEND(T_ERROR, "iter_init_from_obj(): unknown type:%s", mp_obj_get_type_str(obj));
     }
 }
 static void iter_init_modules(vars_iter_t* iter, var_scope_type_t scope_type) {
@@ -293,17 +292,17 @@ static void iter_init_modules(vars_iter_t* iter, var_scope_type_t scope_type) {
             iter->map = &mp_builtin_module_map;
             break;
         case VSCOPE_MODULES_EXT:
-            DBG_SEND("setting mp_builtin_extensible_module_map alloc:%d", mp_builtin_extensible_module_map.alloc);
+            DBG_SEND(T_DBGR, "setting mp_builtin_extensible_module_map alloc:%d", mp_builtin_extensible_module_map.alloc);
             iter->map = &mp_builtin_extensible_module_map;
             break;
         case VSCOPE_MODULES_FROZEN:
         #if MICROPY_MODULE_FROZEN
-            DBG_SEND("setting iter->next_frozen_module_name %s", &mp_frozen_names);
+            DBG_SEND(T_DBGR, "setting iter->next_frozen_module_name %s", &mp_frozen_names);
             iter->next_frozen_module_name = mp_frozen_names;
         #endif
             break;
         default:
-            //DBG_SEND("Error: iter_init_modules(): unknown scope_type:%d", scope_type);
+            //DBG_SEND(T_ERROR, "iter_init_modules(): unknown scope_type:%d", scope_type);
             break;
 
     }
@@ -349,7 +348,7 @@ static void iter_init_frame(vars_iter_t* iter, const vars_request_t* args, const
     iter->obj_names_are_indexes = true;
 }
 static void iter_init(vars_iter_t* iter, const vars_request_t* args, const mp_obj_frame_t* top_frame) {
-    DBG_SEND("iter_init");
+    DBG_SEND(T_DBGR, "iter_init");
 
     iter_clear(iter);
 
@@ -372,14 +371,14 @@ static void iter_init(vars_iter_t* iter, const vars_request_t* args, const mp_ob
         iter_init_modules(iter, args->scope_type);
     }
     else {
-        DBG_SEND("Error: iter_start(): unknown scope_type:%d", args->scope_type);
+        DBG_SEND(T_ERROR, "iter_start(): unknown scope_type:%d", args->scope_type);
         return;
     }
 }
 
 static void varinfo_fill_length(varinfo_t* vi, mp_obj_t obj) {
     if (obj == NULL) {
-        DBG_SEND("Error: varinfo_fill_length(): obj is NULL");
+        DBG_SEND(T_ERROR, "varinfo_fill_length(): obj is NULL");
         return;
     }
 
@@ -436,7 +435,7 @@ static varinfo_t* iter_next_list(vars_iter_t* iter) {
         return NULL;
     }
 
-    //DBG_SEND("iter_next_list() idx:%d size:%d", iter->cur_idx, iter->n_objs);
+    //DBG_SEND(T_DBGR, "iter_next_list() idx:%d size:%d", iter->cur_idx, iter->n_objs);
 
     // clear previous info
     varinfo_t* vi = &(iter->vi);
@@ -449,7 +448,7 @@ static varinfo_t* iter_next_list(vars_iter_t* iter) {
     }
     mp_obj_t obj = iter->objs[obj_idx];
 
-    // DBG_SEND("iter_next_list() cur_idx:%d obj_idx:%d obj:%p", iter->cur_idx, obj_idx, obj);
+    // DBG_SEND(T_DBGR, "iter_next_list() cur_idx:%d obj_idx:%d obj:%p", iter->cur_idx, obj_idx, obj);
     //dbgr_print_obj(iter->cur_idx, obj);
 
     if (obj != NULL) {
@@ -471,7 +470,7 @@ static varinfo_t* iter_next_list(vars_iter_t* iter) {
                 qstr name = localnames_decode_name(&iter->localnames, obj_idx);
 
                 if (iter->localnames_end_on_empty && name == MP_QSTRnull) {
-                    DBG_SEND("iter_next_list() end on empty");
+                    DBG_SEND(T_DBGR, "iter_next_list() end on empty");
                     return NULL;
                 }
 
@@ -507,7 +506,7 @@ static varinfo_t* iter_next_list(vars_iter_t* iter) {
         vstr_init(&vi->name, 6);
         vstr_printf(&vi->name, "%d", iter->cur_idx);
     }
-    //DBG_SEND("iter_next_list() done");
+    //DBG_SEND(T_DBGR, "iter_next_list() done");
 
     return vi;
 }
@@ -518,7 +517,7 @@ static varinfo_t* iter_next_frozen_module(vars_iter_t* iter) {
     }
 
     const char* name = iter->next_frozen_module_name;
-    // DBG_SEND("iter_next_frozen_module() name:'%s'", name);
+    // DBG_SEND(T_DBGR, "iter_next_frozen_module() name:'%s'", name);
     size_t name_len = strlen(name);
     
     if (name_len == 0) {
@@ -567,7 +566,7 @@ static varinfo_t* iter_next(vars_iter_t* iter) {
 
 static int varinfo_get_size(varinfo_t* vi) {
     // name, value, type, address
-    //DBG_SEND("length of name:%d value:%d type:%d", vi->name.len, vi->value.len, strlen(qstr_str(vi->type)));
+    //DBG_SEND(T_DBGR, "length of name:%d value:%d type:%d", vi->name.len, vi->value.len, strlen(qstr_str(vi->type)));
     return (vi->name.len + 1 + 
             vi->value.len + 1 +
             strlen(qstr_str(vi->type)) + 1 + 
@@ -590,7 +589,7 @@ static void varinfo_append(varinfo_t* vi, JCOMP_MSG resp) {
 }
 
 varinfo_kind_t varinfo_get_kind(varinfo_t* vi) {
-    // DBG_SEND("var %s:%s len:%d [0]:%d [1]:%d", 
+    // DBG_SEND(T_DBGR, "var %s:%s len:%d [0]:%d [1]:%d", 
     //     vstr_str(&vi->name), vstr_str(&vi->value), 
     //     vstr_len(&vi->name), vstr_str(&vi->name)[0], vstr_str(&vi->name)[1]);
 
@@ -613,12 +612,12 @@ varinfo_kind_t varinfo_get_kind(varinfo_t* vi) {
     }
 }
 void send_vars_response(uint8_t req_id, const vars_request_t* args, mp_obj_frame_t* top_frame) {
-    DBG_SEND("send_vars_response: req: scope_type:%d include_kind:%d depth_or_addr:%d var_start_idx:%d",
+    DBG_SEND(T_DBGR, "send_vars_response: req: scope_type:%d include_kind:%d depth_or_addr:%d var_start_idx:%d",
         args->scope_type, args->include_kind, args->depth_or_addr, args->var_start_idx);
 
     JCOMP_CREATE_RESPONSE(resp, req_id, VARS_PAYLOAD_SIZE);
     if (resp == NULL) {
-        DBG_SEND("Error in send_vars_response(): JCOMP_CREATE_RESPONSE failed");
+        DBG_SEND(T_ERROR, "in send_vars_response(): JCOMP_CREATE_RESPONSE failed");
     }
 
     int pos = 0;
@@ -640,11 +639,11 @@ void send_vars_response(uint8_t req_id, const vars_request_t* args, mp_obj_frame
 
         // See if we want to include it
         varinfo_kind_t kind = varinfo_get_kind(vi);
-        //DBG_SEND("var %s:%s (%s) kind: %d", vstr_str(&vi->name), vstr_str(&vi->value), qstr_str(vi->type),  kind);
+        //DBG_SEND(T_DBGR, "var %s:%s (%s) kind: %d", vstr_str(&vi->name), vstr_str(&vi->value), qstr_str(vi->type),  kind);
         contains_flags |= kind;
         
         if (kind & args->include_kind) {
-            //DBG_SEND("loop: iter->cur_idx:%d var_idx:%d var_start_idx:%d", iter.cur_idx, var_idx, args->var_start_idx);
+            //DBG_SEND(T_DBGR, "loop: iter->cur_idx:%d var_idx:%d var_start_idx:%d", iter.cur_idx, var_idx, args->var_start_idx);
             if (var_idx >= args->var_start_idx 
                 && !packet_full) 
             {
@@ -681,15 +680,15 @@ void send_vars_response(uint8_t req_id, const vars_request_t* args, mp_obj_frame
 
     JCOMP_RV rv = jcomp_send_msg(resp);
     if (rv) {
-        DBG_SEND("Error: send_vars_response() send failed: %d", rv);
+        DBG_SEND(T_ERROR, "send_vars_response() send failed: %d", rv);
     }
 
-    DBG_SEND("send_vars_response(): done");
+    DBG_SEND(T_DBGR, "send_vars_response(): done");
 }
 
 void dbgr_send_variables_response(const JCOMP_MSG request, mp_obj_frame_t* top_frame) {
     if (top_frame == NULL || request == NULL) {
-        DBG_SEND("Error: dbgr_send_variables_response(): top_frame or request is NULL");
+        DBG_SEND(T_ERROR, "dbgr_send_variables_response(): top_frame or request is NULL");
         return;
     }
 

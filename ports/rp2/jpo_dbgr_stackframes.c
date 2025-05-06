@@ -9,9 +9,8 @@
 
 #if JPO_DBGR_BUILD
 
-// Disable debugging
-#undef DBG_SEND
-#define DBG_SEND(...)
+// Disable debugging.
+#define T_DBGR NULL // "dbgr"
 
 // make it smaller for testing
 #define FRAME_PAYLOAD_SIZE JCOMP_MAX_PAYLOAD_SIZE
@@ -25,7 +24,7 @@ static JCOMP_RV append_str_token(JCOMP_MSG msg, const char* str) {
 
 static int get_frame_size(mp_obj_frame_t* frame) {
     if (frame == NULL) {
-        DBG_SEND("Error: get_frame_size(): frame is NULL");
+        DBG_SEND(T_ERROR, "get_frame_size(): frame is NULL");
         return 0;
     }
     
@@ -44,7 +43,7 @@ static int get_frame_size(mp_obj_frame_t* frame) {
  */
 static JCOMP_RV append_frame(JCOMP_MSG resp, int frame_idx, mp_obj_frame_t* frame) {
     if (resp == NULL || frame == NULL) {
-        DBG_SEND("Error: append_frame(): resp or frame is NULL");
+        DBG_SEND(T_ERROR, "append_frame(): resp or frame is NULL");
         return JCOMP_ERR_ARG_NULL;
     }
 
@@ -117,17 +116,17 @@ mp_obj_frame_t* dbgr_find_frame(int frame_idx, const mp_obj_frame_t* top_frame) 
  */
 void dbgr_send_stack_response(const JCOMP_MSG request, mp_obj_frame_t* top_frame) {
     if (top_frame == NULL) {
-        DBG_SEND("Error: dbgr_send_stack_response(): top_frame is NULL");
+        DBG_SEND(T_ERROR, "dbgr_send_stack_response(): top_frame is NULL");
         return;
     }
     
     // request: 8-byte name, 4-byte start frame index
     uint32_t start_frame_idx = jcomp_msg_get_uint32(request, CMD_LENGTH);
-    DBG_SEND("stack request: start_frame_idx %d", start_frame_idx);
+    DBG_SEND(T_DBGR, "stack request: start_frame_idx %d", start_frame_idx);
     
     JCOMP_CREATE_RESPONSE(resp, jcomp_msg_id(request), FRAME_PAYLOAD_SIZE);
     if (resp == NULL) {
-        DBG_SEND("Error in dbgr_send_stack_response(): JCOMP_CREATE_RESPONSE failed");
+        DBG_SEND(T_ERROR, "in dbgr_send_stack_response(): JCOMP_CREATE_RESPONSE failed");
     }
 
     JCOMP_RV rv = JCOMP_OK;
@@ -146,7 +145,7 @@ void dbgr_send_stack_response(const JCOMP_MSG request, mp_obj_frame_t* top_frame
 
             rv = append_frame(resp, frame_idx, cur_state->frame);
             if (rv) { 
-                DBG_SEND("Error in dbgr_send_stack_response: append_frame rv:%d", rv);
+                DBG_SEND(T_ERROR, "in dbgr_send_stack_response: append_frame rv:%d", rv);
                 return; 
             }
         }
@@ -160,7 +159,7 @@ void dbgr_send_stack_response(const JCOMP_MSG request, mp_obj_frame_t* top_frame
     }
 
     // if rv is not OK, we ran out of space in the response, just send what we have
-    DBG_SEND("Done appending frames, count:%d pos:%d rv:%d", frame_idx, pos, rv);
+    DBG_SEND(T_DBGR, "Done appending frames, count:%d pos:%d rv:%d", frame_idx, pos, rv);
 
     if (is_end) {
         if (pos + END_TOKEN_SIZE > FRAME_PAYLOAD_SIZE) {
@@ -174,12 +173,12 @@ void dbgr_send_stack_response(const JCOMP_MSG request, mp_obj_frame_t* top_frame
     
     jcomp_msg_set_payload_size(resp, pos);
 
-    DBG_SEND("about to send stack response pos:%d payload_size:%d", pos, jcomp_msg_payload_size(resp));
+    DBG_SEND(T_DBGR, "about to send stack response pos:%d payload_size:%d", pos, jcomp_msg_payload_size(resp));
     rv = jcomp_send_msg(resp);
     if (rv) {
-        DBG_SEND("Error: send_stack_reply() failed: %d", rv);
+        DBG_SEND(T_ERROR, "send_stack_reply() failed: %d", rv);
     }
-    DBG_SEND("done sending stack response");
+    DBG_SEND(T_DBGR, "done sending stack response");
 
 }
 

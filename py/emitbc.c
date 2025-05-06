@@ -335,7 +335,7 @@ void mp_emit_bc_start_pass(emit_t *emit, pass_kind_t pass, scope_t *scope) {
     emit_write_code_info_qstr(emit, scope->simple_name);
 
     //if (pass == MP_PASS_EMIT) {
-    //    DBG_SEND("emit fn: %s", qstr_str(scope->simple_name));
+    //    DBG_SEND(T_NONE, "emit fn: %s", qstr_str(scope->simple_name));
     //}
 
     // Write argument names, needed to resolve positional args passed as keywords.
@@ -373,7 +373,7 @@ void mp_emit_bc_start_pass(emit_t *emit, pass_kind_t pass, scope_t *scope) {
             id_info_t *id = &scope->id_info[i];
             
             //if (pass == MP_PASS_EMIT) {
-            //    DBG_SEND("emit id_info: [%d] lnum:%d kind=%d flags:%d qstr='%s')", 
+            //    DBG_SEND(T_NONE, "emit id_info: [%d] lnum:%d kind=%d flags:%d qstr='%s')", 
             //        i, id->local_num, id->kind, id->flags, qstr_str(id->qst));
             //}
 
@@ -411,7 +411,7 @@ bool mp_emit_bc_end_pass(emit_t *emit) {
         emit->code_info_size = emit->code_info_offset;
         emit->bytecode_size = emit->bytecode_offset;
         emit->code_base = m_new0(byte, emit->code_info_size + emit->bytecode_size);
-        //DBG_SEND("emit: code_info_size: %d bytecode_size: %d", emit->code_info_size, emit->bytecode_size);
+        //DBG_SEND(T_NONE, "emit: code_info_size: %d bytecode_size: %d", emit->code_info_size, emit->bytecode_size);
 
     } else if (emit->pass == MP_PASS_EMIT) {
         // Code info and/or bytecode can shrink during this pass.

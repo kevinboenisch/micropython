@@ -16,8 +16,8 @@
 #include "pico/multicore.h"
 
 // Disable output
-#undef DBG_SEND
-#define DBG_SEND(...)
+#define T_DBGR NULL // "dbgr"
+#define T_EVENT NULL // "dbgr-event"
 
 
 #define MUTEX_TIMEOUT_MS 100
@@ -91,7 +91,7 @@ static bool jcomp_handler_inlock(JCOMP_MSG msg) {
     }
 #if JPO_DBGR_BUILD
     if (jcomp_msg_has_str(msg, 0, CMD_DBG_START)) {
-        DBG_SEND("CMD_DBG_START");
+        DBG_SEND(T_DBGR, "CMD_DBG_START");
         reset_vars();
         dbgr_status = DS_STARTING;
         mp_prof_callback_c = dbgr_trace_callback;
@@ -99,18 +99,18 @@ static bool jcomp_handler_inlock(JCOMP_MSG msg) {
     }
     if (dbgr_status != DS_NOT_ENABLED) {
         if (jcomp_msg_has_str(msg, 0, CMD_DBG_PAUSE)) {
-            DBG_SEND("CMD_DBG_PAUSE");
+            DBG_SEND(T_DBGR, "CMD_DBG_PAUSE");
             dbgr_status = DS_PAUSE_REQUESTED;
             return true;
         }
         if (jcomp_msg_has_str(msg, 0, CMD_DBG_SET_BREAKPOINTS)) {
-            DBG_SEND("CMD_DBG_SET_BREAKPOINTS");
+            DBG_SEND(T_DBGR, "CMD_DBG_SET_BREAKPOINTS");
             bkpt_set_from_msg(msg);
             return true;
         }
         if (jcomp_msg_has_str(msg, 0, CMD_DBG_SET_EXCEPTION_BREAKPOINTS)) {
             break_on_exceptions = jcomp_msg_get_byte(msg, CMD_LENGTH);
-            DBG_SEND("%s %d", CMD_DBG_SET_EXCEPTION_BREAKPOINTS, break_on_exceptions);
+            DBG_SEND(T_DBGR, "%s %d", CMD_DBG_SET_EXCEPTION_BREAKPOINTS, break_on_exceptions);
             return true;
         }
         // Other messages are handled on core0, in process_jcomp_message_while_stopped
@@ -122,7 +122,7 @@ static bool jcomp_handler_inlock(JCOMP_MSG msg) {
 static bool core1_dbgr_jcomp_handler(JCOMP_MSG msg) {
     bool has_mutex = mutex_enter_timeout_ms(&_dbgr_mutex, MUTEX_TIMEOUT_MS);
     if (!has_mutex) {
-        DBG_SEND("Error: core1_dbgr_jcomp_handler() failed to get mutex");
+        DBG_SEND(T_ERROR, "core1_dbgr_jcomp_handler() failed to get mutex");
         return false;
     }
     bool handled = jcomp_handler_inlock(msg);
@@ -139,7 +139,7 @@ void jpo_dbgr_init(void) {
 
     JCOMP_RV rv = jcomp_add_core1_handler(core1_dbgr_jcomp_handler);
     if (rv) {
-        DBG_SEND("Error: jcomp_add_core1_handler() failed: %d", rv);
+        DBG_SEND(T_ERROR, "jcomp_add_core1_handler() failed: %d", rv);
         return;
     }
 
@@ -147,7 +147,7 @@ void jpo_dbgr_init(void) {
 }
 
 static void send_done(int ret) {
-    //DBG_SEND("Event: %s %d", EVT_DBG_DONE, ret);
+    //DBG_SEND(T_DBGR, "Event: %s %d", EVT_DBG_DONE, ret);
 
     JCOMP_CREATE_EVENT(evt, CMD_LENGTH + 4);
     jcomp_msg_set_str(evt, 0, EVT_DBG_DONE);
@@ -165,7 +165,7 @@ void jpo_after_parse_compile_execute(int ret) {
 static bool breakpoint_hit(qstr file, int line_num) {
     bool has_mutex = mutex_enter_timeout_ms(&_dbgr_mutex, MUTEX_TIMEOUT_MS);
     if (!has_mutex) {
-        DBG_SEND("Error: breakpoint_hit() failed to get mutex");
+        DBG_SEND(T_ERROR, "breakpoint_hit() failed to get mutex");
         return false;
     }
     bool is_set = bkpt_is_set(file, line_num);
@@ -174,7 +174,7 @@ static bool breakpoint_hit(qstr file, int line_num) {
 }
 
 static void send_stopped(const char* reason8ch, const char* detail) {
-    DBG_SEND("Event: %s %s", EVT_DBG_STOPPED, reason8ch);
+    DBG_SEND(T_EVENT, "%s %s", EVT_DBG_STOPPED, reason8ch);
 
     size_t detail_len = detail ? strlen(detail) : 0;
 
@@ -188,7 +188,7 @@ static void send_stopped(const char* reason8ch, const char* detail) {
 }
 
 static void send_module_loaded(qstr module_name) {
-    DBG_SEND("Event: module loaded file:%d '%s'", module_name, qstr_str(module_name));
+    DBG_SEND(T_EVENT, "module loaded file:%d '%s'", module_name, qstr_str(module_name));
 
     const char* module_name_str = qstr_str(module_name);
     JCOMP_CREATE_EVENT(evt, CMD_LENGTH + sizeof(uint32_t) + strlen(module_name_str));
@@ -201,9 +201,9 @@ static void send_module_loaded(qstr module_name) {
 }
 
 static void dbgr_send_exception_response(const JCOMP_MSG request, mp_obj_frame_t* top_frame, mp_obj_t exception) {
-    DBG_SEND("Request: %s", REQ_DBG_EXCEPTION);
+    DBG_SEND(T_DBGR, "request: %s", REQ_DBG_EXCEPTION);
     if (exception == NULL) {
-        DBG_SEND("Error: exception is NULL");
+        DBG_SEND(T_ERROR, "exception is NULL");
         return;
     }
 
@@ -231,7 +231,7 @@ static bool try_process_command(mp_obj_frame_t* frame, mp_obj_t exception) {
     // // Print stack info for debugging
     // static bool printed = false;
     // if (!printed) {
-    //     //DBG_SEND("JCOMP_MSG_BUF_SIZE_MAX: %d", JCOMP_MSG_BUF_SIZE_MAX);
+    //     //DBG_SEND(T_DBGR, "JCOMP_MSG_BUF_SIZE_MAX: %d", JCOMP_MSG_BUF_SIZE_MAX);
     //     dbgr_print_stack_info();
     //     dbgr_check_stack_overflow(true);
     //     printed = true;
@@ -239,14 +239,14 @@ static bool try_process_command(mp_obj_frame_t* frame, mp_obj_t exception) {
 
     if (rv) {
         if (rv != JCOMP_ERR_TIMEOUT) {
-            DBG_SEND("Error: while paused, receive failed: %d", rv);
+            DBG_SEND(T_ERROR, "while paused, receive failed: %d", rv);
         }
         return false;
     }
 
     char buf[CMD_LENGTH + 1];
     jcomp_msg_get_str(msg, 0, buf, CMD_LENGTH + 1);
-    DBG_SEND("try_process_command: %s", buf);
+    DBG_SEND(T_DBGR, "try_process_command: %s", buf);
 
     if (jcomp_msg_has_str(msg, 0, CMD_DBG_CONTINUE)) {
         dbgr_status = DS_RUNNING;
@@ -277,7 +277,7 @@ static bool try_process_command(mp_obj_frame_t* frame, mp_obj_t exception) {
         return true;
     }
 
-    DBG_SEND("Error: not a dbgr message id:%d", jcomp_msg_id(msg));
+    DBG_SEND(T_ERROR, "not a dbgr message id:%d", jcomp_msg_id(msg));
     return false;
 }
 
@@ -291,7 +291,7 @@ static void loop_while_stopped(mp_obj_frame_t* top_frame, mp_obj_t exception) {
                 case DS_STEP_OUT:
                 case DS_STEP_OVER:
                     step_depth = dbgr_get_call_depth(top_frame);
-                    DBG_SEND("STEP set step_depth=%d", step_depth);
+                    DBG_SEND(T_DBGR, "STEP set step_depth=%d", step_depth);
                     return;
                 case DS_STOPPED:
                     // do nothing, continue polling while paused
@@ -319,7 +319,7 @@ void on_exception(mp_obj_frame_t* frame, mp_obj_t exception) {
     dbgr_status = DS_STOPPED;
     vstr_t ex_str = {0};
     dbgr_obj_to_vstr(exception, &ex_str, PRINT_REPR, 60);
-    //DBG_SEND("Exception: '%s'", vstr_str(&ex_str));
+    //DBG_SEND(T_DBGR, "exception: '%s'", vstr_str(&ex_str));
 
     send_stopped(R_STOPPED_EXCEPTION, vstr_str(&ex_str));
 
@@ -350,12 +350,12 @@ void dbgr_trace_callback(mp_prof_trace_type_t type, mp_obj_frame_t* top_frame, m
     qstr file = dbgr_get_source_file(top_frame->code_state);
     int line = (int)top_frame->lineno;
 
-    DBG_SEND("line %s %d", qstr_str(file), line);
+    DBG_SEND(T_DBGR, "line %s %d", qstr_str(file), line);
 
     last_exception = NULL;
 
     if (breakpoint_hit(file, line)) {
-         DBG_SEND("breakpoint_hit %s:%d", qstr_str(file), line);
+         DBG_SEND(T_DBGR, "breakpoint_hit %s:%d", qstr_str(file), line);
          stopped_reason = R_STOPPED_BREAKPOINT;
          dbgr_status = DS_STOPPED;
     }
@@ -389,7 +389,7 @@ void dbgr_trace_callback(mp_prof_trace_type_t type, mp_obj_frame_t* top_frame, m
         // NOT-BUG: after stepping out, the fn call line is highlighted again.
         // That's ok, PC Python debugger does the same.
         int cur_depth = dbgr_get_call_depth(top_frame);
-        DBG_SEND("DS_STEP_OUT: cur_depth %d < step_depth %d ?", cur_depth, step_depth);
+        DBG_SEND(T_DBGR, "DS_STEP_OUT: cur_depth %d < step_depth %d ?", cur_depth, step_depth);
         if (cur_depth < step_depth) {
             stopped_reason = R_STOPPED_STEP_OUT;
             dbgr_status = DS_STOPPED;
@@ -403,7 +403,7 @@ void dbgr_trace_callback(mp_prof_trace_type_t type, mp_obj_frame_t* top_frame, m
     {
         // Triggered if the depth is same or lower than one set when step over was requested
         int cur_depth = dbgr_get_call_depth(top_frame);
-        DBG_SEND("DS_STEP_OVER: cur_depth %d <= step_depth %d ?", cur_depth, step_depth);
+        DBG_SEND(T_DBGR, "DS_STEP_OVER: cur_depth %d <= step_depth %d ?", cur_depth, step_depth);
         if (cur_depth <= step_depth) {
             stopped_reason = R_STOPPED_STEP_OVER;
             dbgr_status = DS_STOPPED;
@@ -418,7 +418,7 @@ void dbgr_trace_callback(mp_prof_trace_type_t type, mp_obj_frame_t* top_frame, m
         break;
 
     default:
-        DBG_SEND("Error: unexpected dbgr_status: %d, continuing", dbgr_status);
+        DBG_SEND(T_ERROR, "unexpected dbgr_status: %d, continuing", dbgr_status);
         return;
     }
     

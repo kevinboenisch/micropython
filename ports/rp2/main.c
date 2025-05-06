@@ -353,7 +353,7 @@ int main(int argc, char **argv) {
 }
 
 void gc_collect(void) {
-    //DBG_SEND("gc_collect");
+    //DBG_SEND(T_NONE, "gc_collect");
     //DBG_OLED("gc_collect");
 
     gc_collect_start();

@@ -153,7 +153,7 @@ void mp_bytecode_print(const mp_print_t *print, const mp_raw_code_t *rc, size_t 
         mp_printf(print, "(INIT_CELL %u)\n", local_num);
     }
 
-    // DBG_SEND("bytecode_print: code_info 0x%x offset: %d", code_info, code_info - ip_start);
+    // DBG_SEND(T_NONE, "bytecode_print: code_info 0x%x offset: %d", code_info, code_info - ip_start);
 
     // print out line number info
     {

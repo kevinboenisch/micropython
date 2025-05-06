@@ -8,16 +8,19 @@
 
 #include "jpo/jcomp/debug.h"
 
+// Disable debugging.
+#define T_DBGR NULL // "dbgr"
+
 // Improvement on vstr.c::vstr_add_strn
 // Add a string if there's enough space; truncate if needed. Does NOT add \0.
 static void vstr_add_strn_if_space(vstr_t *vstr, const char *str, size_t len) {
     if (vstr->len >= vstr->alloc) {
-        //DBG_SEND("vstr_add_strn_if_space(): full, skipping '%s'", str);
+        //DBG_SEND(T_DBGR, "vstr_add_strn_if_space(): full, skipping '%s'", str);
         return;
     }
     if (vstr->len + len >= vstr->alloc) {
         // Truncate added string
-        //DBG_SEND("vstr_add_strn_if_space() partial vs->len:%d vs->alloc:%d len:%d '%s'", vstr->len, vstr->alloc, len, str);
+        //DBG_SEND(T_DBGR, "vstr_add_strn_if_space() partial vs->len:%d vs->alloc:%d len:%d '%s'", vstr->len, vstr->alloc, len, str);
         len = vstr->alloc - vstr->len;
     }
 
@@ -74,7 +77,7 @@ extern uint8_t __StackTop, __StackBottom;
 extern uint8_t __StackOneBottom, __StackOneTop;
 
 void dbgr_print_stack_info(void) {
-    DBG_SEND("__StackTop:%p __StackBottom:%p __StackOneTop:%p __StackOneBottom:%p // s0size:%d", 
+    DBG_SEND("stack", "__StackTop:%p __StackBottom:%p __StackOneTop:%p __StackOneBottom:%p // s0size:%d", 
              &__StackTop,  &__StackBottom,  &__StackOneTop,  &__StackOneBottom,
              &__StackTop - &__StackOneTop);
 }
@@ -86,13 +89,13 @@ bool dbgr_check_stack_overflow(bool show_if_ok) {
     int remaining = (uint32_t)&stack_size - (uint32_t)&__StackOneTop;
     
     if (remaining < 0) {
-        DBG_SEND("ERROR: Stack overflow. this:%p __StackOneTop:%p size:%d remaining:%d", 
+        DBG_SEND(T_ERROR, "stack overflow. this:%p __StackOneTop:%p size:%d remaining:%d", 
             &stack_size, &__StackOneTop, stack_size, remaining);
         return true;
     }
 
     if (show_if_ok) {
-        DBG_SEND("Stack ok. this:%p __StackOneTop:%p size:%d remaining:%d", 
+        DBG_SEND(T_DBGR, "stack ok. this:%p __StackOneTop:%p size:%d remaining:%d", 
             &stack_size, &__StackOneTop, stack_size, remaining);
     }
     return false;

@@ -194,7 +194,7 @@ mp_uint_t mp_hal_stdout_tx_strn(const char *str, mp_uint_t len) {
     mp_uint_t ret = len;
     bool did_write = false;
     #ifdef JPO_JCOMP
-    //DBG_SEND(":%d:", len); // find JCOMP stdout inefficiencies
+    //DBG_SEND(T_NONE, ":%d:", len); // find JCOMP stdout inefficiencies
 
     // Bug fix: at least one keyboard poll, to allow Ctrl+C to interrupt
     JPO_CHECK_FOR_INTERRUPT;
@@ -202,7 +202,7 @@ mp_uint_t mp_hal_stdout_tx_strn(const char *str, mp_uint_t len) {
     JCOMP_RV rv = jcomp_stdout_send_bytes((uint8_t*)str, len);
     if (rv) {
         // How to handle errors properly?
-        DBG_SEND("jcomp_stdout_send_bytes err:%d", rv);
+        DBG_SEND(T_ERROR, "jcomp_stdout_send_bytes err:%d", rv);
     }    
     return len;
 

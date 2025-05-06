@@ -84,7 +84,7 @@ void mp_prof_extract_prelude(const byte *bytecode, mp_bytecode_prelude_t *prelud
 #endif
     prelude->line_info = ip;
 
-    //DBG_SEND("extract_prelude: line_info 0x%x offset: %d", prelude->line_info, prelude->line_info - bytecode);
+    //DBG_SEND(T_NONE, "extract_prelude: line_info 0x%x offset: %d", prelude->line_info, prelude->line_info - bytecode);
 
 }
 
