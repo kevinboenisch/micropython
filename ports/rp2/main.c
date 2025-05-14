@@ -84,6 +84,18 @@ extern uint8_t __StackTop, __StackBottom;
 extern uint8_t __StackOneTop, __StackOneBottom;
 extern uint8_t __GcHeapStart, __GcHeapEnd;
 
+#define T_STACK "stack"
+
+void dbg_print_stack_addresses(void) {
+    DBG_SEND(T_STACK, "Core0 Top:    0x%p", (int)&__StackTop);
+    DBG_SEND(T_STACK, "Core0 Bottom: 0x%p", (int)&__StackBottom);
+    DBG_SEND(T_STACK, "Core0 Size:   %d bytes", (int)(&__StackTop - &__StackBottom));
+
+    DBG_SEND(T_STACK, "Core1 Top:    0x%p", (int)&__StackOneTop);
+    DBG_SEND(T_STACK, "Core1 Bottom: 0x%p", (int)&__StackOneBottom);
+    DBG_SEND(T_STACK, "Core1 Size:   %d bytes\n", (int)(&__StackOneTop - &__StackOneBottom));
+}
+
 // Embed version info in the binary in machine readable form
 bi_decl(bi_program_version_string(MICROPY_GIT_TAG));
 
@@ -162,8 +174,10 @@ int main(int argc, char **argv) {
     // Initialise stack extents and GC heap.
     #ifdef JPO_JCOMP
         // Not sure if this is correct
-        mp_cstack_init_with_top(&__StackTop, 
-            &__StackTop - &__StackBottom - (128 + 2 * JCOMP_MSG_BUF_SIZE_MAX));
+        size_t stack_size = &__StackTop - &__StackOneBottom;
+        // &__StackTop - &__StackBottom - (128 + 2 * JCOMP_MSG_BUF_SIZE_MAX)
+        mp_cstack_init_with_top(&__StackTop, stack_size);
+        
     #else
         mp_cstack_init_with_top(&__StackTop, &__StackTop - &__StackBottom);
     #endif
@@ -189,7 +203,7 @@ int main(int argc, char **argv) {
     #endif
 
     hal_init();
-    DBG_OLED("hal_init done");
+    //DBG_OLED("hal_init done");
 
     check_watchdog_flags();
 
@@ -302,6 +316,7 @@ int main(int argc, char **argv) {
 
     soft_reset_exit:
         mp_printf(MP_PYTHON_PRINTER, "MPY: soft reboot\n");
+        dbg_print_stack_addresses();
 
         // Hook for resetting anything immediately following a soft reset command.
         MICROPY_BOARD_START_SOFT_RESET();

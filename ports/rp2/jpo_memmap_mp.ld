@@ -27,7 +27,7 @@ MEMORY
     /* TODO: JPO Brain flash is 16Mb (according to spec), not 2Mb, adjust it */
     FLASH(rx) : ORIGIN = 0x10000000 + 56k + 4k, LENGTH = (16 * 1024k) - 56k - 4k
 
-    /* JPO: Leave 12k for the stack, 8k for core0 and 4k for core1 */
+    /* JPO: Leave 16k for the stack, 12k for core0 and 4k for core1 */
     RAM(rwx) :       ORIGIN = 0x20000000,              LENGTH = 264k - 16k 
     SCRATCH_X(rwx) : ORIGIN = 0x20000000 + 264k - 16k, LENGTH = 4k  /* core1 stack __StackOneTop at the end */
     SCRATCH_Y(rwx) : ORIGIN = 0x20000000 + 264k - 12k, LENGTH = 12k /* core0 stack __StackTop at the end */

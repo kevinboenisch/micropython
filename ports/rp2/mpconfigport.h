@@ -33,6 +33,7 @@
 #include "pico/binary_info.h"
 #include "pico/multicore.h"
 #include "mpconfigboard.h"
+#include "jpo/jcomp/jcomp_protocol.h"
 
 // Board and hardware specific configuration
 #if PICO_RP2040
@@ -145,7 +146,7 @@
 #define MICROPY_TRACKED_ALLOC                   (MICROPY_SSL_MBEDTLS || MICROPY_BLUETOOTH_BTSTACK)
 #define MICROPY_READER_VFS                      (1)
 #define MICROPY_ENABLE_GC                       (1)
-#define MICROPY_STACK_CHECK_MARGIN              (256)
+#define MICROPY_STACK_CHECK_MARGIN              (256) //(128 + 2 * JCOMP_MSG_BUF_SIZE_MAX)
 #define MICROPY_ENABLE_EMERGENCY_EXCEPTION_BUF  (1)
 #define MICROPY_LONGINT_IMPL                    (MICROPY_LONGINT_IMPL_MPZ)
 #define MICROPY_FLOAT_IMPL                      (MICROPY_FLOAT_IMPL_FLOAT)
