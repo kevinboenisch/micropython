@@ -16,6 +16,9 @@
 #include "jpo/hal/oled.h"
 #include "jpo/hal/joystick.h"
 
+// Debug tags
+#define T_PY "py"
+
 // Error in the underlying C JPO HAL API
 MP_DEFINE_EXCEPTION(JpoHalError, Exception)
 MP_DEFINE_EXCEPTION(IicError, JpoHalError)
@@ -40,6 +43,14 @@ static mp_obj_t jpohal__set_test_no_hw(mp_obj_t enabled_obj) {
     return mp_const_none;
 }
 MP_DEFINE_CONST_FUN_OBJ_1(jpohal__set_test_no_hw_obj, jpohal__set_test_no_hw);
+
+// Internal. Send a debug packet (DBG_SEND) if debugging is enabled.
+static mp_obj_t jpohal__dbg_send(mp_obj_t str_obj) {
+    const char *str = mp_obj_str_get_str(str_obj);
+    DBG_SEND(T_PY, "%s", str);
+    return mp_const_none;
+}
+MP_DEFINE_CONST_FUN_OBJ_1(jpohal__dbg_send_obj, jpohal__dbg_send);
 
 // === jpo/hal.h
 // skip: hal_init() is already called by main.c.
@@ -665,6 +676,7 @@ static const mp_rom_map_elem_t mp_module_jpohal_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_brain_get_buttons), MP_ROM_PTR(&jpohal_brain_get_buttons_obj) },
 
     { MP_ROM_QSTR(MP_QSTR__set_test_no_hw), MP_ROM_PTR(&jpohal__set_test_no_hw_obj) },
+    { MP_ROM_QSTR(MP_QSTR__dbg_send), MP_ROM_PTR(&jpohal__dbg_send_obj) },
     { MP_ROM_QSTR(MP_QSTR_JpoHalError), MP_ROM_PTR(&mp_type_JpoHalError) },
     { MP_ROM_QSTR(MP_QSTR_IicError), MP_ROM_PTR(&mp_type_IicError) },
 
