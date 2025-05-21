@@ -41,8 +41,9 @@
 #include "pico/aon_timer.h"
 
 // Debug tags
-#define T_STDIN NULL // "stdin"
-#define T_STDOUT NULL // "stdout"
+#define T_STDIN 0 //"stdin"
+#define T_STDIN_CTRL_D "stdin^d"
+#define T_STDOUT 0 // "stdout"
 
 extern bool dbg_active;
 
@@ -176,7 +177,7 @@ void dbg_send_char(int ch) {
         }
         else if (ch == 0x04) { // Ctrl+D, reset/exit paste mode, troubling
             static int ctrl_d_count = 0;
-            DBG_SEND(T_STDIN, "%02X Ctrl+D: %d", ch, ++ctrl_d_count);
+            DBG_SEND(T_STDIN_CTRL_D, "%02X Ctrl+D: %d", ch, ++ctrl_d_count);
 
             // set breakpoint
             if (ctrl_d_count == 6) {

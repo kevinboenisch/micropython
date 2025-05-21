@@ -1,0 +1,6 @@
+{
+    "files.associations": {
+        "lfs2.h": "c",
+        "lfs2_util.h": "c"
+    }
+}

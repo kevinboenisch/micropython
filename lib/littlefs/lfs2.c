@@ -3370,7 +3370,11 @@ static int lfs2_file_rawsync(lfs2_t *lfs2, lfs2_file_t *file) {
         return 0;
     }
 
+    DBG_SEND(T_LFS2_RAW, "file_rawsync: before file_flush");
+
     int err = lfs2_file_flush(lfs2, file);
+    DBG_SEND(T_LFS2_RAW, "file_rawsync: after file_flush err:%d", err);
+
     if (err) {
         file->flags |= LFS2_F_ERRED;
         return err;
@@ -3379,6 +3383,9 @@ static int lfs2_file_rawsync(lfs2_t *lfs2, lfs2_file_t *file) {
 
     if ((file->flags & LFS2_F_DIRTY) &&
             !lfs2_pair_isnull(file->m.pair)) {
+
+        DBG_SEND(T_LFS2_RAW, "file_rawsync: update dir entry file->flags:0x%x", file->flags);
+
         // update dir entry
         uint16_t type;
         const void *buffer;
@@ -3399,11 +3406,16 @@ static int lfs2_file_rawsync(lfs2_t *lfs2, lfs2_file_t *file) {
             size = sizeof(ctz);
         }
 
+        DBG_SEND(T_LFS2_RAW, "file_rawsync: before lfs2_dir_commit");
+
         // commit file data and attributes
         err = lfs2_dir_commit(lfs2, &file->m, LFS2_MKATTRS(
                 {LFS2_MKTAG(type, file->id, size), buffer},
                 {LFS2_MKTAG(LFS2_FROM_USERATTRS, file->id,
                     file->cfg->attr_count), file->cfg->attrs}));
+
+        DBG_SEND(T_LFS2_RAW, "file_rawsync: after lfs2_dir_commit err:%d", err);
+
         if (err) {
             file->flags |= LFS2_F_ERRED;
             return err;
@@ -3823,11 +3835,15 @@ static int lfs2_rawremove(lfs2_t *lfs2, const char *path) {
         return err;
     }
 
+    DBG_SEND(T_LFS2_RAW, "1. lfs2_rawremove(%p, %s)", lfs2, path);
+
     lfs2_mdir_t cwd;
     lfs2_stag_t tag = lfs2_dir_find(lfs2, &cwd, &path, NULL);
     if (tag < 0 || lfs2_tag_id(tag) == 0x3ff) {
         return (tag < 0) ? (int)tag : LFS2_ERR_INVAL;
     }
+
+    DBG_SEND(T_LFS2_RAW, "2. lfs2_rawremove");
 
     struct lfs2_mlist dir;
     dir.next = lfs2->mlist;
@@ -3863,13 +3879,19 @@ static int lfs2_rawremove(lfs2_t *lfs2, const char *path) {
         lfs2->mlist = &dir;
     }
 
+    DBG_SEND(T_LFS2_RAW, "lfs2_rawremove: before lfs2_dir_commit");
+
     // delete the entry
     err = lfs2_dir_commit(lfs2, &cwd, LFS2_MKATTRS(
             {LFS2_MKTAG(LFS2_TYPE_DELETE, lfs2_tag_id(tag), 0), NULL}));
+
+    DBG_SEND(T_LFS2_RAW, "lfs2_rawremove: before lfs2_dir_commit err: %d", err);
+
     if (err) {
         lfs2->mlist = dir.next;
         return err;
     }
+
 
     lfs2->mlist = dir.next;
     if (lfs2_tag_type3(tag) == LFS2_TYPE_DIR) {
@@ -3889,6 +3911,8 @@ static int lfs2_rawremove(lfs2_t *lfs2, const char *path) {
             return err;
         }
     }
+
+    DBG_SEND(T_LFS2_RAW, "end. lfs2_rawremove done");
 
     return 0;
 }
@@ -5981,7 +6005,9 @@ int lfs2_file_sync(lfs2_t *lfs2, lfs2_file_t *file) {
     LFS2_TRACE("lfs2_file_sync(%p, %p)", (void*)lfs2, (void*)file);
     LFS2_ASSERT(lfs2_mlist_isopen(lfs2->mlist, (struct lfs2_mlist*)file));
 
+    DBG_SEND(T_LFS2_RAW, "lfs2_file_sync: before lfs2_file_rawsync");
     err = lfs2_file_rawsync(lfs2, file);
+    DBG_SEND(T_LFS2_RAW, "lfs2_file_sync: after lfs2_file_rawsync");
 
     LFS2_TRACE("lfs2_file_sync -> %d", err);
     LFS2_UNLOCK(lfs2->cfg);

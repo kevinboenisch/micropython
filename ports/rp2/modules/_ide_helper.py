@@ -4,6 +4,8 @@
 
 # pylint: disable-all
 
+import _jpo
+
 class __thonny_helper:
     import builtins
     import os
@@ -140,29 +142,34 @@ class __thonny_helper:
             is_dir = cls.is_dir(path)
         except cls.builtins.OSError as e:
             # Path does not exist, return
-            #print("Not exist:", path)
+            print("Not exist:", path)
             raise e
 
         if is_dir:
             # remove directory contents
             names = cls.os.listdir(path)
             for name in names:
-                #print("Consider path:", path, "name:", name)
+                _jpo._dbg_send(f"Consider path: {path} name: {name}")
                 cls.deltree(path + "/" + name, should_delete_fn)            
 
         # remove either the file or the now-empty directory
+        _jpo._dbg_send(f"path: '{path}'")
         if path != "":
             if is_dir:
                 try:
+                    _jpo._dbg_send(f"cls.os.remove: {path}")
                     cls.os.remove(path)                
                 except OSError as e:
                     pass
                     # print("Failed to remove:", path, e)
             else:
+                _jpo._dbg_send(f"?? should_delete '{path[1:]}'")
                 if not should_delete_fn or should_delete_fn(path[1:]):
-                    # print("--delete:", path)
+                    _jpo._dbg_send(f"--delete {path}")
                     cls.os.remove(path)
                 else:
                     pass
-                    # print("keep:", path)
+                    _jpo._dbg_send("keep:", path)
+
+        _jpo._dbg_send(f"Done deltree: '{path}'")
 

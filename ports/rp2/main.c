@@ -78,6 +78,11 @@
     #include "tusb.h"
 #endif //JPO_JCOMP
 
+#define T_MAIN "main"
+
+// Keep enabled (it's a bug fix), disable for testing
+#define JPO_REMOVE_USER_SCRIPTS_ON_WD_FLAG (0)
+
 #include "jpo_debugger.h"
 
 extern uint8_t __StackTop, __StackBottom;
@@ -89,11 +94,16 @@ extern uint8_t __GcHeapStart, __GcHeapEnd;
 void dbg_print_stack_addresses(void) {
     DBG_SEND(T_STACK, "Core0 Top:    0x%p", (int)&__StackTop);
     DBG_SEND(T_STACK, "Core0 Bottom: 0x%p", (int)&__StackBottom);
-    DBG_SEND(T_STACK, "Core0 Size:   %d bytes", (int)(&__StackTop - &__StackBottom));
+    DBG_SEND(T_STACK, "--Core0 Size: %d bytes", (int)(&__StackTop - &__StackBottom));
 
     DBG_SEND(T_STACK, "Core1 Top:    0x%p", (int)&__StackOneTop);
     DBG_SEND(T_STACK, "Core1 Bottom: 0x%p", (int)&__StackOneBottom);
-    DBG_SEND(T_STACK, "Core1 Size:   %d bytes\n", (int)(&__StackOneTop - &__StackOneBottom));
+    DBG_SEND(T_STACK, "--Core1 Size: %d bytes\n", (int)(&__StackOneTop - &__StackOneBottom));
+
+    DBG_SEND(T_STACK, "Heap Start:   0x%p", (int)&__GcHeapStart);
+    DBG_SEND(T_STACK, "Heap End:     0x%p", (int)&__GcHeapEnd);
+    DBG_SEND(T_STACK, "--Heap Size:  %d bytes", (int)(&__GcHeapEnd - &__GcHeapStart));
+
 }
 
 // Embed version info in the binary in machine readable form
@@ -144,19 +154,13 @@ int main(int argc, char **argv) {
         setup_default_uart();
         mp_uart_init();
         #else
-        #ifndef NDEBUG
-        stdio_init_all();
+            #ifndef NDEBUG
+            stdio_init_all();
+            #endif
         #endif
-    #endif
 
-    #if MICROPY_HW_ENABLE_USBDEV && MICROPY_HW_USB_CDC
-    bi_decl(bi_program_feature("USB REPL"))
-    #endif
-        #if MICROPY_HW_ENABLE_USBDEV
-        #if MICROPY_HW_USB_CDC
+        #if MICROPY_HW_ENABLE_USBDEV && MICROPY_HW_USB_CDC
         bi_decl(bi_program_feature("USB REPL"))
-        #endif
-        tusb_init();
         #endif
     #endif //JPO_JCOMP
 
@@ -173,40 +177,32 @@ int main(int argc, char **argv) {
 
     // Initialise stack extents and GC heap.
     #ifdef JPO_JCOMP
-        // Not sure if this is correct
-        size_t stack_size = &__StackTop - &__StackOneBottom;
-        // &__StackTop - &__StackBottom - (128 + 2 * JCOMP_MSG_BUF_SIZE_MAX)
+        // Not sure if this is correct. Likely not
+        //size_t stack_size = &__StackTop - &__StackOneBottom;
+
+        // Only include core0 stack, not core1
+        size_t stack_size = &__StackTop - &__StackBottom - (128 + 2 * JCOMP_MSG_BUF_SIZE_MAX);
         mp_cstack_init_with_top(&__StackTop, stack_size);
-        
     #else
         mp_cstack_init_with_top(&__StackTop, &__StackTop - &__StackBottom);
     #endif
 
-    // Deprecated API
-    // mp_stack_set_top(&__StackTop);
-    // #ifdef JPO_JCOMP
-    //     // Using &__StackOneTop for safety, since &__StackBottom
-    //     // can overlap with core0 stack (with the default linker config)
-    //     // Add a safety margin for 128 bytes plus two JCOMP messages (a request and a response)
-    //     mp_stack_set_limit(&__StackTop - &__StackOneTop - (128 + 2*JCOMP_MSG_BUF_SIZE_MAX));
-    // #endif
-
     gc_init(&__GcHeapStart, &__GcHeapEnd);
 
     #ifdef JPO_JCOMP
-    // Initialize JPO HAL library (including JCOMP)
-    // TODO-P2: add the Micropython version (MICROPY_BANNER_*), so PC knows to upgrade it
-    #if JPO_DBGR_BUILD
-    jcomp_set_env_type("MPYT-DBGR:" MICROPY_BANNER_NAME_AND_VERSION ":" VERSION_TIMESTAMP);
-    #else
-    jcomp_set_env_type("MPYT-FAST:" MICROPY_BANNER_NAME_AND_VERSION ":" VERSION_TIMESTAMP);
-    #endif
+        // Initialize JPO HAL library (including JCOMP)
+        // TODO-P2: add the Micropython version (MICROPY_BANNER_*), so PC knows to upgrade it
+        #if JPO_DBGR_BUILD
+        jcomp_set_env_type("MPYT-DBGR:" MICROPY_BANNER_NAME_AND_VERSION ":" VERSION_TIMESTAMP);
+        #else
+        jcomp_set_env_type("MPYT-FAST:" MICROPY_BANNER_NAME_AND_VERSION ":" VERSION_TIMESTAMP);
+        #endif
 
-    hal_init();
-    //DBG_OLED("hal_init done");
+        hal_init();
+        //DBG_OLED("hal_init done");
+        DBG_OLED("%d/%d kb", MICROPY_HW_FLASH_STORAGE_BYTES/1024, PICO_FLASH_SIZE_BYTES/1024);
 
-    check_watchdog_flags();
-
+        check_watchdog_flags();
     #endif //JPO_JCOMP
 
     #ifdef JPO_DBGR
@@ -271,19 +267,30 @@ int main(int argc, char **argv) {
         mod_network_lwip_init();
         #endif
 
+
         // Execute _boot.py to set up the filesystem.
         #if MICROPY_VFS_FAT && MICROPY_HW_USB_MSC
         pyexec_frozen_module("_boot_fat.py", false);
         #else
-        pyexec_frozen_module("_boot.py", false);
+        // DBG_OLED("skip boot.py");
+        DBG_OLED("_boot.py");
+        int rv = pyexec_frozen_module("_boot.py", false);
+        DBG_OLED("_boot.py %d done", rv);
         #endif
 
         // Delete user scripts if requested
+        #if JPO_REMOVE_USER_SCRIPTS_ON_WD_FLAG
         if (_remove_user_scripts) {
+            DBG_OLED("remove_user_scripts.py")
+
             _remove_user_scripts = false;
             pyexec_frozen_module("_remove_user_scripts.py", false);
-            //DBG_OLED("rmv main done");
+
+            DBG_OLED("done remove_user_scripts.py")
         }
+        #else
+        DBG_OLED("SKIP JPO_REMOVE_USER_SCRIPTS_ON_WD_FLAG");
+        #endif // JPO_REMOVE_USER_SCRIPTS_ON_WD_FLAG
 
         // Execute user scripts.
         int ret = pyexec_file_if_exists("boot.py");
@@ -315,6 +322,9 @@ int main(int argc, char **argv) {
         }
 
     soft_reset_exit:
+        DBG_OLED("mpy: soft_reset_exit");
+        DBG_SEND(T_MAIN, "mpy: soft_reset_exit");
+
         mp_printf(MP_PYTHON_PRINTER, "MPY: soft reboot\n");
         dbg_print_stack_addresses();
 

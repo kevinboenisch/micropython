@@ -48,7 +48,7 @@
 #include "py/parse.h"
 
 // Debug tags
-#define T_PYEXEC NULL // "pyexec"
+#define T_PYEXEC "pyexec"
 
 // Echo entire lines, instead of char-by-char
 #define JPO_ECHO_LINE
