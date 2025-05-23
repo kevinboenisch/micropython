@@ -169,7 +169,7 @@ class __thonny_helper:
                     cls.os.remove(path)
                 else:
                     pass
-                    _jpo._dbg_send("keep:", path)
+                    _jpo._dbg_send(f"keep '{path}'")
 
         _jpo._dbg_send(f"Done deltree: '{path}'")
 
