@@ -11,8 +11,8 @@
 
 #define LFS2_YES_TRACE (1)
 #include "jpo/jcomp/debug.h"
-#define T_LFS2_TRACE "lfs2-trace"
-#define T_LFS2_RAW "lfs2"
+#define T_LFS2_TRACE 0 //"lfs2-trace"
+#define T_LFS2_RAW 0 //"lfs2"
 
 
 // Users can override lfs2_util.h with their own configuration by defining

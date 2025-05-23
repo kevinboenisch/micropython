@@ -32,6 +32,13 @@
 #include "modrp2.h"
 #include "hardware/flash.h"
 #include "pico/binary_info.h"
+#include "mpconfigport.h" // for JPO_JCOMP
+
+#ifdef JPO_JCOMP
+#include "jpo/jcomp/core1.h"
+#pragma message "JPO_JCOMP enabled"
+
+#endif
 
 #include "jpo/jcomp/debug.h"
 #define T_FLASH "flash"
@@ -83,24 +90,51 @@ bi_decl(bi_block_device(
 
 // Flash erase and write must run with interrupts disabled and the other core suspended,
 // because the XIP bit gets disabled.
+__attribute__((noinline, section(".time_critical.begin_critical_flash_section"))) 
 static uint32_t begin_critical_flash_section(void) {
     DBG_SEND(T_FLASH, "begin_critical_flash_section");
+
+    #ifdef JPO_JCOMP
+    jcomp_pause_core1();
+    #else
     if (multicore_lockout_victim_is_initialized(1 - get_core_num())) {
         multicore_lockout_start_blocking();
     }
+    #endif
+    
     uint32_t state = save_and_disable_interrupts();
-    DBG_SEND(T_FLASH, "begin_critical_flash_section done -> %d", state);
-    return save_and_disable_interrupts();
+    return state;
 }
 
+__attribute__((noinline, section(".time_critical.end_critical_flash_section"))) 
 static void end_critical_flash_section(uint32_t state) {
-    DBG_SEND(T_FLASH, "end_critical_flash_section %d", state);
     restore_interrupts(state);
+
+    #ifdef JPO_JCOMP
+    jcomp_resume_core1();
+    #else    
     if (multicore_lockout_victim_is_initialized(1 - get_core_num())) {
         multicore_lockout_end_blocking();
     }
+    #endif
+
     DBG_SEND(T_FLASH, "end_critical_flash_section done");
 }
+
+__attribute__((noinline, section(".time_critical.safe_flash_range_erase"))) 
+void safe_flash_range_erase(uint32_t flash_offs, size_t count) {
+    uint32_t atomic_state = begin_critical_flash_section();
+    flash_range_erase(flash_offs, count);
+    end_critical_flash_section(atomic_state);
+}
+
+__attribute__((noinline, section(".time_critical.safe_flash_range_program"))) 
+void safe_flash_range_program(uint32_t flash_offs, const uint8_t *data, size_t count) {
+    uint32_t atomic_state = begin_critical_flash_section();
+    flash_range_program(flash_offs, data, count);
+    end_critical_flash_section(atomic_state);
+}
+
 
 static mp_obj_t rp2_flash_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *all_args) {
     // Parse arguments
@@ -154,8 +188,8 @@ static mp_obj_t rp2_flash_readblocks(size_t n_args, const mp_obj_t *args) {
     mp_buffer_info_t bufinfo;
     mp_get_buffer_raise(args[2], &bufinfo, MP_BUFFER_WRITE);
 
-    DBG_SEND(T_FLASH, "rp2_flash_readblocks: n_args:%d offset=%d (buf:%p len:%d typecode:%d)", 
-        n_args, offset, bufinfo.buf, bufinfo.len, bufinfo.typecode);
+    // DBG_SEND(T_FLASH, "rp2_flash_readblocks: n_args:%d offset=%d (buf:%p len:%d typecode:%d)", 
+    //     n_args, offset, bufinfo.buf, bufinfo.len, bufinfo.typecode);
 
 
     if (n_args == 4) {
@@ -167,11 +201,12 @@ static mp_obj_t rp2_flash_readblocks(size_t n_args, const mp_obj_t *args) {
     // system. mp_event_handle_nowait() will call the TinyUSB task if needed.
     mp_event_handle_nowait();
 
-    DBG_SEND(T_FLASH, "rp2_flash_readblocks done");
+    // DBG_SEND(T_FLASH, "rp2_flash_readblocks done");
 
     return mp_const_none;
 }
 static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(rp2_flash_readblocks_obj, 3, 4, rp2_flash_readblocks);
+
 
 static mp_obj_t rp2_flash_writeblocks(size_t n_args, const mp_obj_t *args) {
     rp2_flash_obj_t *self = MP_OBJ_TO_PTR(args[0]);
@@ -184,32 +219,19 @@ static mp_obj_t rp2_flash_writeblocks(size_t n_args, const mp_obj_t *args) {
         n_args, offset, bufinfo.buf, bufinfo.len, bufinfo.typecode);
 
     if (n_args == 3) {
-        mp_uint_t atomic_state = begin_critical_flash_section();
+        safe_flash_range_erase(self->flash_base + offset, bufinfo.len);
 
-        DBG_SEND(T_FLASH, "flash_range_erase (writeblocks): addr:%p, size:%d", 
-                self->flash_base + offset, bufinfo.len);
-
-        flash_range_erase(self->flash_base + offset, bufinfo.len);
-        end_critical_flash_section(atomic_state);
         mp_event_handle_nowait();
         // TODO check return value
     } else {
         offset += mp_obj_get_int(args[3]);
     }
-    mp_uint_t atomic_state = begin_critical_flash_section();
 
-    //void flash_range_program (uint32_t flash_offs, const uint8_t *data, size_t count)
-    DBG_SEND(T_FLASH, "flash_range_program: flash_ffs:%p data:%p, count: %d", 
-        self->flash_base + offset, bufinfo.buf, bufinfo.len);
-
-    flash_range_program(self->flash_base + offset, bufinfo.buf, bufinfo.len);
-
-    DBG_SEND(T_FLASH, "flash_range_program done");
-
-    end_critical_flash_section(atomic_state);
+    safe_flash_range_program(self->flash_base + offset, bufinfo.buf, bufinfo.len);
+    
     mp_event_handle_nowait();
 
-    DBG_SEND(T_FLASH, "rp2_flash_writeblocks: flash_range_program done");
+    DBG_SEND(T_FLASH, "rp2_flash_writeblocks: safe_flash_range_program done");
     // TODO check return value
     return mp_const_none;
 }
@@ -237,17 +259,9 @@ static mp_obj_t rp2_flash_ioctl(mp_obj_t self_in, mp_obj_t cmd_in, mp_obj_t arg_
             uint32_t offset = mp_obj_get_int(arg_in) * BLOCK_SIZE_BYTES;
 
             //DBG_SEND(T_FLASH, "rp2_flash_ioctl: MP_BLOCKDEV_IOCTL_BLOCK_ERASE: %d self:%p", offset, self);
-
-            DBG_SEND(T_FLASH, "flash_range_erase (ioctl): addr:%p, size:%d", 
-                self->flash_base + offset, BLOCK_SIZE_BYTES);
             DBG_SEND(T_FLASH, "second!");
 
-            mp_uint_t atomic_state = begin_critical_flash_section();
-
-
-            flash_range_erase(self->flash_base + offset, BLOCK_SIZE_BYTES);
-
-            end_critical_flash_section(atomic_state);
+            safe_flash_range_erase(self->flash_base + offset, BLOCK_SIZE_BYTES);
 
             DBG_SEND(T_FLASH, "rp2_flash_ioctl: MP_BLOCKDEV_IOCTL_BLOCK_ERASE done");
 
