@@ -40,13 +40,6 @@
 #include "pico/unique_id.h"
 #include "pico/aon_timer.h"
 
-// Debug tags
-#define T_STDIN 0 //"stdin"
-#define T_STDIN_CTRL_D "stdin^d"
-#define T_STDOUT 0 // "stdout"
-
-extern bool dbg_active;
-
 // TODO: change later, rely on an import from JCOMP
 #define JPO_JCOMP
 
@@ -82,10 +75,6 @@ ringbuf_t stdin_ringbuf = { stdin_ringbuf_array, sizeof(stdin_ringbuf_array) };
 
 bool process_interrupt_char(int ch) {
     if (ch != -1 && ch == mp_interrupt_char) {
-        if (dbg_active) {
-            DBG_SEND(T_STDIN, "process_interrupt_char: %02X", ch);
-        }
-
         // Clear the buffer, other chars should not arrive after ctrl+c
         jcomp_stdin_clear();
         // Signal keyboard interrupt to be raised as soon as the VM resumes
@@ -160,47 +149,11 @@ uintptr_t mp_hal_stdio_poll(uintptr_t poll_flags) {
     return ret;
 }
 
-extern bool dbg_active;
-void dbg_send_char(int ch) {
-    #ifdef JPO_JCOMP
-    if (ch < 0) {
-        return;
-    }
-
-    if (ch < 0x20) {
-        // Special chars
-        if (ch == '\r') {
-            DBG_SEND(T_STDIN, "%02X \\r");
-        }
-        else if (ch == '\n') {
-            DBG_SEND(T_STDIN, "%02X \\n");
-        }
-        else if (ch == 0x04) { // Ctrl+D, reset/exit paste mode, troubling
-            static int ctrl_d_count = 0;
-            DBG_SEND(T_STDIN_CTRL_D, "%02X Ctrl+D: %d", ch, ++ctrl_d_count);
-
-            // set breakpoint
-            if (ctrl_d_count == 6) {
-                dbg_active = true;
-            }
-        }
-        else {
-            DBG_SEND(T_STDIN, "%02X Ctrl+%c", ch, ch+'@');
-        }
-    }
-    else {
-        DBG_SEND(T_STDIN, "%02X %c", ch, ch);
-    }
-    #endif //JPO_JCOMP
-}
-
 // Receive single character
 int mp_hal_stdin_rx_chr(void) {
     #ifdef JPO_JCOMP
     for (;;) {
         int ch = jcomp_getchar();
-
-        dbg_send_char(ch);
 
         // Maybe redundant, since the check is done in JPO_CHECK_FOR_INTERRUPT,
         // but since chars arrive on core1, better be safe and check again. 
@@ -246,23 +199,11 @@ mp_uint_t mp_hal_stdout_tx_strn(const char *str, mp_uint_t len) {
     // Bug fix: at least one keyboard poll, to allow Ctrl+C to interrupt
     JPO_CHECK_FOR_INTERRUPT;
 
-
-    if (dbg_active) {
-        char buf[len + 1];
-        memcpy(buf, str, len); 
-        buf[len] = 0;
-        DBG_SEND(T_STDOUT, "stdout_tx_strn(1): %d '%s'", len, buf);
-    }
-
     JCOMP_RV rv = jcomp_stdout_send_bytes((uint8_t*)str, len);
     if (rv) {
         // How to handle errors properly?
         DBG_SEND(T_ERROR, "jcomp_stdout_send_bytes err:%d", rv);
-    }
-
-    if (dbg_active) {
-        DBG_SEND(T_STDOUT, "stdout_tx_strn(2) done");
-    }
+    }    
     return len;
 
     #endif //JPO_JCOMP 

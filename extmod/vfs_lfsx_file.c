@@ -35,9 +35,6 @@
 #include "py/mperrno.h"
 #include "extmod/vfs.h"
 
-#include "jpo/jcomp/debug.h"
-#define T_FILE "vfs_lfsx_file"
-
 static void MP_VFS_LFSx(check_open)(MP_OBJ_VFS_LFSx_FILE * self) {
     if (self->vfs == NULL) {
         mp_raise_ValueError(NULL);
@@ -145,9 +142,6 @@ static mp_uint_t MP_VFS_LFSx(file_write)(mp_obj_t self_in, const void *buf, mp_u
     }
     #endif
     LFSx_API(ssize_t) sz = LFSx_API(file_write)(&self->vfs->lfs, &self->file, buf, size);
-
-    DBG_SEND(T_FILE, "file_write sz:%d", sz);
-
     if (sz < 0) {
         *errcode = -sz;
         return MP_STREAM_ERROR;

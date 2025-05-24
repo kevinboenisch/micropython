@@ -36,12 +36,7 @@
 
 #ifdef JPO_JCOMP
 #include "jpo/jcomp/core1.h"
-#pragma message "JPO_JCOMP enabled"
-
 #endif
-
-#include "jpo/jcomp/debug.h"
-#define T_FLASH "flash"
 
 #define BLOCK_SIZE_BYTES (FLASH_SECTOR_SIZE)
 
@@ -56,14 +51,6 @@ static_assert(MICROPY_HW_FLASH_STORAGE_BYTES % 4096 == 0, "Flash storage size mu
 
 static_assert(MICROPY_HW_FLASH_STORAGE_BYTES <= PICO_FLASH_SIZE_BYTES, "MICROPY_HW_FLASH_STORAGE_BYTES too big");
 static_assert(MICROPY_HW_FLASH_STORAGE_BASE + MICROPY_HW_FLASH_STORAGE_BYTES <= PICO_FLASH_SIZE_BYTES, "MICROPY_HW_FLASH_STORAGE_BYTES too big");
-
-#define STRINGIFY_HELPER(x) #x
-#define STRINGIFY(x) STRINGIFY_HELPER(x)
-#pragma message ("---MICROPY_HW_FLASH_STORAGE_BYTES = " STRINGIFY(MICROPY_HW_FLASH_STORAGE_BYTES))
-#pragma message ("---MICROPY_HW_FLASH_STORAGE_BASE = " STRINGIFY(MICROPY_HW_FLASH_STORAGE_BASE))
-#pragma message ("x--PICO_FLASH_SIZE_BYTES = " STRINGIFY(PICO_FLASH_SIZE_BYTES))
-
-
 
 typedef struct _rp2_flash_obj_t {
     mp_obj_base_t base;
@@ -92,8 +79,6 @@ bi_decl(bi_block_device(
 // because the XIP bit gets disabled.
 __attribute__((noinline, section(".time_critical.begin_critical_flash_section"))) 
 static uint32_t begin_critical_flash_section(void) {
-    DBG_SEND(T_FLASH, "begin_critical_flash_section");
-
     #ifdef JPO_JCOMP
     jcomp_pause_core1();
     #else
@@ -112,13 +97,11 @@ static void end_critical_flash_section(uint32_t state) {
 
     #ifdef JPO_JCOMP
     jcomp_resume_core1();
-    #else    
+    #else
     if (multicore_lockout_victim_is_initialized(1 - get_core_num())) {
         multicore_lockout_end_blocking();
     }
     #endif
-
-    DBG_SEND(T_FLASH, "end_critical_flash_section done");
 }
 
 __attribute__((noinline, section(".time_critical.safe_flash_range_erase"))) 
@@ -152,13 +135,9 @@ static mp_obj_t rp2_flash_make_new(const mp_obj_type_t *type, size_t n_args, siz
         assert((uintptr_t)&__flash_binary_end - XIP_BASE <= MICROPY_HW_FLASH_STORAGE_BASE);
         #endif
 
-        DBG_SEND(T_FLASH, "rp2_flash_make_new: using default flash object");
-
         // Default singleton object that accesses entire flash
         return MP_OBJ_FROM_PTR(&rp2_flash_obj);
     }
-
-    DBG_SEND(T_FLASH, "rp2_flash_make_new: np_obj_malloc flash object");
 
     rp2_flash_obj_t *self = mp_obj_malloc(rp2_flash_obj_t, &rp2_flash_type);
 
@@ -187,11 +166,6 @@ static mp_obj_t rp2_flash_readblocks(size_t n_args, const mp_obj_t *args) {
     uint32_t offset = mp_obj_get_int(args[1]) * BLOCK_SIZE_BYTES;
     mp_buffer_info_t bufinfo;
     mp_get_buffer_raise(args[2], &bufinfo, MP_BUFFER_WRITE);
-
-    // DBG_SEND(T_FLASH, "rp2_flash_readblocks: n_args:%d offset=%d (buf:%p len:%d typecode:%d)", 
-    //     n_args, offset, bufinfo.buf, bufinfo.len, bufinfo.typecode);
-
-
     if (n_args == 4) {
         offset += mp_obj_get_int(args[3]);
     }
@@ -200,27 +174,17 @@ static mp_obj_t rp2_flash_readblocks(size_t n_args, const mp_obj_t *args) {
     // USB at boot time, if the board is busy loading files or scanning the file
     // system. mp_event_handle_nowait() will call the TinyUSB task if needed.
     mp_event_handle_nowait();
-
-    // DBG_SEND(T_FLASH, "rp2_flash_readblocks done");
-
     return mp_const_none;
 }
 static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(rp2_flash_readblocks_obj, 3, 4, rp2_flash_readblocks);
-
 
 static mp_obj_t rp2_flash_writeblocks(size_t n_args, const mp_obj_t *args) {
     rp2_flash_obj_t *self = MP_OBJ_TO_PTR(args[0]);
     uint32_t offset = mp_obj_get_int(args[1]) * BLOCK_SIZE_BYTES;
     mp_buffer_info_t bufinfo;
     mp_get_buffer_raise(args[2], &bufinfo, MP_BUFFER_READ);
-
-    // buf, len, typecode
-    DBG_SEND(T_FLASH, "rp2_flash_writeblocks: n_args:%d offset=%d (buf:%p len:%d typecode:%d)", 
-        n_args, offset, bufinfo.buf, bufinfo.len, bufinfo.typecode);
-
     if (n_args == 3) {
         safe_flash_range_erase(self->flash_base + offset, bufinfo.len);
-
         mp_event_handle_nowait();
         // TODO check return value
     } else {
@@ -228,10 +192,7 @@ static mp_obj_t rp2_flash_writeblocks(size_t n_args, const mp_obj_t *args) {
     }
 
     safe_flash_range_program(self->flash_base + offset, bufinfo.buf, bufinfo.len);
-    
     mp_event_handle_nowait();
-
-    DBG_SEND(T_FLASH, "rp2_flash_writeblocks: safe_flash_range_program done");
     // TODO check return value
     return mp_const_none;
 }
@@ -240,9 +201,6 @@ static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(rp2_flash_writeblocks_obj, 3, 4, rp2_
 static mp_obj_t rp2_flash_ioctl(mp_obj_t self_in, mp_obj_t cmd_in, mp_obj_t arg_in) {
     rp2_flash_obj_t *self = MP_OBJ_TO_PTR(self_in);
     mp_int_t cmd = mp_obj_get_int(cmd_in);
-
-    DBG_SEND(T_FLASH, "rp2_flash_ioctl: cmd=%d", cmd);
-
     switch (cmd) {
         case MP_BLOCKDEV_IOCTL_INIT:
             return MP_OBJ_NEW_SMALL_INT(0);
@@ -251,20 +209,12 @@ static mp_obj_t rp2_flash_ioctl(mp_obj_t self_in, mp_obj_t cmd_in, mp_obj_t arg_
         case MP_BLOCKDEV_IOCTL_SYNC:
             return MP_OBJ_NEW_SMALL_INT(0);
         case MP_BLOCKDEV_IOCTL_BLOCK_COUNT:
-            DBG_SEND(T_FLASH, "rp2_flash_ioctl: MP_BLOCKDEV_IOCTL_BLOCK_COUNT: %d", self->flash_size / BLOCK_SIZE_BYTES);
             return MP_OBJ_NEW_SMALL_INT(self->flash_size / BLOCK_SIZE_BYTES);
         case MP_BLOCKDEV_IOCTL_BLOCK_SIZE:
             return MP_OBJ_NEW_SMALL_INT(BLOCK_SIZE_BYTES);
         case MP_BLOCKDEV_IOCTL_BLOCK_ERASE: {
             uint32_t offset = mp_obj_get_int(arg_in) * BLOCK_SIZE_BYTES;
-
-            //DBG_SEND(T_FLASH, "rp2_flash_ioctl: MP_BLOCKDEV_IOCTL_BLOCK_ERASE: %d self:%p", offset, self);
-            DBG_SEND(T_FLASH, "second!");
-
             safe_flash_range_erase(self->flash_base + offset, BLOCK_SIZE_BYTES);
-
-            DBG_SEND(T_FLASH, "rp2_flash_ioctl: MP_BLOCKDEV_IOCTL_BLOCK_ERASE done");
-
             // TODO check return value
             return MP_OBJ_NEW_SMALL_INT(0);
         }

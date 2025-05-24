@@ -8,13 +8,6 @@
 #ifndef LFS2_UTIL_H
 #define LFS2_UTIL_H
 
-
-#define LFS2_YES_TRACE (1)
-#include "jpo/jcomp/debug.h"
-#define T_LFS2_TRACE 0 //"lfs2-trace"
-#define T_LFS2_RAW 0 //"lfs2"
-
-
 // Users can override lfs2_util.h with their own configuration by defining
 // LFS2_CONFIG as a header file to include (-DLFS2_CONFIG=lfs2_config.h).
 //
@@ -60,7 +53,7 @@ extern "C"
 #ifndef LFS2_TRACE
 #ifdef LFS2_YES_TRACE
 #define LFS2_TRACE_(fmt, ...) \
-    DBG_SEND(T_LFS2_TRACE, "%s:%d:trace: " fmt "%s", __FILE__, __LINE__, __VA_ARGS__)
+    printf("%s:%d:trace: " fmt "%s\n", __FILE__, __LINE__, __VA_ARGS__)
 #define LFS2_TRACE(...) LFS2_TRACE_(__VA_ARGS__, "")
 #else
 #define LFS2_TRACE(...)
@@ -70,7 +63,7 @@ extern "C"
 #ifndef LFS2_DEBUG
 #ifndef LFS2_NO_DEBUG
 #define LFS2_DEBUG_(fmt, ...) \
-    DBG_SEND(T_LFS2_TRACE, "%s:%d:debug: " fmt "%s", __FILE__, __LINE__, __VA_ARGS__)
+    printf("%s:%d:debug: " fmt "%s\n", __FILE__, __LINE__, __VA_ARGS__)
 #define LFS2_DEBUG(...) LFS2_DEBUG_(__VA_ARGS__, "")
 #else
 #define LFS2_DEBUG(...)
@@ -80,7 +73,7 @@ extern "C"
 #ifndef LFS2_WARN
 #ifndef LFS2_NO_WARN
 #define LFS2_WARN_(fmt, ...) \
-    DBG_SEND(T_WARN, "%s:%d:warn: " fmt "%s", __FILE__, __LINE__, __VA_ARGS__)
+    printf("%s:%d:warn: " fmt "%s\n", __FILE__, __LINE__, __VA_ARGS__)
 #define LFS2_WARN(...) LFS2_WARN_(__VA_ARGS__, "")
 #else
 #define LFS2_WARN(...)
@@ -90,7 +83,7 @@ extern "C"
 #ifndef LFS2_ERROR
 #ifndef LFS2_NO_ERROR
 #define LFS2_ERROR_(fmt, ...) \
-    DBG_SEND(T_ERROR, "%s:%d:error: " fmt "%s", __FILE__, __LINE__, __VA_ARGS__)
+    printf("%s:%d:error: " fmt "%s\n", __FILE__, __LINE__, __VA_ARGS__)
 #define LFS2_ERROR(...) LFS2_ERROR_(__VA_ARGS__, "")
 #else
 #define LFS2_ERROR(...)

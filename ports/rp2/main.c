@@ -80,16 +80,13 @@
 
 #define T_MAIN "main"
 
-// Keep enabled (it's a bug fix), disable for testing
-#define JPO_REMOVE_USER_SCRIPTS_ON_WD_FLAG (0)
-
 #include "jpo_debugger.h"
 
 extern uint8_t __StackTop, __StackBottom;
 extern uint8_t __StackOneTop, __StackOneBottom;
 extern uint8_t __GcHeapStart, __GcHeapEnd;
 
-#define T_STACK "stack"
+#define T_STACK 0 // "stack"
 
 void dbg_print_stack_addresses(void) {
     DBG_SEND(T_STACK, "Core0 Top:    0x%p", (int)&__StackTop);
@@ -199,8 +196,8 @@ int main(int argc, char **argv) {
         #endif
 
         hal_init();
-        //DBG_OLED("hal_init done");
-        DBG_OLED("%d/%d kb", MICROPY_HW_FLASH_STORAGE_BYTES/1024, PICO_FLASH_SIZE_BYTES/1024);
+        DBG_OLED("hal_init done");
+        //DBG_OLED("%d/%d kb", MICROPY_HW_FLASH_STORAGE_BYTES/1024, PICO_FLASH_SIZE_BYTES/1024);
 
         check_watchdog_flags();
     #endif //JPO_JCOMP
@@ -272,24 +269,17 @@ int main(int argc, char **argv) {
         #if MICROPY_VFS_FAT && MICROPY_HW_USB_MSC
         pyexec_frozen_module("_boot_fat.py", false);
         #else
-        // DBG_OLED("skip boot.py");
-        DBG_OLED("_boot.py");
-        int rv = pyexec_frozen_module("_boot.py", false);
-        DBG_OLED("_boot.py %d done", rv);
+        pyexec_frozen_module("_boot.py", false);
         #endif
 
         // Delete user scripts if requested
         #if JPO_REMOVE_USER_SCRIPTS_ON_WD_FLAG
         if (_remove_user_scripts) {
-            DBG_OLED("remove_user_scripts.py")
 
             _remove_user_scripts = false;
             pyexec_frozen_module("_remove_user_scripts.py", false);
-
-            DBG_OLED("done remove_user_scripts.py")
+            //DBG_OLED("rmv main done");
         }
-        #else
-        DBG_OLED("SKIP JPO_REMOVE_USER_SCRIPTS_ON_WD_FLAG");
         #endif // JPO_REMOVE_USER_SCRIPTS_ON_WD_FLAG
 
         // Execute user scripts.
@@ -322,9 +312,6 @@ int main(int argc, char **argv) {
         }
 
     soft_reset_exit:
-        DBG_OLED("mpy: soft_reset_exit");
-        DBG_SEND(T_MAIN, "mpy: soft_reset_exit");
-
         mp_printf(MP_PYTHON_PRINTER, "MPY: soft reboot\n");
         dbg_print_stack_addresses();
 

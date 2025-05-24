@@ -43,9 +43,6 @@
 #error "MICROPY_VFS_LFS requires MICROPY_ENABLE_FINALISER"
 #endif
 
-#include "jpo/jcomp/debug.h"
-#define T_VFS "vfs_lfs"
-
 static int MP_VFS_LFSx(dev_ioctl)(const struct LFSx_API (config) * c, int cmd, int arg, bool must_return_int) {
     mp_obj_t ret = mp_vfs_blockdev_ioctl(c->context, cmd, arg);
     int ret_i = 0;
@@ -94,7 +91,7 @@ static void MP_VFS_LFSx(init_config)(MP_OBJ_VFS_LFSx * self, mp_obj_t bdev, size
     config->prog_size = prog_size;
     config->block_size = bs;
     config->block_count = bc;
- 
+
     #if LFS_BUILD_VERSION == 1
     config->lookahead = lookahead;
     config->read_buffer = m_new(uint8_t, config->read_size);
@@ -242,18 +239,12 @@ static mp_obj_t MP_VFS_LFSx(ilistdir_func)(size_t n_args, const mp_obj_t *args) 
 static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(MP_VFS_LFSx(ilistdir_obj), 1, 2, MP_VFS_LFSx(ilistdir_func));
 
 static mp_obj_t MP_VFS_LFSx(remove)(mp_obj_t self_in, mp_obj_t path_in) {
-    DBG_SEND(T_VFS, "vfs_lfsx::remove");
-
     MP_OBJ_VFS_LFSx *self = MP_OBJ_TO_PTR(self_in);
     const char *path = MP_VFS_LFSx(make_path)(self, path_in);
-
-    DBG_SEND(T_VFS, "vfs_lfsx::LFSx_API(remove)");
     int ret = LFSx_API(remove)(&self->lfs, path);
     if (ret < 0) {
         mp_raise_OSError(-ret);
     }
-
-    DBG_SEND(T_VFS, "vfs_lfsx::remove DONE");
     return mp_const_none;
 }
 static MP_DEFINE_CONST_FUN_OBJ_2(MP_VFS_LFSx(remove_obj), MP_VFS_LFSx(remove));

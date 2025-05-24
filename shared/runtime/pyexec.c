@@ -48,7 +48,7 @@
 #include "py/parse.h"
 
 // Debug tags
-#define T_PYEXEC "pyexec"
+#define T_PYEXEC NULL // "pyexec"
 
 // Echo entire lines, instead of char-by-char
 #define JPO_ECHO_LINE
@@ -68,17 +68,9 @@ static bool repl_display_debugging_info = 0;
 #define EXEC_FLAG_SOURCE_IS_READER      (1 << 6)
 #define EXEC_FLAG_NO_INTERRUPT          (1 << 7)
 
-extern bool dbg_active;
-
 #ifdef JPO_ECHO_LINE
 void echo_line(vstr_t* line, int* line_end_idx) {
     int line_len = line->len - *line_end_idx;
-
-    if (dbg_active) {
-        // Send the line to the debugger
-        DBG_SEND(T_PYEXEC, "echo_line len=%d %s", line_len, vstr_str(line));
-    }
-
     mp_hal_stdout_tx_strn(line->buf + *line_end_idx, line_len);
     *line_end_idx += line_len;
 }
@@ -399,8 +391,6 @@ static int pyexec_friendly_repl_process_char(int c) {
             mp_hal_stdout_tx_str("\r\n");
             goto input_restart;
         } else if (c == CHAR_CTRL_D) {
-            DBG_SEND(T_PYEXEC, "exit paste mode on Ctrl+D");
-
             // end of input
             mp_hal_stdout_tx_str("\r\n");
             int ret = parse_compile_execute(MP_STATE_VM(repl_line), MP_PARSE_FILE_INPUT, EXEC_FLAG_ALLOW_DEBUGGING | EXEC_FLAG_IS_REPL | EXEC_FLAG_SOURCE_IS_VSTR);
@@ -559,7 +549,6 @@ raw_repl_reset:
                 // clear line
                 vstr_reset(&line);
             } else if (c == CHAR_CTRL_D) {
-                DBG_SEND(T_PYEXEC, "raw repl reset: Ctrl+D");
                 // input finished
                 break;
             } else {
@@ -646,8 +635,6 @@ friendly_repl_reset:
 
         vstr_reset(&line);
         int ret = readline(&line, mp_repl_get_ps1());
-        DBG_SEND(T_PYEXEC, "friendly_repl_reset(1): readline %02x", ret);
-
         mp_parse_input_kind_t parse_input_kind = MP_PARSE_SINGLE_INPUT;
 
         if (ret == CHAR_CTRL_A) {
@@ -684,8 +671,6 @@ friendly_repl_reset:
                     goto input_restart;
                 } else if (c == CHAR_CTRL_D) {
                     // end of input
-                    DBG_SEND(T_PYEXEC, "input_restart(1): Ctrl+D");
-
                     #ifdef JPO_ECHO_LINE
                     echo_line(&line, &line_end_idx);
                     #endif
@@ -722,15 +707,11 @@ friendly_repl_reset:
             while (mp_repl_continue_with_input(vstr_null_terminated_str(&line))) {
                 vstr_add_byte(&line, '\n');
                 ret = readline(&line, mp_repl_get_ps2());
-                DBG_SEND(T_PYEXEC, "friendly_repl_reset(2): readline %02x", ret);
-
                 if (ret == CHAR_CTRL_C) {
                     // cancel everything
                     mp_hal_stdout_tx_str("\r\n");
                     goto input_restart;
                 } else if (ret == CHAR_CTRL_D) {
-                    DBG_SEND(T_PYEXEC, "input_restart(2): Ctrl+D");
-
                     // stop entering compound statement
                     break;
                 }
@@ -738,16 +719,9 @@ friendly_repl_reset:
         }
 
 #ifdef JPO_DBGR
-        DBG_SEND(T_PYEXEC, "pce(before): %s", vstr_str(&line));
-
         // Always send the done event, even if not debugging in JPO_DBGR_BUILD
         ret = parse_compile_execute(&line, parse_input_kind, EXEC_FLAG_ALLOW_DEBUGGING | EXEC_FLAG_IS_REPL | EXEC_FLAG_SOURCE_IS_VSTR);
-        DBG_SEND(T_PYEXEC, "pce(done) ret=%d", ret);
-
         jpo_after_parse_compile_execute(ret);
-
-        DBG_SEND(T_PYEXEC, "jpo_after_pce(done)");
-
 #else
         ret = parse_compile_execute(&line, parse_input_kind, EXEC_FLAG_ALLOW_DEBUGGING | EXEC_FLAG_IS_REPL | EXEC_FLAG_SOURCE_IS_VSTR);
 #endif //JPO_DBGR

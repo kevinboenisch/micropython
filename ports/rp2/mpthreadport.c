@@ -32,17 +32,6 @@
 #include "pico/multicore.h"
 #include "mutex_extra.h"
 
-#define TOGGLE_FOR_REPRO (0)
-
-#if TOGGLE_FOR_REPRO
-    #pragma message "---- mpthreadport.c toggle:1"
-
-    #include "jpo/jcomp/debug.h"
-    #define T_THREAD "thread"
-#else
-    #pragma message "---- mpthreadport.c toggle:0"
-#endif
-
 #if MICROPY_PY_THREAD
 
 extern uint8_t __StackTop, __StackBottom;
@@ -84,10 +73,6 @@ void mp_thread_init(void) {
     recursive_mutex_init(&atomic_mutex);
 
     // Allow MICROPY_BEGIN_ATOMIC_SECTION to be invoked from core1.
-    #if TOGGLE_FOR_REPRO
-    DBG_SEND(T_THREAD, "multicore_lockout_victim_init");
-    #endif
-
     multicore_lockout_victim_init();
 
     mp_thread_set_state(&mp_state_ctx.thread);
@@ -119,10 +104,6 @@ void mp_thread_gc_others(void) {
 
 static void core1_entry_wrapper(void) {
     // Allow MICROPY_BEGIN_ATOMIC_SECTION to be invoked from core0.
-    #if TOGGLE_FOR_REPRO
-    DBG_SEND(T_THREAD, "multicore_lockout_victim_init");
-    #endif
-
     multicore_lockout_victim_init();
 
     if (core1_entry) {

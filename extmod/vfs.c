@@ -46,10 +46,6 @@
 #include "extmod/vfs_posix.h"
 #endif
 
-// Debug tags
-#include "jpo/jcomp/debug.h"
-#define T_VFS "vfs"
-
 // For mp_vfs_proxy_call, the maximum number of additional args that can be passed.
 // A fixed maximum size is used to avoid the need for a costly variable array.
 #define PROXY_MAX_ARGS (2)
@@ -458,12 +454,9 @@ mp_obj_t mp_vfs_mkdir(mp_obj_t path_in) {
 MP_DEFINE_CONST_FUN_OBJ_1(mp_vfs_mkdir_obj, mp_vfs_mkdir);
 
 mp_obj_t mp_vfs_remove(mp_obj_t path_in) {
-    DBG_SEND(T_VFS, "vfs.c::remove");
     mp_obj_t path_out;
     mp_vfs_mount_t *vfs = lookup_path(path_in, &path_out);
-    mp_obj_t rv = mp_vfs_proxy_call(vfs, MP_QSTR_remove, 1, &path_out);
-    DBG_SEND(T_VFS, "vfs.c::remove DONE");
-    return rv;
+    return mp_vfs_proxy_call(vfs, MP_QSTR_remove, 1, &path_out);
 }
 MP_DEFINE_CONST_FUN_OBJ_1(mp_vfs_remove_obj, mp_vfs_remove);
 

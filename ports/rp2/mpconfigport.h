@@ -33,7 +33,6 @@
 #include "pico/binary_info.h"
 #include "pico/multicore.h"
 #include "mpconfigboard.h"
-#include "jpo/jcomp/jcomp_protocol.h"
 
 // Board and hardware specific configuration
 #if PICO_RP2040
@@ -66,6 +65,9 @@
 
 // JPO HAL module (Python HAL/brain API)
 #define JPO_MOD_JPOHAL (1)
+
+// Keep enabled (it's a bug fix), disable for testing
+#define JPO_REMOVE_USER_SCRIPTS_ON_WD_FLAG (1)
 
 // Debug build is enabled
 // There are two separate Micropython builds: fast (non-debug) and debug.
