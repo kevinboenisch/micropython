@@ -1,4 +1,6 @@
 # pylint: disable line-too-long
+# pyright: reportAttributeAccessIssue=false
+
 """
 API for the JPO Brain and connected devices.
 """
@@ -162,6 +164,66 @@ class DistanceSensor:
         """
         _jpo.iic_distance_deinit(self._port)
 
+class AbsoluteEncoder:
+    """
+    Absolute encoder.
+    """
+    def __init__(self, iic_port: int):
+        """
+        Args:
+            iic_port: IIC port the sensor is connected to [1-8]
+        """
+        self._port = iic_port
+        _jpo.iic_absoluteenc_init(self._port)
+
+    def poll_raw(self) -> int:
+        """
+        Read the raw 12-bit value of the encoder.
+
+        Returns: 
+            the encoder reading
+        """
+        return _jpo.iic_absoluteenc_poll_raw(self._port, False)
+
+    def poll_raw_continuous(self) -> int:
+        """
+        Read the raw value of the encoder, without wrapping.
+        Correct continuous readings require this function to be called often enough
+        that the encoder never rotates by a half-turn or more between successive
+        calls, as this makes it impossible to identify the direction of rotation.
+
+        Returns: 
+            the encoder reading
+        """
+        return _jpo.iic_absoluteenc_poll_raw(self._port, True)
+
+    def poll_angle(self) -> float:
+        """
+        Read the angle of the encoder, in radians.
+        This value is always non-negative and strictly less than 2*pi. To get a
+        continuous reading, see `poll_angle_continous`.
+
+        Returns: 
+            the encoder angle
+        """
+        return _jpo.iic_absoluteenc_poll_angle(self._port, False)
+
+    def poll_angle_continuous(self) -> float:
+        """
+        Read the angle of the encoder, in radians, without wrapping.
+        This internally uses `poll_raw_continuous`, see that method for more details.
+        
+        Returns: 
+            the encoder angle
+        """
+        return _jpo.iic_absoluteenc_poll_angle(self._port, True)
+
+    def deinit(self):
+        """
+        Deinitialize the sensor.
+        """
+        _jpo.iic_absoluteenc_deinit(self._port)
+
 # I/O
 # ===
 class Button:
@@ -244,7 +306,7 @@ class Potentiometer:
         """
         _jpo.io_deinit(self._port)
 
-class QuadratureEncoder:
+class MotorQuadratureEncoder:
     """
     Quadrature encoder sensor.
     """
@@ -256,13 +318,13 @@ class QuadratureEncoder:
                 For example, to set up an encoder on IO ports 4 and 5, pass 4 here.
         """
         self._port = io_lower_port
-        _jpo.io_encoder_init_quadrature(self._port)
+        _jpo.io_motorquadenc_init(self._port)
 
     def read(self) -> int:
         """
         @return: the value of the quadrature encoder, in ticks
         """
-        return _jpo.io_encoder_read(self._port)
+        return _jpo.io_motorquadenc_read(self._port)
 
     def deinit(self):
         """

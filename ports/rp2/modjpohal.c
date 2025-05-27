@@ -197,7 +197,7 @@ static mp_obj_t jpohal_iic_absoluteenc_poll_angle(mp_obj_t iic_port_obj, mp_obj_
     IIC iic = iic_port_to_id(iic_port_obj);
     bool is_continuous = mp_obj_is_true(is_continous_obj);
 
-    if (_test_no_hw) { return mp_obj_new_int(is_continuous ? 123.4 : 456.7); }
+    if (_test_no_hw) { return mp_obj_new_float(is_continuous ? 123.4 : 456.7); }
 
     if (is_continuous) {
         float reading = 0;
