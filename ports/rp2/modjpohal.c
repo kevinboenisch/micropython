@@ -71,26 +71,10 @@ mp_obj_t jpohal_brain_get_buttons(void) {
 MP_DEFINE_CONST_FUN_OBJ_0(jpohal_brain_get_buttons_obj, jpohal_brain_get_buttons);
 
 // === iic.h
-const char* iic_error_to_string(IIC_ERROR err) {
-    switch(err) {
-        case IIC_SUCCESS: return "success";
-        case IIC_UNCONFIGURED: return "not configured";
-        case IIC_NO_DATA: return "no data";
-        case IIC_SHTP_INVALID: return "SHTP invalid";
-        case IIC_SHTP_INCOMPLETE: return "SHTP incomplete";
-        case IIC_SHTP_EOF: return "SHTP eof";
-        case IIC_SH2_INVALID: return "SH2 invalid";
-        case IIC_SH2_UNIMPLEMENTED: return "SH2 unimplemented";
-        case IIC_TIMEOUT: return "timeout";
-        case IIC_GENERIC_PROBLEM: return "generic problem";
-        default: return "unknown error";
-    }
-}
-
 void raise_IicError() {
     IIC_ERROR err = iic_error;
     mp_raise_msg_varg(&mp_type_IicError,
-        MP_ERROR_TEXT("%s"), iic_error_to_string(err));
+        MP_ERROR_TEXT("%s"), iic_str_error(err));
 }
 
 // IIC1 = 0... IIC8 = 7
