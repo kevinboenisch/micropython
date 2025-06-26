@@ -409,6 +409,8 @@ class Brain:
         If True, the display is rendered immediately after each operation.
         If False, the display is rendered only after calling render_oled().
         """
+
+    # Brain buttons
     
     def read_buttons(self) -> BrainButtons:
         """
@@ -430,7 +432,17 @@ class Brain:
         """
         return _jpo.brain_get_buttons() 
 
+    # Brain OLED
 
+    def oled_buffer(self) -> bytearray:
+        """
+        Access the internal display buffer.
+
+        Returns:
+            Bytearray representing the display buffer. Format is hardware specific. 
+            First byte is special, modify others to manipulate pixels. 
+        """
+        return _jpo.brain_oled_buffer()
 
     def set_pixel(self, x: int, y: int, is_on = True):
         """
@@ -468,6 +480,14 @@ class Brain:
         if self.render_immediately:
             _jpo.brain_render_oled()
 
+    def clear_oled(self):
+        """
+        Clear the entire display.
+        """
+        _jpo.brain_clear_oled()
+        if self.render_immediately:
+            _jpo.brain_render_oled()
+
     def write_at(self, row: int, column: int, *items):
         """
         Write a string to the display.
@@ -499,23 +519,6 @@ class Brain:
         """
         _jpo.brain_render_oled()
 
-    def clear_oled(self):
-        """
-        Clear the entire display.
-        """
-        _jpo.brain_clear_oled()
-        if self.render_immediately:
-            _jpo.brain_render_oled()
-
-    def oled_buffer(self) -> bytearray:
-        """
-        Access the internal display buffer.
-
-        Returns:
-            Bytearray representing the display buffer. Format is hardware specific. 
-            First byte is special, modify others to manipulate pixels. 
-        """
-        return _jpo.brain_oled_buffer()
 
 class JoystickState:
     """
@@ -545,7 +548,22 @@ class Joystick:
                and reset state to zero if reports are missed. Puts strain on the radio connection.
                False to send reports only when the state changes. 
         """
+
+        self.render_immediately = True
+        """
+        If True, the display is rendered immediately after each operation.
+        If False, the display is rendered only after calling render_oled().
+        """
+
         _jpo.joystick_init(continuous_reporting)
+
+    def deinit(self):
+        """
+        Deinitialize the joystick, turn off reporting.
+        """
+        _jpo.joystick_deinit()
+
+    # Joystick state
 
     def read(self) -> JoystickState:
         """
@@ -553,11 +571,58 @@ class Joystick:
         """
         return JoystickState()
 
-    def deinit(self):
+    # Joystick OLED
+
+    def clear_row(self, row: int):
+        """ 
+        Clear a row of characters.
+
+        Args:
+            row: the row to clear [0-7]
         """
-        Deinitialize the joystick, turn off reporting.
+        _jpo.joystick_clear_row(row)
+        if self.render_immediately:
+            _jpo.joystick_render_oled()
+
+    def clear_oled(self):
         """
-        _jpo.joystick_deinit()
+        Clear the entire display.
+        """
+        _jpo.joystick_clear_oled()
+        if self.render_immediately:
+            _jpo.joystick_render_oled()
+
+    def write_at(self, row: int, column: int, *items):
+        """
+        Write a string to the display.
+
+        Args:
+            row: the row to write to [0-7]
+            column: the column to write to [0-15]
+            items: items to write, any object, similar to built-in `print`
+        """
+        text = ' '.join([str(a) for a in items])
+        _jpo.joystick_printf(row, column, text)
+        if self.render_immediately:
+            _jpo.joystick_render_oled()
+
+    def print(self, *items):
+        """
+        Write a line to the display and scroll as needed. Always renders immediately.
+
+        Args: 
+            items: items to write, any object, similar to built-in `print`
+        """
+        text = ' '.join([str(a) for a in items])
+        _jpo.joystick_printf_line(text)
+        # always renders immediately
+
+    def render_oled(self):
+        """
+        Render the display.
+        """
+        _jpo.joystick_render_oled()
+
 
 class MT208JoystickState(JoystickState):
     def __init__(self):
@@ -597,8 +662,7 @@ class MT208Joystick(Joystick):
         return MT208JoystickState()
 
 if (__name__ == "xjpo"):
-    # Print the 
-    # warning
+    # Print the warning
     print("*** WARNING")
     print("*** Using the `xjpo` module, which is not frozen.")
     print("*** Remember to freeze the code within `jpo` module in Micropython.")
