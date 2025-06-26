@@ -13,7 +13,6 @@
 #include "jpo/hal/iic.h"
 #include "jpo/hal/io.h"
 #include "jpo/hal/motor.h"
-#include "jpo/hal/oled.h"
 #include "jpo/hal/joystick.h"
 
 // Debug tags
@@ -458,8 +457,7 @@ static mp_obj_t jpohal_io_motorquadenc_init(mp_obj_t io_lower_port_obj) {
         mp_raise_ValueError(MP_ERROR_TEXT("lower port cannot be IO12"));
     }
 
-    bool rv = io_motorquadenc_init(io);
-    if (!rv) { raise_JpoHalError(); }
+    io_motorquadenc_init(io);
     return mp_const_none;
 }
 MP_DEFINE_CONST_FUN_OBJ_1(jpohal_io_motorquadenc_init_obj, jpohal_io_motorquadenc_init);
@@ -506,54 +504,54 @@ static mp_obj_t jpohal_motor_set(mp_obj_t port_obj, mp_obj_t percent_obj) {
 }
 MP_DEFINE_CONST_FUN_OBJ_2(jpohal_motor_set_obj, jpohal_motor_set);
 
-// === oled.h
+// === brain.h
 
-// oled_access_buffer() -> bytearray
+// brain_oled_buffer() -> bytearray
 // Buffer format is an internal implementation detail (e.g [0] is special).
 // Exposing to allow Python graphics code to manipulate the buffer directly.
-static mp_obj_t jpohal_oled_access_buffer(void) {
+static mp_obj_t jpohal_brain_oled_buffer(void) {
     // bytes is immutable, bytearray can be changed
-    mp_obj_t ba = mp_obj_new_bytearray_by_ref(oled_buffer_size(), oled_access_buffer());
+    mp_obj_t ba = mp_obj_new_bytearray_by_ref(brain_oled_buffer_size(), brain_oled_buffer());
     return ba;
 }
-MP_DEFINE_CONST_FUN_OBJ_0(jpohal_oled_access_buffer_obj, jpohal_oled_access_buffer);
+MP_DEFINE_CONST_FUN_OBJ_0(jpohal_brain_oled_buffer_obj, jpohal_brain_oled_buffer);
 
-// oled_set_pixel(x, y, is_on) -> None
-static mp_obj_t jpohal_oled_set_pixel(mp_obj_t x_obj, mp_obj_t y_obj, mp_obj_t is_on_obj) {
+// brain_set_pixel(x, y, is_on) -> None
+static mp_obj_t jpohal_brain_set_pixel(mp_obj_t x_obj, mp_obj_t y_obj, mp_obj_t is_on_obj) {
     size_t x = mp_obj_get_int(x_obj);
     size_t y = mp_obj_get_int(y_obj);
     bool is_on = mp_obj_is_true(is_on_obj);
 
-    bool rv = oled_set_pixel(x, y, is_on);
+    bool rv = brain_set_pixel(x, y, is_on);
     if (!rv) {
         mp_raise_ValueError(MP_ERROR_TEXT("pixel out of bounds"));
     }
     return mp_const_none;
 }
-MP_DEFINE_CONST_FUN_OBJ_3(jpohal_oled_set_pixel_obj, jpohal_oled_set_pixel);
+MP_DEFINE_CONST_FUN_OBJ_3(jpohal_brain_set_pixel_obj, jpohal_brain_set_pixel);
 
-// oled_clear_row(row); -> None
-static mp_obj_t jpohal_oled_clear_row(mp_obj_t row_obj) {
+// brain_clear_row(row); -> None
+static mp_obj_t jpohal_brain_clear_row(mp_obj_t row_obj) {
     OLED_ROW row = mp_obj_get_int(row_obj);
     if (row < ROW_0 || row > ROW_7) {
         mp_raise_ValueError(MP_ERROR_TEXT("row out of range [0-7]"));
     }
-    oled_clear_row(row);
+    brain_clear_row(row);
     return mp_const_none;
 }
-MP_DEFINE_CONST_FUN_OBJ_1(jpohal_oled_clear_row_obj, jpohal_oled_clear_row);
+MP_DEFINE_CONST_FUN_OBJ_1(jpohal_brain_clear_row_obj, jpohal_brain_clear_row);
 
-static mp_obj_t jpohal_oled_clear() {
-    oled_clear();
+static mp_obj_t jpohal_brain_clear_oled() {
+    brain_clear_oled();
     return mp_const_none;
 }
-MP_DEFINE_CONST_FUN_OBJ_0(jpohal_oled_clear_obj, jpohal_oled_clear);
+MP_DEFINE_CONST_FUN_OBJ_0(jpohal_brain_clear_oled_obj, jpohal_brain_clear_oled);
 
-// skip: oled_write_char() as Python has no char type, so oled_printf() is enough
+// skip: oled_write_char() as Python has no char type, so brain_printf() is enough
 
-// oled_printf(row, col, str) -> None
+// brain_printf(row, col, str) -> None
 // no need to pass a list of args here, fix them up in Python
-static mp_obj_t jpohal_oled_printf(mp_obj_t row_obj, mp_obj_t col_obj, mp_obj_t str_obj) {
+static mp_obj_t jpohal_brain_printf(mp_obj_t row_obj, mp_obj_t col_obj, mp_obj_t str_obj) {
     OLED_ROW row = mp_obj_get_int(row_obj);
     OLED_COL col = mp_obj_get_int(col_obj);
     if (row < ROW_0 || row > ROW_7) {
@@ -564,30 +562,30 @@ static mp_obj_t jpohal_oled_printf(mp_obj_t row_obj, mp_obj_t col_obj, mp_obj_t 
     }
     const char *str = mp_obj_str_get_str(str_obj);
 
-    oled_printf(row, col, str);
+    brain_printf(row, col, str);
     return mp_const_none;
 }
-MP_DEFINE_CONST_FUN_OBJ_3(jpohal_oled_printf_obj, jpohal_oled_printf);
+MP_DEFINE_CONST_FUN_OBJ_3(jpohal_brain_printf_obj, jpohal_brain_printf);
 
 // printf with scrolling
 // no need to pass a list of args here, fix them up in Python
-static mp_obj_t jpohal_oled_printf_line(mp_obj_t str_obj) {
+static mp_obj_t jpohal_brain_printf_line(mp_obj_t str_obj) {
     const char *str = mp_obj_str_get_str(str_obj);
 
-    oled_printf_line(str);
+    brain_printf_line(str);
     return mp_const_none;
 }
-MP_DEFINE_CONST_FUN_OBJ_1(jpohal_oled_printf_line_obj, jpohal_oled_printf_line);
+MP_DEFINE_CONST_FUN_OBJ_1(jpohal_brain_printf_line_obj, jpohal_brain_printf_line);
 
-// oled_render() -> False on error, True on success
+// brain_render_oled() -> False on error, True on success
 // don't want to raise an exception, since it's unclear what went wrong
-static mp_obj_t jpohal_oled_render(void) {
+static mp_obj_t jpohal_brain_render_oled(void) {
     JPO_CHECK_FOR_INTERRUPT;
     
-    bool rv = oled_render();
+    bool rv = brain_render_oled();
     return mp_obj_new_bool(rv);
 }
-MP_DEFINE_CONST_FUN_OBJ_0(jpohal_oled_render_obj, jpohal_oled_render);
+MP_DEFINE_CONST_FUN_OBJ_0(jpohal_brain_render_oled_obj, jpohal_brain_render_oled);
 
 // === Joystick ===
 
@@ -695,13 +693,13 @@ static const mp_rom_map_elem_t mp_module_jpohal_globals_table[] = {
 
     { MP_ROM_QSTR(MP_QSTR_motor_set), MP_ROM_PTR(&jpohal_motor_set_obj) },
 
-    { MP_ROM_QSTR(MP_QSTR_oled_access_buffer), MP_ROM_PTR(&jpohal_oled_access_buffer_obj) },
-    { MP_ROM_QSTR(MP_QSTR_oled_set_pixel), MP_ROM_PTR(&jpohal_oled_set_pixel_obj) },
-    { MP_ROM_QSTR(MP_QSTR_oled_clear_row), MP_ROM_PTR(&jpohal_oled_clear_row_obj) },
-    { MP_ROM_QSTR(MP_QSTR_oled_clear), MP_ROM_PTR(&jpohal_oled_clear_obj) },
-    { MP_ROM_QSTR(MP_QSTR_oled_printf), MP_ROM_PTR(&jpohal_oled_printf_obj) },
-    { MP_ROM_QSTR(MP_QSTR_oled_printf_line), MP_ROM_PTR(&jpohal_oled_printf_line_obj) },
-    { MP_ROM_QSTR(MP_QSTR_oled_render), MP_ROM_PTR(&jpohal_oled_render_obj) },
+    { MP_ROM_QSTR(MP_QSTR_brain_oled_buffer), MP_ROM_PTR(&jpohal_brain_oled_buffer_obj) },
+    { MP_ROM_QSTR(MP_QSTR_brain_set_pixel), MP_ROM_PTR(&jpohal_brain_set_pixel_obj) },
+    { MP_ROM_QSTR(MP_QSTR_brain_clear_row), MP_ROM_PTR(&jpohal_brain_clear_row_obj) },
+    { MP_ROM_QSTR(MP_QSTR_brain_clear_oled), MP_ROM_PTR(&jpohal_brain_clear_oled_obj) },
+    { MP_ROM_QSTR(MP_QSTR_brain_printf), MP_ROM_PTR(&jpohal_brain_printf_obj) },
+    { MP_ROM_QSTR(MP_QSTR_brain_printf_line), MP_ROM_PTR(&jpohal_brain_printf_line_obj) },
+    { MP_ROM_QSTR(MP_QSTR_brain_render_oled), MP_ROM_PTR(&jpohal_brain_render_oled_obj) },
 
     { MP_ROM_QSTR(MP_QSTR_joystick_init), MP_ROM_PTR(&jpohal_joystick_init_obj) },
     { MP_ROM_QSTR(MP_QSTR_joystick_deinit), MP_ROM_PTR(&jpohal_joystick_deinit_obj) },

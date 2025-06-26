@@ -368,10 +368,56 @@ class BrainButtons:
     BTN_CANCEL = 1 << 2
     BTN_ENTER = 1 << 3
 
-    def __init__(self):
-        pass
+    def __init__(self, value: int):
+        self.value = value
 
-    def read(self) -> int:
+    def is_up_pressed(self) -> bool:
+        """
+        Returns:
+            True if the up button is pressed, False otherwise
+        """
+        return self.value & BrainButtons.BTN_UP == BrainButtons.BTN_UP
+
+    def is_down_pressed(self) -> bool:
+        """
+        Returns:
+            True if the down button is pressed, False otherwise
+        """
+        return self.value & BrainButtons.BTN_DOWN == BrainButtons.BTN_DOWN
+
+    def is_cancel_pressed(self) -> bool:
+        """
+        Returns:
+            True if the cancel button is pressed, False otherwise
+        """
+        return self.value & BrainButtons.BTN_CANCEL == BrainButtons.BTN_CANCEL
+
+    def is_enter_pressed(self) -> bool:
+        """
+        Returns:
+            True if the enter button is pressed, False otherwise
+        """
+        return self.value & BrainButtons.BTN_ENTER == BrainButtons.BTN_ENTER
+
+class Brain:
+    """
+    Brain unit with the buttons and an OLED display.
+    """
+    def __init__(self):
+        self.render_immediately = True
+        """
+        If True, the display is rendered immediately after each operation.
+        If False, the display is rendered only after calling render_oled().
+        """
+    
+    def read_buttons(self) -> BrainButtons:
+        """
+        Read the state of the buttons on the Brain.
+        """
+        value = self._read_buttons_raw()
+        return BrainButtons(value)
+
+    def _read_buttons_raw(self) -> int:
         """
         Retrieve the state of all the buttons. 
 
@@ -380,51 +426,11 @@ class BrainButtons:
             Check against BrainButtons.BTN_* constants.
         
         Example:
-            bb.read() & BrainButtons.BTN_UP == BrainButtons.BTN_UP
-        
-        Note:
-            For checking a single button, it's easier to use is_*_pressed() methods
+            bb._read_buttons_raw() & BrainButtons.BTN_UP == BrainButtons.BTN_UP
         """
-        return _jpo.brain_get_buttons()
+        return _jpo.brain_get_buttons() 
 
-    def is_up_pressed(self) -> bool:
-        """
-        Returns:
-            True if the up button is pressed, False otherwise
-        """
-        return _jpo.brain_get_buttons() & BrainButtons.BTN_UP == BrainButtons.BTN_UP
 
-    def is_down_pressed(self) -> bool:
-        """
-        Returns:
-            True if the down button is pressed, False otherwise
-        """
-        return _jpo.brain_get_buttons() & BrainButtons.BTN_DOWN == BrainButtons.BTN_DOWN
-
-    def is_cancel_pressed(self) -> bool:
-        """
-        Returns:
-            True if the cancel button is pressed, False otherwise
-        """
-        return _jpo.brain_get_buttons() & BrainButtons.BTN_CANCEL == BrainButtons.BTN_CANCEL
-
-    def is_enter_pressed(self) -> bool:
-        """
-        Returns:
-            True if the enter button is pressed, False otherwise
-        """
-        return _jpo.brain_get_buttons() & BrainButtons.BTN_ENTER == BrainButtons.BTN_ENTER
-
-class Oled:
-    """
-    OLED display built into the Brain. 
-    """
-    def __init__(self):
-        self.render_immediately = True
-        """
-        If True, the display is rendered immediately after each operation.
-        If False, the display is rendered only after calling render().
-        """
 
     def set_pixel(self, x: int, y: int, is_on = True):
         """
@@ -437,9 +443,9 @@ class Oled:
             is_on: True to set, False to clear
         """
         # SSD1306_WIDTH, SSD1306_HEIGHT
-        _jpo.oled_set_pixel(x, y, is_on)
+        _jpo.brain_set_pixel(x, y, is_on)
         if self.render_immediately:
-            _jpo.oled_render()
+            _jpo.brain_render_oled()
 
     def clear_pixel(self, x: int, y: int):
         """
@@ -458,9 +464,9 @@ class Oled:
         Args:
             row: the row to clear [0-7]
         """
-        _jpo.oled_clear_row(row)
+        _jpo.brain_clear_row(row)
         if self.render_immediately:
-            _jpo.oled_render()
+            _jpo.brain_render_oled()
 
     def write_at(self, row: int, column: int, *items):
         """
@@ -472,9 +478,9 @@ class Oled:
             items: items to write, any object, similar to built-in `print`
         """
         text = ' '.join([str(a) for a in items])
-        _jpo.oled_printf(row, column, text)
+        _jpo.brain_printf(row, column, text)
         if self.render_immediately:
-            _jpo.oled_render()
+            _jpo.brain_render_oled()
 
     def print(self, *items):
         """
@@ -484,24 +490,24 @@ class Oled:
             items: items to write, any object, similar to built-in `print`
         """
         text = ' '.join([str(a) for a in items])
-        _jpo.oled_printf_line(text)
+        _jpo.brain_printf_line(text)
         # always renders immediately
 
-    def render(self):
+    def render_oled(self):
         """
         Render the display.
         """
-        _jpo.oled_render()
+        _jpo.brain_render_oled()
 
-    def clear(self):
+    def clear_oled(self):
         """
         Clear the entire display.
         """
-        _jpo.oled_clear()
+        _jpo.brain_clear_oled()
         if self.render_immediately:
-            _jpo.oled_render()
+            _jpo.brain_render_oled()
 
-    def access_buffer(self) -> bytearray:
+    def oled_buffer(self) -> bytearray:
         """
         Access the internal display buffer.
 
@@ -509,7 +515,7 @@ class Oled:
             Bytearray representing the display buffer. Format is hardware specific. 
             First byte is special, modify others to manipulate pixels. 
         """
-        return _jpo.oled_access_buffer()
+        return _jpo.brain_oled_buffer()
 
 class JoystickState:
     """
@@ -589,3 +595,11 @@ class MT208Joystick(Joystick):
         Returns: the latest MT208 joystick state.
         """
         return MT208JoystickState()
+
+if (__name__ == "xjpo"):
+    # Print the 
+    # warning
+    print("*** WARNING")
+    print("*** Using the `xjpo` module, which is not frozen.")
+    print("*** Remember to freeze the code within `jpo` module in Micropython.")
+    print()
