@@ -42,8 +42,8 @@ def copy_stubs(modules, dest_dir):
     print(f"=== Copy stubs to {dest_dir}")
     missing = []
     pyi_dirs = [
-        "repos/micropython-stubs/stubs/micropython-preview-docstubs",
-        "repos/micropython-stubs/stubs/micropython-preview-frozen/rp2/GENERIC"
+        "repos/micropython-stubs/stubs/micropython-v1_26_0_preview-docstubs",
+        "repos/micropython-stubs/stubs/micropython-v1_26_0_preview-frozen/rp2/GENERIC"
     ]
     for dd in pyi_dirs:
         if not os.path.exists(dd):
@@ -154,6 +154,9 @@ def print_imports(modules):
     exit(0)
 
 def main():
+    print("=== This script is out of date. Until it's fixed, use copy-jpo-stubs.py only. ===")
+    return
+
     try:
         jpo_path = os.environ["JPO_PATH"]
     except KeyError:

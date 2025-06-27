@@ -15,6 +15,10 @@ Since the JPO/Micropython is different from CPython, VS Code needs stubs to tell
 2. Run `generate-stubs.cmd` to use the `stubber` tool to create stubs based on the current Micropython repository.
    * First run should be in Admin command prompt, to create symlinks. 
    * In case of the "bad credentials" error, install `stubber` again (see above), even if it's already prsent. 
+    ---
+   * In case of another Python error, try running in Admin command prompt, sometimes stubber itself needs it.
+   * If you get a `❌ freeze error executing` in `ports\rp2\boards\manifest.py`, comment out the required line in that manifest file.
+    * Errors in other ports are not relevant, we only care about `rp2`
 
 3. Manually update `modules.txt file:
     1. run `help("modules")` inside the JPO/Micropython REPL

@@ -6,16 +6,17 @@ C:\> jpo term
 >>> help('modules')
 
 // Paste output below
-__main__          asyncio/lock      gc                re
-_asyncio          asyncio/stream    hashlib           rp2
-_boot             binascii          heapq             select
-_boot_fat         brain             io                struct
-_jpo              builtins          json              sys
-_onewire          cmath             machine           time
-_rp2              collections       math              uasyncio
-array             cryptolib         micropython       uctypes
-asyncio/__init__  dht               neopixel          zlib
-asyncio/core      ds18x20           onewire
-asyncio/event     errno             os
-asyncio/funcs     framebuf          random
+__main__          asyncio/funcs     gc                random
+_asyncio          asyncio/lock      hashlib           re
+_boot             asyncio/stream    heapq             rp2
+_boot_fat         binascii          io                select
+_ide_helper       builtins          jpo               struct
+_jpo              cmath             json              sys
+_onewire          collections       machine           time
+_remove_user_scripts                cryptolib         math
+_rp2              deflate           micropython       uctypes
+array             dht               neopixel          vfs
+asyncio/__init__  ds18x20           onewire           uasyncio
+asyncio/core      errno             os
+asyncio/event     framebuf          platform
 Plus any modules on the filesystem
