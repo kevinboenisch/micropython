@@ -11,10 +11,10 @@ class ImuQuaternion:
     Orientation as a quaternion.
     """
     def __init__(self, i: float, j: float, k: float, real: float):
-        self.i = i
-        self.j = j
-        self.k = k
-        self.real = real
+        self.i: float = i
+        self.j: float = j
+        self.k: float = k
+        self.real: float = real
 
     def __repr__(self):
         return f"ImuQuaternion({self.i}, {self.j}, {self.k}, {self.real})"
@@ -26,9 +26,9 @@ class ImuAcceleration:
     Linear acceleration (i.e., removing the effect of gravity) in [m/s^2].
     """
     def __init__(self, x: float, y: float, z: float):
-        self.x = x
-        self.y = y
-        self.z = z
+        self.x: float = x
+        self.y: float = y
+        self.z: float = z
 
     def __repr__(self):
         return f"ImuAcceleration({self.x}, {self.y}, {self.z})"
@@ -40,13 +40,13 @@ class ColorReading:
     Color reading from the color sensor.
     """
     def __init__(self, clear: int, red: int, green: int, blue: int):
-        self.clear = clear
+        self.clear: int = clear
         """Clear component of the color reading, range [0-65535]"""
-        self.red = red
+        self.red: int = red
         """Red component of the color reading, range [0-65535]"""
-        self.green = green
+        self.green: int = green
         """Green component of the color reading, range [0-65535]"""
-        self.blue = blue
+        self.blue: int = blue
         """Blue component of the color reading, range [0-65535]"""
 
     def __repr__(self):
@@ -72,7 +72,7 @@ class ImuSensor:
         Args:
             iic_port: IIC port the sensor is connected to [1-8]
         """
-        self._port = iic_port
+        self._port: int = iic_port
         _jpo.iic_imu_init(self._port)
 
     def poll_orientation(self) -> ImuQuaternion:
@@ -109,7 +109,7 @@ class ColorSensor:
         Args:
             iic_port: IIC port the sensor is connected to [1-8]
         """
-        self._port = iic_port
+        self._port: int = iic_port
         _jpo.iic_color_init(self._port)
 
     def read(self) -> ColorReading:
@@ -148,7 +148,7 @@ class DistanceSensor:
         Args:
             iic_port: IIC port the sensor is connected to [1-8]
         """
-        self._port = iic_port
+        self._port: int = iic_port
         _jpo.iic_distance_init(self._port)
 
     def read(self) -> float:
@@ -173,7 +173,7 @@ class AbsoluteEncoder:
         Args:
             iic_port: IIC port the sensor is connected to [1-8]
         """
-        self._port = iic_port
+        self._port: int = iic_port
         _jpo.iic_absoluteenc_init(self._port)
 
     def poll_raw(self) -> int:
@@ -235,7 +235,7 @@ class Button:
         Args:
             io_port: IO port the button is connected to [1-12]
         """
-        self._port = io_port
+        self._port: int = io_port
         _jpo.io_button_init(self._port)
 
     def is_pressed(self) -> bool:
@@ -262,7 +262,7 @@ class Output:
         Args:
             io_port: IO port the output is connected to [1-12]
         """
-        self._port = io_port
+        self._port: int = io_port
         _jpo.io_output_init(self._port)
 
     def set(self, is_on):
@@ -290,7 +290,7 @@ class Potentiometer:
             adc_io_port: IO port the potentiometer is connected to [1-4]
                 Ports above 4 are not supported. 
         """
-        self._port = adc_io_port
+        self._port: int = adc_io_port
         _jpo.io_potentiometer_init(self._port)
 
     def read(self) -> float:
@@ -317,7 +317,7 @@ class MotorQuadratureEncoder:
                 Quadrature encoders use two consecutive IO ports.
                 For example, to set up an encoder on IO ports 4 and 5, pass 4 here.
         """
-        self._port = io_lower_port
+        self._port: int = io_lower_port
         _jpo.io_motorquadenc_init(self._port)
 
     def read(self) -> int:
@@ -343,7 +343,7 @@ class Motor:
         Args: 
             motor_port: motor port the motor is connected to [1-10]
         """
-        self._port = motor_port
+        self._port: int = motor_port
         # Raises an error port is out of range (and stops the motor if running)
         _jpo.motor_set(self._port, 0)
 
@@ -362,14 +362,14 @@ class BrainButtons:
     Buttons built into the Brain: up, down, enter, cancel.
     """
 
-    BTN_NONE = 0
-    BTN_UP = 1 << 0
-    BTN_DOWN = 1 << 1
-    BTN_CANCEL = 1 << 2
-    BTN_ENTER = 1 << 3
+    BTN_NONE: int = 0
+    BTN_UP: int = 1 << 0
+    BTN_DOWN: int = 1 << 1
+    BTN_CANCEL: int = 1 << 2
+    BTN_ENTER: int = 1 << 3
 
     def __init__(self, value: int):
-        self.value = value
+        self.value: int = value
 
     def is_up_pressed(self) -> bool:
         """
@@ -404,7 +404,7 @@ class Brain:
     Brain unit with the buttons and an OLED display.
     """
     def __init__(self):
-        self.render_immediately = True
+        self.render_immediately: bool = True
         """
         If True, the display is rendered immediately after each operation.
         If False, the display is rendered only after calling render_oled().
@@ -444,7 +444,7 @@ class Brain:
         """
         return _jpo.brain_oled_buffer()
 
-    def set_pixel(self, x: int, y: int, is_on = True):
+    def set_pixel(self, x: int, y: int, is_on = True) -> None:
         """
         Set a pixel on the display.
         When working with individual pixels, for better performance set `render_immediately` to False.
@@ -459,7 +459,7 @@ class Brain:
         if self.render_immediately:
             _jpo.brain_render_oled()
 
-    def clear_pixel(self, x: int, y: int):
+    def clear_pixel(self, x: int, y: int) -> None:
         """
         Clear a pixel on the display.
 
@@ -469,7 +469,7 @@ class Brain:
         """
         self.set_pixel(x, y, False)
 
-    def clear_row(self, row: int):
+    def clear_row(self, row: int) -> None:
         """ 
         Clear a row of characters.
 
@@ -480,7 +480,7 @@ class Brain:
         if self.render_immediately:
             _jpo.brain_render_oled()
 
-    def clear_oled(self):
+    def clear_oled(self) -> None:
         """
         Clear the entire display.
         """
@@ -488,7 +488,7 @@ class Brain:
         if self.render_immediately:
             _jpo.brain_render_oled()
 
-    def write_at(self, row: int, column: int, *items):
+    def write_at(self, row: int, column: int, *items) -> None:
         """
         Write a string to the display.
 
@@ -502,7 +502,7 @@ class Brain:
         if self.render_immediately:
             _jpo.brain_render_oled()
 
-    def print(self, *items):
+    def print(self, *items) -> None:
         """
         Write a line to the display and scroll as needed. Always renders immediately.
 
@@ -513,7 +513,7 @@ class Brain:
         _jpo.brain_printf_line(text)
         # always renders immediately
 
-    def render_oled(self):
+    def render_oled(self) -> None:
         """
         Render the display.
         """
@@ -527,13 +527,13 @@ class JoystickState:
     def __init__(self):
         # get state as two tuples, eg. ((True,False), (0, -1.0, 1.0)) 
         data = _jpo.joystick_get_state()
-        self.buttons = data[0]
-        self.axes = data[1]
+        self.buttons: tuple[bool] = data[0]
+        self.axes: tuple[float] = data[1]
 
-    def button(self, i):
+    def button(self, i) -> bool:
         return self.buttons[i]
     
-    def axis(self, i):
+    def axis(self, i) -> float:
         return self.axes[i]
 
 class Joystick:
@@ -549,7 +549,7 @@ class Joystick:
                False to send reports only when the state changes. 
         """
 
-        self.render_immediately = True
+        self.render_immediately: bool = True
         """
         If True, the display is rendered immediately after each operation.
         If False, the display is rendered only after calling render_oled().
@@ -573,7 +573,7 @@ class Joystick:
 
     # Joystick OLED
 
-    def clear_row(self, row: int):
+    def clear_row(self, row: int) -> None:
         """ 
         Clear a row of characters.
 
@@ -584,7 +584,7 @@ class Joystick:
         if self.render_immediately:
             _jpo.joystick_render_oled()
 
-    def clear_oled(self):
+    def clear_oled(self) -> None:
         """
         Clear the entire display.
         """
@@ -592,7 +592,7 @@ class Joystick:
         if self.render_immediately:
             _jpo.joystick_render_oled()
 
-    def write_at(self, row: int, column: int, *items):
+    def write_at(self, row: int, column: int, *items) -> None:
         """
         Write a string to the display.
 
@@ -606,7 +606,7 @@ class Joystick:
         if self.render_immediately:
             _jpo.joystick_render_oled()
 
-    def print(self, *items):
+    def print(self, *items) -> None:
         """
         Write a line to the display and scroll as needed. Always renders immediately.
 
@@ -617,7 +617,7 @@ class Joystick:
         _jpo.joystick_printf_line(text)
         # always renders immediately
 
-    def render_oled(self):
+    def render_oled(self) -> None:
         """
         Render the display.
         """
@@ -628,27 +628,27 @@ class MT208JoystickState(JoystickState):
     def __init__(self):
         super().__init__()
 
-    def btn1(self): return self.buttons[0]
-    def btn2(self): return self.buttons[1]
-    def btn3(self): return self.buttons[2]
-    def btn4(self): return self.buttons[3]
+    def btn1(self) -> bool: return self.buttons[0]
+    def btn2(self) -> bool: return self.buttons[1]
+    def btn3(self) -> bool: return self.buttons[2]
+    def btn4(self) -> bool: return self.buttons[3]
 
-    def btn_back_left1(self): return self.buttons[4]
-    def btn_back_right1(self): return self.buttons[5]
-    def btn_back_left2(self): return self.buttons[6]
-    def btn_back_right2(self): return self.buttons[7]
+    def btn_back_left1(self) -> bool: return self.buttons[4]
+    def btn_back_right1(self) -> bool: return self.buttons[5]
+    def btn_back_left2(self) -> bool: return self.buttons[6]
+    def btn_back_right2(self) -> bool: return self.buttons[7]
 
-    def btn_select(self): return self.buttons[8]
-    def btn_start(self): return self.buttons[9]
-    def btn_left_stick(self): return self.buttons[10]
-    def btn_right_stick(self): return self.buttons[11]
+    def btn_select(self) -> bool: return self.buttons[8]
+    def btn_start(self) -> bool: return self.buttons[9]
+    def btn_left_stick(self) -> bool: return self.buttons[10]
+    def btn_right_stick(self) -> bool: return self.buttons[11]
 
-    def axis_dpad_x(self): return self.axes[0]
-    def axis_dpad_y(self): return self.axes[1]
-    def axis_left_x(self): return self.axes[2]
-    def axis_left_y(self): return self.axes[3]
-    def axis_right_x(self): return self.axes[4]
-    def axis_right_y(self): return self.axes[5]
+    def axis_dpad_x(self) -> float: return self.axes[0]
+    def axis_dpad_y(self) -> float: return self.axes[1]
+    def axis_left_x(self) -> float: return self.axes[2]
+    def axis_left_y(self) -> float: return self.axes[3]
+    def axis_right_x(self) -> float: return self.axes[4]
+    def axis_right_y(self) -> float: return self.axes[5]
 
 class MT208Joystick(Joystick):
     """
