@@ -151,6 +151,7 @@ target_include_directories(${PROJECT_NAME}
 	PRIVATE "${JPO_RES_PATH}/include/hal"
 	PRIVATE "${JPO_RES_PATH}/include/jcomp"
 	PRIVATE "${JPO_RES_PATH}/include/jcomp_protocol" # protocol
+	PRIVATE "${JPO_RES_PATH}/include/oled"
 )
 
 # CMake docs recommend using find_library instead, but couldn't get it to work
@@ -162,6 +163,7 @@ target_link_libraries(${MICROPY_TARGET}
     jpo_hal
     jpo_jcomp
     jpo_jcomp_protocol
+    jpo_oled
 )
 
 ###### end JPO additions
