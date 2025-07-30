@@ -6,6 +6,7 @@
 #include "jpo_dbgr_breakpoints.h"
 
 #include "jpo/jcomp/jcomp_protocol.h"
+#include "jpo/jcomp/jcomp_brain.h"
 #include "jpo/jcomp/debug.h"
 
 #include "mphalport.h" // for JPO_DBGR_BUILD

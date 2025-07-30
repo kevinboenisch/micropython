@@ -196,7 +196,6 @@ int main(int argc, char **argv) {
         #endif
 
         hal_init();
-        DBG_OLED("hal_init done");
         //DBG_OLED("%d/%d kb", MICROPY_HW_FLASH_STORAGE_BYTES/1024, PICO_FLASH_SIZE_BYTES/1024);
 
         check_watchdog_flags();
