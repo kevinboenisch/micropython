@@ -164,6 +164,7 @@ target_link_libraries(${MICROPY_TARGET}
     jpo_jcomp
     jpo_jcomp_protocol
     jpo_oled
+    jpo_oled_brain_indicators
 )
 
 ###### end JPO additions
