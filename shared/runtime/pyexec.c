@@ -124,8 +124,8 @@ static int parse_compile_execute(const void *source, mp_parse_input_kind_t input
             mp_parse_tree_t parse_tree = mp_parse(lex, input_kind);
 
             module_fun = mp_compile(&parse_tree, source_name, exec_flags & EXEC_FLAG_IS_REPL);
-            #if JPO_DBGR_BUILD
-            dbgr_after_compile_module(source_name);
+            #if JPO_DBGR
+            jpo_after_compile(source_name);
             #endif
 
             #else

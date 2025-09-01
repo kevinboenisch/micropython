@@ -24,6 +24,11 @@
  */
 void jpo_dbgr_init(void);
 
+/** @brief Call after a module has been compiled (mp_compile) 
+ * Call it even if not JPO_DBGR_BUILD.
+ */
+void jpo_after_compile(qstr module_name);
+
 /**
  * @brief Wrap around pyexec.c::parse_compile_execute
  * Call it even if not JPO_DBGR_BUILD.
@@ -36,9 +41,6 @@ void jpo_after_parse_compile_execute(int ret);
 // (dbgr_*)
 //////////////////////
 #if JPO_DBGR_BUILD
-
-/** @brief Call after a module has been compiled (mp_compile) */
-void dbgr_after_compile_module(qstr module_name);
 
 // in py/vm.c
 qstr dbgr_get_block_name(const mp_code_state_t *code_state);

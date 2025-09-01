@@ -74,6 +74,7 @@
     #include "jpo/hal.h"
     #include "jpo/jcomp/debug.h"
     #include "jpo/jcomp/jcomp_protocol.h"
+    #include "jpo/jcomp/jcomp_brain.h"
 #else
     #include "tusb.h"
 #endif //JPO_JCOMP
@@ -187,6 +188,9 @@ int main(int argc, char **argv) {
     gc_init(&__GcHeapStart, &__GcHeapEnd);
 
     #ifdef JPO_JCOMP
+        // Start in a "stopped" state
+        jcomp_set_running_state(BRS_PY_STOPPED);
+
         // Initialize JPO HAL library (including JCOMP)
         // TODO-P2: add the Micropython version (MICROPY_BANNER_*), so PC knows to upgrade it
         #if JPO_DBGR_BUILD

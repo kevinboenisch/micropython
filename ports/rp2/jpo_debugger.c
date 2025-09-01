@@ -66,7 +66,8 @@ bool on_exception_break_on_top_frame_only = true;
 mp_obj_t last_exception = NULL;
 
 // type: mp_prof_callback_t
-void dbgr_trace_callback(mp_prof_trace_type_t type, mp_obj_frame_t* frame, mp_obj_t arg);
+static void dbgr_trace_callback(mp_prof_trace_type_t type, mp_obj_frame_t* frame, mp_obj_t arg);
+static void dbgr_after_compile_module(qstr module_name);
 
 // Reset vars to initial state
 void reset_vars() {
@@ -157,9 +158,21 @@ static void send_done(int ret) {
 }
 
 void jpo_after_parse_compile_execute(int ret) {
+    jcomp_set_running_state(BRS_PY_STOPPED);
+
     send_done(ret);
     reset_vars();
 }
+
+void jpo_after_compile(qstr module_name)
+{
+    jcomp_set_running_state(BRS_PY_RUNNING);
+
+#if JPO_DBGR_BUILD
+    dbgr_after_compile_module(module_name);
+#endif
+}
+
 
 #if JPO_DBGR_BUILD
 
@@ -329,7 +342,7 @@ void on_exception(mp_obj_frame_t* frame, mp_obj_t exception) {
     loop_while_stopped(frame, exception);
 }
 
-void dbgr_trace_callback(mp_prof_trace_type_t type, mp_obj_frame_t* top_frame, mp_obj_t arg) {
+static void dbgr_trace_callback(mp_prof_trace_type_t type, mp_obj_frame_t* top_frame, mp_obj_t arg) {
     if (dbgr_status == DS_NOT_ENABLED) {
         return;
     }
@@ -429,7 +442,7 @@ void dbgr_trace_callback(mp_prof_trace_type_t type, mp_obj_frame_t* top_frame, m
     loop_while_stopped(top_frame, NULL);
 }
 
-void dbgr_after_compile_module(qstr module_name) {
+static void dbgr_after_compile_module(qstr module_name) {
     if (dbgr_status == DS_NOT_ENABLED) {
         return;
     }
@@ -452,5 +465,6 @@ void dbgr_after_compile_module(qstr module_name) {
     // Restore the old status (e.g. step into/over/out)
     dbgr_status = old_status;
 }
+
 
 #endif //JPO_DBGR_BUILD
