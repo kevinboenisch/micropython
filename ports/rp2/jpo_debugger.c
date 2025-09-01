@@ -51,7 +51,20 @@ typedef enum {
     // Program terminated: DS_NOT_ENABLED
 } dbgr_status_t;
 
-static dbgr_status_t dbgr_status = DS_NOT_ENABLED;
+static dbgr_status_t _dbgr_status = DS_NOT_ENABLED;
+
+static void set_dbgr_status(dbgr_status_t status) {
+    _dbgr_status = status;
+    if (_dbgr_status == DS_STOPPED) {
+        jcomp_set_running_state(BRS_PY_PAUSED);
+    }
+    else if (_dbgr_status == DS_NOT_ENABLED) {
+        jcomp_set_running_state(BRS_PY_STOPPED);
+    }
+    else {
+        jcomp_set_running_state(BRS_PY_RUNNING);
+    }
+}
 
 // position at the start of the step over/into/out
 static int step_depth = -1;
@@ -71,7 +84,7 @@ static void dbgr_after_compile_module(qstr module_name);
 
 // Reset vars to initial state
 void reset_vars() {
-    dbgr_status = DS_NOT_ENABLED;
+    set_dbgr_status(DS_NOT_ENABLED);
     step_depth = -1;
     break_on_exceptions = true;
     on_exception_break_on_top_frame_only = true;
@@ -95,14 +108,14 @@ static bool jcomp_handler_inlock(JCOMP_MSG msg) {
     if (jcomp_msg_has_str(msg, 0, CMD_DBG_START)) {
         DBG_SEND(T_DBGR, "CMD_DBG_START");
         reset_vars();
-        dbgr_status = DS_STARTING;
+        set_dbgr_status(DS_STARTING);
         mp_prof_callback_c = dbgr_trace_callback;
         return true;
     }
-    if (dbgr_status != DS_NOT_ENABLED) {
+    if (_dbgr_status != DS_NOT_ENABLED) {
         if (jcomp_msg_has_str(msg, 0, CMD_DBG_PAUSE)) {
             DBG_SEND(T_DBGR, "CMD_DBG_PAUSE");
-            dbgr_status = DS_PAUSE_REQUESTED;
+            set_dbgr_status(DS_PAUSE_REQUESTED);
             return true;
         }
         if (jcomp_msg_has_str(msg, 0, CMD_DBG_SET_BREAKPOINTS)) {
@@ -263,19 +276,19 @@ static bool try_process_command(mp_obj_frame_t* frame, mp_obj_t exception) {
     DBG_SEND(T_DBGR, "try_process_command: %s", buf);
 
     if (jcomp_msg_has_str(msg, 0, CMD_DBG_CONTINUE)) {
-        dbgr_status = DS_RUNNING;
+        set_dbgr_status(DS_RUNNING);
         return true;
     }
     else if (jcomp_msg_has_str(msg, 0, CMD_STEP_INTO)) {
-        dbgr_status = DS_STEP_INTO;
+        set_dbgr_status(DS_STEP_INTO);
         return true;
     }
     else if (jcomp_msg_has_str(msg, 0, CMD_STEP_OVER)) {
-        dbgr_status = DS_STEP_OVER;
+        set_dbgr_status(DS_STEP_OVER);
         return true;
     }
     else if (jcomp_msg_has_str(msg, 0, CMD_STEP_OUT)) {
-        dbgr_status = DS_STEP_OUT;
+        set_dbgr_status(DS_STEP_OUT);
         return true;
     }
     else if (jcomp_msg_has_str(msg, 0, REQ_DBG_STACK)) {
@@ -298,7 +311,7 @@ static bool try_process_command(mp_obj_frame_t* frame, mp_obj_t exception) {
 static void loop_while_stopped(mp_obj_frame_t* top_frame, mp_obj_t exception) {
     while (true) {
         if (try_process_command(top_frame, exception)) {
-            switch(dbgr_status) {
+            switch(_dbgr_status) {
                 case DS_RUNNING:
                     return;
                 case DS_STEP_INTO:
@@ -330,7 +343,7 @@ void on_exception(mp_obj_frame_t* frame, mp_obj_t exception) {
 
     last_exception = exception;
 
-    dbgr_status = DS_STOPPED;
+    set_dbgr_status(DS_STOPPED);
     vstr_t ex_str = {0};
     dbgr_obj_to_vstr(exception, &ex_str, PRINT_REPR, 60);
     //DBG_SEND(T_DBGR, "exception: '%s'", vstr_str(&ex_str));
@@ -343,7 +356,7 @@ void on_exception(mp_obj_frame_t* frame, mp_obj_t exception) {
 }
 
 static void dbgr_trace_callback(mp_prof_trace_type_t type, mp_obj_frame_t* top_frame, mp_obj_t arg) {
-    if (dbgr_status == DS_NOT_ENABLED) {
+    if (_dbgr_status == DS_NOT_ENABLED) {
         return;
     }
 
@@ -371,10 +384,10 @@ static void dbgr_trace_callback(mp_prof_trace_type_t type, mp_obj_frame_t* top_f
     if (breakpoint_hit(file, line)) {
          DBG_SEND(T_DBGR, "breakpoint_hit %s:%d", qstr_str(file), line);
          stopped_reason = R_STOPPED_BREAKPOINT;
-         dbgr_status = DS_STOPPED;
+         set_dbgr_status(DS_STOPPED);
     }
 
-    switch (dbgr_status)
+    switch (_dbgr_status)
     {
     case DS_RUNNING:
         // Continue execution
@@ -383,18 +396,18 @@ static void dbgr_trace_callback(mp_prof_trace_type_t type, mp_obj_frame_t* top_f
     // Reasons to stop
     case DS_STARTING:
         stopped_reason = R_STOPPED_STARTING;
-        dbgr_status = DS_STOPPED;
+        set_dbgr_status(DS_STOPPED);
         break;
     
     case DS_PAUSE_REQUESTED:
         stopped_reason = R_STOPPED_PAUSED;
-        dbgr_status = DS_STOPPED;
+        set_dbgr_status(DS_STOPPED);
         break;
 
     case DS_STEP_INTO:
         // Triggered on any source position change
         stopped_reason = R_STOPPED_STEP_INTO;
-        dbgr_status = DS_STOPPED;
+        set_dbgr_status(DS_STOPPED);
         break;
 
     case DS_STEP_OUT:
@@ -406,7 +419,7 @@ static void dbgr_trace_callback(mp_prof_trace_type_t type, mp_obj_frame_t* top_f
         DBG_SEND(T_DBGR, "DS_STEP_OUT: cur_depth %d < step_depth %d ?", cur_depth, step_depth);
         if (cur_depth < step_depth) {
             stopped_reason = R_STOPPED_STEP_OUT;
-            dbgr_status = DS_STOPPED;
+            set_dbgr_status(DS_STOPPED);
         }
         else {
             return;
@@ -420,7 +433,7 @@ static void dbgr_trace_callback(mp_prof_trace_type_t type, mp_obj_frame_t* top_f
         DBG_SEND(T_DBGR, "DS_STEP_OVER: cur_depth %d <= step_depth %d ?", cur_depth, step_depth);
         if (cur_depth <= step_depth) {
             stopped_reason = R_STOPPED_STEP_OVER;
-            dbgr_status = DS_STOPPED;
+            set_dbgr_status(DS_STOPPED);
         }
         else {
             return;
@@ -432,7 +445,7 @@ static void dbgr_trace_callback(mp_prof_trace_type_t type, mp_obj_frame_t* top_f
         break;
 
     default:
-        DBG_SEND(T_ERROR, "unexpected dbgr_status: %d, continuing", dbgr_status);
+        DBG_SEND(T_ERROR, "unexpected _dbgr_status: %d, continuing", _dbgr_status);
         return;
     }
     
@@ -443,17 +456,17 @@ static void dbgr_trace_callback(mp_prof_trace_type_t type, mp_obj_frame_t* top_f
 }
 
 static void dbgr_after_compile_module(qstr module_name) {
-    if (dbgr_status == DS_NOT_ENABLED) {
+    if (_dbgr_status == DS_NOT_ENABLED) {
         return;
     }
 
     // Save the old status so we can restore it after the pause
-    dbgr_status_t old_status = dbgr_status;
+    dbgr_status_t old_status = _dbgr_status;
 
     // Special stopped state for the module loaded event.
     // The debugger does not expect any kind of command (e.g. stack trace request),
     // only set breakpoints (optional) and a continue (required). 
-    dbgr_status = DS_STOPPED_TEMP;
+    set_dbgr_status(DS_STOPPED_TEMP);
     send_module_loaded(module_name);
 
     // Client will send CMD_DBG_SET_BREAKPOINTS, processed on core1,
@@ -463,7 +476,7 @@ static void dbgr_after_compile_module(qstr module_name) {
     loop_while_stopped(NULL, NULL);
 
     // Restore the old status (e.g. step into/over/out)
-    dbgr_status = old_status;
+    set_dbgr_status(old_status);
 }
 
 
