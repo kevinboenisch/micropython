@@ -161,7 +161,7 @@ target_link_directories(${PROJECT_NAME}
 
 target_link_libraries(${MICROPY_TARGET} 
     jpo_hal
-    jpo_jcomp
+    jpo_jcomp_brain
     jpo_jcomp_protocol
     jpo_oled
     jpo_oled_brain_indicators
