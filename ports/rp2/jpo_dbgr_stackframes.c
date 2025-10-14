@@ -5,6 +5,7 @@
 #include <string.h>
 
 #include "jpo/jcomp/jcomp_protocol.h"
+#include "jpo/jcomp/jcomp_brain.h"
 #include "jpo/jcomp/debug.h"
 
 #if JPO_DBGR_BUILD

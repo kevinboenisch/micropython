@@ -12,6 +12,7 @@
 #include "py/scope.h"
 
 #include "jpo/jcomp/jcomp_protocol.h"
+#include "jpo/jcomp/jcomp_brain.h"
 #include "jpo/jcomp/debug.h"
 
 
