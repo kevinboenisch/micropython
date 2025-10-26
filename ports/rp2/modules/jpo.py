@@ -399,6 +399,12 @@ class BrainButtons:
         """
         return self.value & BrainButtons.BTN_ENTER == BrainButtons.BTN_ENTER
 
+## OLED constants (for both Brain and Joystick)
+OLED_WIDTH_PIXELS = 128
+OLED_HEIGHT_PIXELS = 64
+OLED_ROW_COUNT = 8
+OLED_COLUMN_COUNT = 16
+
 class Brain:
     """
     Brain unit with the buttons and an OLED display.
@@ -450,8 +456,8 @@ class Brain:
         When working with individual pixels, for better performance set `render_immediately` to False.
 
         Args:
-            x: the x coordinate [0-127]
-            y: the y coordinate [0-63]
+            x: the x coordinate [0-127], < OLED_WIDTH_PIXELS
+            y: the y coordinate [0-63], < OLED_HEIGHT_PIXELS
             is_on: True to set, False to clear
         """
         # SSD1306_WIDTH, SSD1306_HEIGHT
@@ -464,8 +470,8 @@ class Brain:
         Clear a pixel on the display.
 
         Args:
-            x: the x coordinate [0-128]
-            y: the y coordinate [0-64]
+            x: the x coordinate [0-128], < OLED_WIDTH_PIXELS
+            y: the y coordinate [0-64], < OLED_HEIGHT_PIXELS
         """
         self.set_pixel(x, y, False)
 
@@ -474,7 +480,7 @@ class Brain:
         Clear a row of characters.
 
         Args:
-            row: the row to clear [0-7]
+            row: the row to clear [0-7], < OLED_ROW_COUNT
         """
         _jpo.brain_clear_row(row)
         if self.render_immediately:
@@ -493,8 +499,8 @@ class Brain:
         Write a string to the display.
 
         Args:
-            row: the row to write to [0-7]
-            column: the column to write to [0-15]
+            row: the row to write to [0-7], < OLED_ROW_COUNT
+            column: the column to write to [0-15], < OLED_COLUMN_COUNT
             items: items to write, any object, similar to built-in `print`
         """
         text = ' '.join([str(a) for a in items])
@@ -578,7 +584,7 @@ class Joystick:
         Clear a row of characters.
 
         Args:
-            row: the row to clear [0-7]
+            row: the row to clear [0-7], < OLED_ROW_COUNT
         """
         _jpo.joystick_clear_row(row)
         if self.render_immediately:
@@ -597,8 +603,8 @@ class Joystick:
         Write a string to the display.
 
         Args:
-            row: the row to write to [0-7]
-            column: the column to write to [0-15]
+            row: the row to write to [0-7], < OLED_ROW_COUNT
+            column: the column to write to [0-15], < OLED_COLUMN_COUNT
             items: items to write, any object, similar to built-in `print`
         """
         text = ' '.join([str(a) for a in items])
