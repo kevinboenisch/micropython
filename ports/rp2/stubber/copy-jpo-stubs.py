@@ -19,7 +19,8 @@ def copy_stub(mod, dest_dir, pyi_dirs):
 
     create_subdir(mod, dest_dir)
     dest_path = os.path.join(dest_dir, mod + ".pyi")
-    print(f"Copy {stub_path}\n    to {dest_path}")
+    print(f"Copy from: {stub_path}")
+    print(f"       to: {dest_path}")
     shutil.copy(stub_path, dest_path)
     return True
 
@@ -27,8 +28,8 @@ def copy_stubs(modules, dest_dir):
     print(f"=== Copy stubs to {dest_dir}")
     missing = []
     pyi_dirs = [
-        "repos/micropython-stubs/stubs/micropython-v1_26_0_preview-docstubs",
-        "repos/micropython-stubs/stubs/micropython-v1_26_0_preview-frozen/rp2/GENERIC"
+        "repos/micropython-stubs/stubs/micropython-v1_27_0_preview-docstubs",
+        "repos/micropython-stubs/stubs/micropython-v1_27_0_preview-frozen/rp2/GENERIC"
     ]
     for dd in pyi_dirs:
         if not os.path.exists(dd):

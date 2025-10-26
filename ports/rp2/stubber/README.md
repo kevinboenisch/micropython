@@ -6,12 +6,13 @@ VS Code editor (through Pylance and Pylint extensions) provides features like au
 Since the JPO/Micropython is different from CPython, VS Code needs stubs to tell it about available functionality, such as Python modules and builtins. 
 
 ## Install the `stubber` tool
-Install the `stubber` tool, if it's not already present. In the ***Admin** command prompt, run:
+Install the `stubber` tool, if it's not already present. In the **Admin** command prompt, run:
     ```
     pip install -U micropython-stubber
     ```
 
 ## Create JPO stub
+0. If symlinks aren't present, run `generate-stubs.cmd` (in **Admin** command prompt) to create them.
 1. In `ports\rp2\boards\manifest.py`, comment out the `required` lines that cause errors.
 2. Run `stubber get-frozen` to create stubs.
     * Some errors may appear. As long as the `rp2` stubs are created (`jpo.pyi` in particular), it's fine.
