@@ -145,6 +145,7 @@ endif()
 ### JPO additions
 # Enable usb output, disable uart output
 pico_enable_stdio_usb(${MICROPY_TARGET} 1)
+pico_enable_stdio_uart(${MICROPY_TARGET} 0)
 
 ### JPO Includes
 target_include_directories(${PROJECT_NAME}
