@@ -667,9 +667,8 @@ static mp_obj_t jpohal_joystick_init(mp_obj_t continuous_reporting_obj) {
 
     if (_test_no_hw) { return mp_const_true; }
 
-    bool rv = joystick_init(continuous_reporting);
-    // Do not raise an error, it's ok to fail if joystick is not connected
-    return mp_obj_new_bool(rv);
+    joystick_init(continuous_reporting);
+    return mp_const_none;
 }
 MP_DEFINE_CONST_FUN_OBJ_1(jpohal_joystick_init_obj, jpohal_joystick_init);
 
